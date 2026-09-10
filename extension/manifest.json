@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "In-Place Translate",
+  "version": "0.1.0",
+  "description": "Translate any page in place using Apple's on-device translation. No network, no API key.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApDG1AOEIjXx+zZn/a5E/Xwg5iYy5LUDKmUbMd4pR0G8rfArcX8zFWYWvGV568Pluxe69T4JGvt2LjLC+HeKvk9wqiclTqXSs6gWT8CCU4UagJb2G1gSuD3vTewpV4zgW4lsCSu3Bkwo+1BzOSW/lA9ImvUW0n8zMWRDIsfsFSRUP/9AjHjvJ3dqI9cHxEP9NoYIRw9B4HUWiL+s2zCzFTuZdhK6s9gAasB5C15YbWv/vzL0rd68ugO/DAo3GVXAkiloSKutSmwaGqVapdKYyRXFtn7iJT9du3tX2T0dw/uaFpFLSoimuJGrG4GF2N0hpBkJv3KdYLXJsmb6gJgnYYwIDAQAB",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "nativeMessaging",
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "In-Place Translate"
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "commands": {
+    "translate-page": {
+      "suggested_key": {
+        "default": "Alt+Shift+T"
+      },
+      "description": "Translate this page in place"
+    }
+  }
+}
