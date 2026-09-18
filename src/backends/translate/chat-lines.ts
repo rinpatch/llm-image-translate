@@ -11,6 +11,7 @@ interface Line {
 // longer shift everything after it, which is what a bare list of lines does.
 export const chatLines: TranslateAdapter = {
   id: 'chat-lines',
+  label: 'Numbered lines — any instruct model',
 
   capabilities: {
     batch: true,

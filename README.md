@@ -123,7 +123,8 @@ There are four:
 | adapter | for |
 | --- | --- |
 | `hunyuan-spotting` | HunyuanOCR's own spotting task |
-| `json-boxes` | any vision model, asked for a JSON array of boxes |
+| `json-boxes` | a vision model that answers `[x0, y0, x1, y1]` |
+| `json-boxes-yx` | one that answers `[y0, x0, y1, x1]` — Gemini does |
 | `gemma-raw` | TranslateGemma's fixed prompt, local only |
 | `chat-lines` | any instruct model, numbered lines in and out |
 
@@ -143,6 +144,42 @@ width, and on a 400x1600 page that comparison flips.
 `json-boxes` asks for that same 0-1000 grid, because Qwen3-VL answers on it even
 when the prompt spells out the pixel size of the image. A reply that exceeds
 1000 anywhere is taken as pixels instead, since the grid cannot.
+
+The axis order is not something a prompt settles. Gemini answers
+`[ymin, xmin, ymax, xmax]` however it is asked, and read the other way round its
+boxes are not merely wrong but nonsense — so it gets its own adapter rather than
+a guess, and the preset pairs the two.
+
+## Which models
+
+**Start from** on the settings page is three tested pairings: local llama.cpp,
+Gemini 2.5 Flash Lite, and Qwen3-VL with Gemma. Picking one fills in both
+endpoints and both adapters, and leaves your API key alone.
+
+Candidates were scored against a page of horizontal Japanese in a balloon, a
+vertical column, Chinese on a coloured band, and small print — nine lines whose
+true boxes are known because the page is generated. *Located* counts lines
+matched at IoU > 0.3, *read* counts exact text:
+
+| model | located | mean IoU | read | per image |
+| --- | --- | --- | --- | --- |
+| `google/gemini-2.5-flash-lite` | 9/9 | 0.90 | 9/9 | $0.0003 |
+| `qwen/qwen3-vl-8b-instruct` | 5/9 | 0.44 | 7/9 | $0.0002 |
+| `qwen/qwen3-vl-32b-instruct` | 5/9 | 0.48 | 6/9 | $0.0002 |
+| `z-ai/glm-5.3-flash` | 4/9 | 0.67 | 8/9 | $0.0008 |
+| `deepseek/deepseek-v4-flash-vision-exp` | 4/9 | 0.58 | 4/9 | $0.0029 |
+| `bytedance-seed/seed-1.6-flash` | 0/9 | — | 0/9 | $0.0006 |
+
+Gemini wins on every axis including price. GLM and DeepSeek read the text well
+but place it loosely. Qwen3-VL reads well and misses the vertical column, which
+is the case this extension exists for. Seed 1.6 returned round numbers like
+`[50, 50, 450, 150]` — it is not looking at the image to answer this, so no
+prompt will fix it.
+
+For translation the difference is small: Gemini gave "Senpai" and "Thump-thump"
+where Gemma 3 12B gave "Senior" and "Heartbeat", at roughly twice the price of a
+rounding error. A reasoning model is the one thing to avoid — one spent 1300
+tokens thinking about two lines.
 
 ## Giving up
 

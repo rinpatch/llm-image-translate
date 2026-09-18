@@ -16,6 +16,7 @@ function prompt(text: string, source: string, target: string): string {
 
 export const translateGemma: TranslateAdapter = {
   id: 'gemma-raw',
+  label: 'TranslateGemma — local llama.cpp only',
 
   capabilities: {
     batch: true,

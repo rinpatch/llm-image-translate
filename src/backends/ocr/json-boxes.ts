@@ -5,6 +5,9 @@ import { type EncodedImage, type ModelRequest, type OcrAdapter } from '../types.
 interface Spot {
   text?: unknown;
   box?: unknown;
+  box_2d?: unknown;
+  bbox?: unknown;
+  bbox_2d?: unknown;
 }
 
 // For a general vision model with no spotting task of its own.
@@ -13,8 +16,15 @@ interface Spot {
 // practice even when the prompt spells out the pixel size of the image. A model
 // that answers in pixels anyway is caught by the one thing the grid cannot do,
 // which is exceed 1000.
-export const jsonBoxes: OcrAdapter = {
-  id: 'json-boxes',
+//
+// The axis order is not something a prompt can settle. Gemini answers
+// [ymin, xmin, ymax, xmax] however it is asked, and read the other way round its
+// boxes are nonsense rather than merely wrong, so it gets its own adapter and a
+// preset that pairs the two.
+function jsonBoxesAdapter(id: string, label: string, yFirst: boolean): OcrAdapter {
+  return {
+  id,
+  label,
 
   capabilities: {
     // Smaller and lossier than the local reader gets: a remote endpoint bills by
@@ -56,11 +66,15 @@ export const jsonBoxes: OcrAdapter = {
     const spots: { text: string; quad: number[] }[] = [];
     for (const row of rows as Spot[]) {
       if (typeof row?.text !== 'string' || !row.text.trim()) continue;
-      const raw = row.box;
+      // Asked for "box", models also volunteer box_2d and bbox.
+      const raw = row.box ?? row.box_2d ?? row.bbox ?? row.bbox_2d;
       if (!Array.isArray(raw) || raw.length !== 4) continue;
       const quad = raw.map(Number);
       if (quad.some((v) => !Number.isFinite(v))) continue;
-      spots.push({ text: row.text.trim(), quad });
+      spots.push({
+        text: row.text.trim(),
+        quad: yFirst ? [quad[1], quad[0], quad[3], quad[2]] : quad,
+      });
     }
 
     const overflowed = spots.some(({ quad }) => quad.some((v) => v > 1000));
@@ -83,4 +97,11 @@ export const jsonBoxes: OcrAdapter = {
     }
     return lines;
   },
-};
+  };
+}
+
+export const jsonBoxes = jsonBoxesAdapter(
+  'json-boxes', 'JSON boxes — Qwen3-VL, GLM, DeepSeek', false);
+
+export const jsonBoxesYx = jsonBoxesAdapter(
+  'json-boxes-yx', 'JSON boxes, y first — Gemini', true);

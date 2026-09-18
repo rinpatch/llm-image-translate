@@ -25,6 +25,8 @@ export interface EncodedImage {
 
 export interface OcrAdapter {
   readonly id: string;
+  /** What the settings page calls it. */
+  readonly label: string;
   readonly capabilities: {
     /** Longest side the image is scaled down to before it is sent. */
     maxDim: number;
@@ -38,6 +40,7 @@ export interface OcrAdapter {
 
 export interface TranslateAdapter {
   readonly id: string;
+  readonly label: string;
   readonly capabilities: {
     /** Many lines in one request, so they are context for each other. */
     batch: boolean;

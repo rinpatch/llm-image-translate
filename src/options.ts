@@ -1,5 +1,6 @@
 import { OCR_ADAPTERS, TRANSLATE_ADAPTERS, translateAdapter } from './backends/registry.ts';
 import { type PingResult } from './platform/messages.ts';
+import { PRESETS, matching, presetFor } from './platform/presets.ts';
 import { type EndpointSettings, type Settings, save, settings } from './platform/settings.ts';
 
 type Role = 'reader' | 'translator';
@@ -16,9 +17,30 @@ function say(role: Role, text: string, kind = ''): void {
   status.className = `status ${kind}`;
 }
 
-function fillAdapters(role: Role, ids: string[]): void {
+function fillAdapters(role: Role, adapters: { id: string; label: string }[]): void {
   const select = field<HTMLSelectElement>(role, 'adapter');
-  for (const id of ids) select.append(new Option(id, id));
+  for (const { id, label } of adapters) select.append(new Option(label, id));
+}
+
+function showFields(stored: Settings): void {
+  for (const role of ['reader', 'translator'] as Role[]) {
+    for (const name of FIELDS) field<HTMLInputElement>(role, name).value = stored[role][name];
+  }
+  const preset = matching(stored.reader, stored.translator);
+  $<HTMLSelectElement>('preset').value = preset;
+  $('preset-note').textContent = presetFor(preset)?.note || '';
+}
+
+// A preset says nothing about keys, so whatever is stored stays where it is.
+async function applyPreset(id: string): Promise<void> {
+  const preset = presetFor(id);
+  if (!preset) return;
+  const stored = await settings();
+  await save('reader', { ...preset.reader, apiKey: stored.reader.apiKey });
+  await save('translator', { ...preset.translator, apiKey: stored.translator.apiKey });
+  showFields(await settings());
+  for (const role of ['reader', 'translator'] as Role[]) say(role, '');
+  checkPairing();
 }
 
 // Endpoints are stored as one record per role, so a changed field is written by
@@ -45,10 +67,11 @@ function checkPairing(): void {
 function wire(role: Role): void {
   for (const name of FIELDS) {
     // On change rather than per keystroke: a half-typed URL is not worth storing.
-    field<HTMLInputElement>(role, name).addEventListener('change', (e) => {
-      edit(role, name, (e.target as HTMLInputElement).value);
+    field<HTMLInputElement>(role, name).addEventListener('change', async (e) => {
+      await edit(role, name, (e.target as HTMLInputElement).value);
       say(role, '');
       checkPairing();
+      showFields(await settings());
     });
   }
 }
@@ -68,8 +91,13 @@ async function test(): Promise<void> {
   }
 }
 
-fillAdapters('reader', Object.keys(OCR_ADAPTERS));
-fillAdapters('translator', Object.keys(TRANSLATE_ADAPTERS));
+fillAdapters('reader', Object.values(OCR_ADAPTERS));
+fillAdapters('translator', Object.values(TRANSLATE_ADAPTERS));
+
+const presets = $<HTMLSelectElement>('preset');
+presets.append(new Option('Custom', ''));
+for (const preset of PRESETS) presets.append(new Option(preset.label, preset.id));
+presets.addEventListener('change', () => applyPreset(presets.value));
 wire('reader');
 wire('translator');
 toggle('images');
@@ -78,9 +106,7 @@ $('test').addEventListener('click', test);
 
 (async () => {
   const stored = await settings();
-  for (const role of ['reader', 'translator'] as Role[]) {
-    for (const name of FIELDS) field<HTMLInputElement>(role, name).value = stored[role][name];
-  }
+  showFields(stored);
   $<HTMLInputElement>('images').checked = stored.images;
   $<HTMLInputElement>('debug').checked = stored.debug;
   checkPairing();

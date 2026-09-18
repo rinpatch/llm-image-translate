@@ -26,6 +26,7 @@ export function parseSpots(reply: string, width: number, height: number): TextLi
 
 export const hunyuanSpotting: OcrAdapter = {
   id: 'hunyuan-spotting',
+  label: 'HunyuanOCR spotting',
 
   capabilities: {
     maxDim: 1600,
