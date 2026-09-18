@@ -109,6 +109,22 @@ test('the image result cache stays bounded and revokes what it drops', () => {
   dom.window.close();
 });
 
+test('bytes from the worker skip base64 on the way to an <img>', () => {
+  const dom = new JSDOM('', { url: 'https://x.com' });
+  adopt(dom);
+  const passed: unknown[] = [];
+  any.URL = { createObjectURL: (from: unknown) => { passed.push(from); return 'blob:bytes'; },
+              revokeObjectURL: () => {} };
+  any.Blob = dom.window.Blob;
+
+  const image = new dom.window.Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' });
+  const cache = new ResultCache();
+  const ready = cache.set('one', { ok: true, image, blocks: [], timings: {} });
+  assert.equal(ready.image, 'blob:bytes');
+  assert.equal(passed[0], image, 'the blob is handed over as it arrived, not re-encoded');
+  dom.window.close();
+});
+
 test('a badge keeps out of the way until the modifier is held', () => {
   const dom = new JSDOM('<img id="pic">', { url: 'https://example.com' });
   adopt(dom);

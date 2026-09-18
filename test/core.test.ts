@@ -7,6 +7,7 @@ import { detectedSource, sourceLanguage, untranslated, type Detection }
   from '../src/core/language.ts';
 import { allowance, containerBox, negotiate } from '../src/core/layout.ts';
 import { dominant } from '../src/core/color.ts';
+import { decodeLoop, encodeLoop, fromBase64, toBase64 } from '../src/core/base64.ts';
 
 test('wrapped horizontal lines join the block above them', () => {
   const rows = group([
@@ -126,4 +127,14 @@ test('a few noisy pixels do not carry the background off', () => {
   const [r, g, b] = dominant(data, width, height, [6, 6, 14, 14]);
   assert.ok(r >= 56 && r <= 58, `red came back ${r}`);
   assert.deepEqual([g, b], [56, 58]);
+});
+
+test('the base64 fallback and the native codec agree, byte for byte', () => {
+  // Every byte value, plus a length that is not a multiple of three so the
+  // padding is exercised.
+  const bytes = new Uint8Array(1000).map((_, i) => (i * 7) & 255);
+  const native = toBase64(bytes);
+  assert.equal(native, encodeLoop(bytes));
+  assert.deepEqual([...fromBase64(native)], [...bytes]);
+  assert.deepEqual([...decodeLoop(native)], [...bytes]);
 });

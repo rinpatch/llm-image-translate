@@ -73,7 +73,9 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
   const key = `${config.source}\n${config.target}\n${src}`;
   const jobId = crypto.randomUUID();
   state.jobId = jobId;
-  const message: TranslateImage = { type: 'translateImage', jobId, src };
+  // The empty Blob is the question "can this browser carry bytes?" — the worker
+  // answers with an image rather than a base64 string wherever it survives.
+  const message: TranslateImage = { type: 'translateImage', jobId, src, binary: new Blob([]) };
   // A blob: URL belongs to the page that made it and means nothing in the
   // worker, so those images are read here and sent over as bytes.
   if (src.startsWith('blob:')) {
@@ -87,21 +89,22 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
 
   let res = cache.get(key);
   if (!res) {
-    res = await send<ImageResult>(message) as ImageResult;
+    const answer = await send<ImageResult>(message) as ImageResult;
     // Cancelled, or cancelled and started again: this answer is to a question
     // nobody is asking any more.
     if (state.jobId !== jobId) return;
-    if (res?.ok) res = cache.set(key, res);
+    if (!answer?.ok) {
+      state.jobId = null;
+      const failure = answer as { code?: string; error?: string };
+      console.error(`[translate] ${failure?.code || 'failed'} — `
+        + `${failure?.error || 'no reason given'}`);
+      setStatus(img, 'error', failure?.error || TITLES.error);
+      return;
+    }
+    res = cache.set(key, answer);
   }
   state.jobId = null;
 
-  if (!res?.ok) {
-    const failure = res as { code?: string; error?: string };
-    console.error(`[translate] ${failure?.code || 'failed'} — `
-      + `${failure?.error || 'no reason given'}`);
-    setStatus(img, 'error', failure?.error || TITLES.error);
-    return;
-  }
   if (!res.blocks.length) {
     console.log('[translate] no text found in', src);
     setStatus(img, 'empty');

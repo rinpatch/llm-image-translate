@@ -1,3 +1,4 @@
+import { toBase64 } from '../core/base64.ts';
 import { type Box, type Block } from '../core/geometry.ts';
 import { group, join } from '../core/grouping.ts';
 import { ruledBetween } from '../core/rules.ts';
@@ -43,14 +44,14 @@ async function rasterize(
   return { canvas, ctx, width, height };
 }
 
+const encoded = (canvas: OffscreenCanvas, encode: 'png' | 'jpeg'): Promise<Blob> =>
+  canvas.convertToBlob({ type: `image/${encode}`, quality: 0.9 });
+
+// The OpenAI image field takes a data: URL, so the copy the reader sees is
+// base64 whatever the browser can carry.
 async function toDataUrl(canvas: OffscreenCanvas, encode: 'png' | 'jpeg'): Promise<string> {
-  const blob = await canvas.convertToBlob({ type: `image/${encode}`, quality: 0.9 });
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return `data:image/${encode};base64,${btoa(binary)}`;
+  const blob = await encoded(canvas, encode);
+  return `data:image/${encode};base64,${toBase64(new Uint8Array(await blob.arrayBuffer()))}`;
 }
 
 // Retries go out a few at a time. Serially they are slow enough to time a page
@@ -126,7 +127,7 @@ function stageOf(ms: number, calls: ModelStats[]): Stage {
 }
 
 export async function translateImage(
-  { src, dataUrl }: TranslateImage,
+  { src, dataUrl, binary }: TranslateImage,
   config: Settings,
   signal: AbortSignal,
 ): Promise<ImageResult> {
@@ -216,7 +217,9 @@ export async function translateImage(
     timings.paint_ms = Date.now() - started;
 
     started = Date.now();
-    const after = await toDataUrl(canvas, ocr.capabilities.encode);
+    const after = binary instanceof Blob
+      ? await encoded(canvas, ocr.capabilities.encode)
+      : await toDataUrl(canvas, ocr.capabilities.encode);
     timings.encode_ms = Date.now() - started;
     timings.total_ms = Date.now() - wholeRun;
 

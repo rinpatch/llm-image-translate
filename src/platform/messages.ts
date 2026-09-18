@@ -9,6 +9,12 @@ export interface TranslateImage {
   src: string;
   /** Set when the page holds a blob: URL the worker cannot resolve itself. */
   dataUrl?: string;
+  /**
+   * An empty Blob, which only arrives as one where the manifest's structured
+   * clone is in force. Where it comes back a bare object the browser cannot
+   * carry bytes and the answer has to go back base64.
+   */
+  binary?: Blob;
 }
 
 export type Message =
@@ -55,8 +61,12 @@ export interface Timings {
 
 export type Failure = { ok: false; error: string; code?: string };
 
+/** Bytes where the browser will carry them, and a data: URL where it will not. */
+export type ImageBytes = string | Blob;
+
 export type ImageResult =
-  | { ok: true; image: string | null; original?: string; blocks: BlockReport[]; timings: Timings }
+  | { ok: true; image: ImageBytes | null; original?: string; blocks: BlockReport[];
+      timings: Timings }
   | Failure;
 
 export interface PingResult {

@@ -1,19 +1,25 @@
+import { fromBase64 } from '../core/base64.ts';
 import { Lru } from '../core/lru.ts';
-import { type ImageResult } from '../platform/messages.ts';
+import { type ImageBytes, type ImageResult } from '../platform/messages.ts';
 
 const CACHE_LIMIT = 12;
 
+type Translated = Extract<ImageResult, { ok: true }>;
+
+/** A result whose image the page can hand straight to an <img>. */
+export type Ready = Translated & { image: string | null };
+
 /**
- * Translated images, most recently used last. Extension messages are
- * JSON-serialized so the worker sends base64; the page keeps only a blob URL,
- * which avoids putting the full image string in the DOM.
+ * Translated images, most recently used last. Whatever the worker sent — bytes
+ * or base64 — becomes a blob URL here, so the full image never sits in the DOM
+ * and there is one place that knows to revoke it.
  */
 export class ResultCache {
-  private results: Lru<ImageResult>;
+  private results: Lru<Ready>;
 
   constructor(limit = CACHE_LIMIT) {
-    this.results = new Lru<ImageResult>(limit, (dropped) => {
-      if (dropped.ok && dropped.image) URL.revokeObjectURL(dropped.image);
+    this.results = new Lru<Ready>(limit, (dropped) => {
+      if (dropped.image) URL.revokeObjectURL(dropped.image);
     });
   }
 
@@ -21,14 +27,13 @@ export class ResultCache {
     return this.results.size;
   }
 
-  get(key: string): ImageResult | null {
+  get(key: string): Ready | null {
     return this.results.get(key);
   }
 
-  set(key: string, response: ImageResult): ImageResult {
-    return this.results.set(key, response.ok && response.image
-      ? { ...response, image: blobUrl(response.image) }
-      : response);
+  set(key: string, response: Translated): Ready {
+    return this.results.set(key,
+      { ...response, image: response.image ? blobUrl(response.image) : null });
   }
 
   /** Whatever is in here was made by settings that no longer apply. */
@@ -37,9 +42,10 @@ export class ResultCache {
   }
 }
 
-function blobUrl(dataUrl: string): string {
-  const [header, encoded] = dataUrl.split(',', 2);
-  const bytes = Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0));
+function blobUrl(image: ImageBytes): string {
+  if (image instanceof Blob) return URL.createObjectURL(image);
+  const [header, encoded] = image.split(',', 2);
+  const bytes = fromBase64(encoded);
   const type = header.match(/^data:([^;]+)/)?.[1] || 'application/octet-stream';
   return URL.createObjectURL(new Blob([bytes], { type }));
 }
