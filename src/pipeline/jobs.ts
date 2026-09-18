@@ -7,7 +7,15 @@ import { type Settings } from '../platform/settings.ts';
 const LIMIT = 6;
 
 const results = new Lru<ImageResult>(LIMIT);
-const inFlight = new Map<string, Promise<ImageResult>>();
+
+interface Running {
+  job: Promise<ImageResult>;
+  controller: AbortController;
+  /** One per caller still waiting. The work stops when the last one leaves. */
+  waiting: Set<AbortSignal>;
+}
+
+const inFlight = new Map<string, Running>();
 
 /** Cheap, order-dependent hash — this picks cache slots, it guards nothing. */
 function digest(text: string): string {
@@ -34,24 +42,39 @@ export function keyFor(request: TranslateImage, config: Settings): string {
 
 /**
  * Runs the work once per key. Two tabs showing the same image, or two clicks
- * before the first answer, wait on one job rather than paying for two.
+ * before the first answer, wait on one job rather than paying for two — and one
+ * of them giving up does not cancel it out from under the other.
  */
-export function once(key: string, work: () => Promise<ImageResult>): Promise<ImageResult> {
+export function once(
+  key: string,
+  signal: AbortSignal,
+  work: (signal: AbortSignal) => Promise<ImageResult>,
+): Promise<ImageResult> {
   const done = results.get(key);
   if (done) return Promise.resolve(done);
 
-  const running = inFlight.get(key);
-  if (running) return running;
+  let running = inFlight.get(key);
+  if (!running) {
+    const controller = new AbortController();
+    const started: Running = { controller, waiting: new Set(), job: null as never };
+    started.job = work(controller.signal)
+      .then((result) => {
+        // Failures are not cached: the endpoint may simply have been down.
+        if (result.ok) results.set(key, result);
+        return result;
+      })
+      .finally(() => inFlight.delete(key));
+    inFlight.set(key, started);
+    running = started;
+  }
 
-  const job = work()
-    .then((result) => {
-      // Failures are not cached: the endpoint may simply have been down.
-      if (result.ok) results.set(key, result);
-      return result;
-    })
-    .finally(() => inFlight.delete(key));
-  inFlight.set(key, job);
-  return job;
+  const { waiting, controller } = running;
+  waiting.add(signal);
+  signal.addEventListener('abort', () => {
+    waiting.delete(signal);
+    if (!waiting.size) controller.abort();
+  }, { once: true });
+  return running.job;
 }
 
 export function forget(): void {

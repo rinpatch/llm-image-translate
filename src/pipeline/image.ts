@@ -4,7 +4,7 @@ import { detectedSource, untranslated } from '../core/language.ts';
 import { dominant, inkFor, rgb } from '../core/color.ts';
 import { allowance, containerBox, negotiate } from '../core/layout.ts';
 import { drawBlock } from '../core/paint.ts';
-import { send } from '../backends/client.ts';
+import { Cancelled, send } from '../backends/client.ts';
 import { ocrAdapter, translateAdapter } from '../backends/registry.ts';
 import { type EncodedImage, type Endpoint, type TranslateAdapter }
   from '../backends/types.ts';
@@ -21,10 +21,15 @@ interface Raster {
   height: number;
 }
 
-async function rasterize(src: string, maxDim: number, dataUrl?: string): Promise<Raster> {
+async function rasterize(
+  src: string,
+  maxDim: number,
+  signal: AbortSignal,
+  dataUrl?: string,
+): Promise<Raster> {
   // Fetched here rather than in the page: a cross-origin image taints a content
   // script's canvas, and the worker's host permissions do not care.
-  const response = await fetch(dataUrl || src, { credentials: 'include' });
+  const response = await fetch(dataUrl || src, { credentials: 'include', signal });
   if (!response.ok) throw new Error(`could not load the image (${response.status})`);
   const bitmap = await createImageBitmap(await response.blob());
   const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
@@ -51,6 +56,8 @@ async function toDataUrl(canvas: OffscreenCanvas, encode: 'png' | 'jpeg'): Promi
 // out; all at once they are a burst at whatever rate limit the endpoint has.
 const RETRY_CONCURRENCY = 3;
 
+const cancelled = (): ImageResult => ({ ok: false, code: 'cancelled', error: 'cancelled' });
+
 async function fill<T>(
   indices: number[],
   limit: number,
@@ -73,12 +80,14 @@ async function translateAll(
   texts: string[],
   sourceSetting: string,
   target: string,
+  signal: AbortSignal,
 ): Promise<string[]> {
   if (!texts.length) return [];
   const source = await detectedSource(texts, sourceSetting, detect);
   const ask = async (batch: string[], maxTokens?: number) =>
     adapter.parse(
-      await send(endpoint, adapter.build(batch, source, target, maxTokens), 'the translator'),
+      await send(endpoint, adapter.build(batch, source, target, maxTokens), 'the translator',
+        signal),
       batch.length,
     );
 
@@ -101,14 +110,16 @@ async function translateAll(
 export async function translateImage(
   { src, dataUrl }: TranslateImage,
   config: Settings,
+  signal: AbortSignal,
 ): Promise<ImageResult> {
   const timings: Timings = {};
   const ocr = ocrAdapter(config.reader.adapter);
   const translator = translateAdapter(config.translator.adapter);
   let raster: Raster;
   try {
-    raster = await rasterize(src, ocr.capabilities.maxDim, dataUrl);
+    raster = await rasterize(src, ocr.capabilities.maxDim, signal, dataUrl);
   } catch (e: any) {
+    if (signal.aborted) return cancelled();
     fail('could not load', src, e);
     return { ok: false, code: 'image_unavailable', error: String(e?.message || e) };
   }
@@ -120,7 +131,8 @@ export async function translateImage(
   let blocks: Block[];
   try {
     let started = Date.now();
-    const reply = await send(toEndpoint(config.reader), ocr.build(image), 'the reader');
+    const reply = await send(toEndpoint(config.reader), ocr.build(image), 'the reader',
+      signal);
     timings.read_ms = Date.now() - started;
     blocks = group(ocr.parse(reply, image));
     log('read', blocks.length, 'blocks in', timings.read_ms, 'ms');
@@ -129,7 +141,7 @@ export async function translateImage(
     const originals = blocks.map((b) => join(b.lines));
     started = Date.now();
     const translations = await translateAll(
-      toEndpoint(config.translator), translator, originals, config.source, config.target);
+      toEndpoint(config.translator), translator, originals, config.source, config.target, signal);
     timings.translate_ms = Date.now() - started;
 
     const started2 = Date.now();
@@ -177,6 +189,7 @@ export async function translateImage(
       timings,
     };
   } catch (e: any) {
+    if (e instanceof Cancelled || signal.aborted) return cancelled();
     fail('pipeline failed', e);
     return { ok: false, code: 'pipeline', error: String(e?.message || e) };
   }

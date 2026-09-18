@@ -144,6 +144,17 @@ width, and on a 400x1600 page that comparison flips.
 when the prompt spells out the pixel size of the image. A reply that exceeds
 1000 anywhere is taken as pixels instead, since the grid cannot.
 
+## Giving up
+
+Clicking a badge that is already working calls the request off — the only way to
+say "never mind" to a model that is taking its time — and leaving the page calls
+off whatever it was still waiting for. Both reach the socket: the request is
+aborted, not merely ignored.
+
+A job shared by two tabs stops only when the last tab waiting on it has gone,
+and every request has a 90-second ceiling regardless, because a hung fetch holds
+the service worker awake for as long as it lasts.
+
 ## What comes back from a model
 
 Two lines in, one line out, and every line after it is attributed to the wrong

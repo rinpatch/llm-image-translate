@@ -147,3 +147,15 @@ test('a model that wraps its array in an object is still understood', () => {
   assert.equal(lines.length, 1);
   assert.deepEqual(jsonBoxes.parse('no text found here', image), []);
 });
+
+test('giving up is not reported as the endpoint failing', async () => {
+  const controller = new AbortController();
+  globalThis.fetch = ((_url: string, init: any) => new Promise((_resolve, reject) => {
+    init.signal.addEventListener('abort', () => reject(new Error('aborted')));
+  })) as unknown as typeof fetch;
+
+  const job = send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image), 'the reader',
+    controller.signal);
+  controller.abort();
+  await assert.rejects(job, (e: Error) => e.name === 'Cancelled');
+});

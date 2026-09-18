@@ -3,6 +3,8 @@ import { type PublicSettings } from './settings.ts';
 
 export interface TranslateImage {
   type: 'translateImage';
+  /** Identifies the request so the page can call it off again. */
+  jobId: string;
   src: string;
   /** Set when the page holds a blob: URL the worker cannot resolve itself. */
   dataUrl?: string;
@@ -10,6 +12,7 @@ export interface TranslateImage {
 
 export type Message =
   | TranslateImage
+  | { type: 'cancelImage'; jobId: string }
   | { type: 'settings' }
   | { type: 'ping' };
 

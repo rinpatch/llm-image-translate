@@ -1,7 +1,7 @@
 import { BadgeLayer, type Status } from './content/badges.ts';
 import { ResultCache } from './content/cache.ts';
 import { restore, show } from './content/swap.ts';
-import { type ImageResult, type Message } from './platform/messages.ts';
+import { type ImageResult, type Message, type TranslateImage } from './platform/messages.ts';
 import { type PublicSettings } from './platform/settings.ts';
 
 const TITLES: Record<Status, string> = {
@@ -16,6 +16,8 @@ const TITLES: Record<Status, string> = {
 interface State {
   status: Status;
   translated: string | null;
+  /** Set while the worker is busy, so the page can call that work off. */
+  jobId: string | null;
 }
 
 const states = new Map<HTMLImageElement, State>();
@@ -48,9 +50,14 @@ function setStatus(img: HTMLImageElement, status: Status, detail?: string): void
 }
 
 async function onActivate(img: HTMLImageElement): Promise<void> {
-  const state = states.get(img) || { status: 'idle' as Status, translated: null };
+  const state = states.get(img)
+    || { status: 'idle' as Status, translated: null, jobId: null };
   states.set(img, state);
-  if (state.status === 'working') return;
+  // A second click on a working badge is the only way to say "never mind".
+  if (state.status === 'working') {
+    cancel(img);
+    return;
+  }
 
   if (state.translated) {
     const showing = state.status === 'shown';
@@ -64,7 +71,9 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
 
   const src = img.currentSrc || img.src;
   const key = `${config.source}\n${config.target}\n${src}`;
-  const message: Message = { type: 'translateImage', src };
+  const jobId = crypto.randomUUID();
+  state.jobId = jobId;
+  const message: TranslateImage = { type: 'translateImage', jobId, src };
   // A blob: URL belongs to the page that made it and means nothing in the
   // worker, so those images are read here and sent over as bytes.
   if (src.startsWith('blob:')) {
@@ -79,8 +88,12 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
   let res = cache.get(key);
   if (!res) {
     res = await send<ImageResult>(message) as ImageResult;
+    // Cancelled, or cancelled and started again: this answer is to a question
+    // nobody is asking any more.
+    if (state.jobId !== jobId) return;
     if (res?.ok) res = cache.set(key, res);
   }
+  state.jobId = null;
 
   if (!res?.ok) {
     const failure = res as { code?: string; error?: string };
@@ -107,6 +120,14 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
   }, { once: true });
   show(img, res.image!);
   setStatus(img, 'shown');
+}
+
+function cancel(img: HTMLImageElement): void {
+  const state = states.get(img);
+  if (!state?.jobId) return;
+  send({ type: 'cancelImage', jobId: state.jobId });
+  state.jobId = null;
+  setStatus(img, state.translated ? 'hidden' : 'idle');
 }
 
 /** Back to untranslated: the blob URLs are about to be revoked under them. */
@@ -137,6 +158,12 @@ send<PublicSettings>({ type: 'settings' }).then((loaded) => {
 // something else. The values are none of this page's business; that one changed
 // is enough to know the results are stale.
 chrome.storage.local.onChanged.addListener(() => invalidate());
+
+// Leaving the page does not stop the worker, which may be halfway through a
+// paid request for a picture nobody is looking at any more.
+addEventListener('pagehide', () => {
+  for (const img of states.keys()) cancel(img);
+});
 
 // Only the synced area: the worker's endpoints are none of this page's business.
 chrome.storage.sync.onChanged.addListener((changes) => {
