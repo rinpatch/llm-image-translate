@@ -56,6 +56,8 @@ test('growth is on until it is turned off, and turning it off is a stale result'
   assert.equal((await settings()).expand, false);
   assert.equal(affectsResults({ expand: {} }), true,
     'images laid out the other way are answers to a different question');
+  assert.equal(affectsResults({ cachePurge: {} }), true,
+    'purging reaches both the worker and page-side caches');
   assert.equal(affectsResults({ debug: {} }), false);
 });
 

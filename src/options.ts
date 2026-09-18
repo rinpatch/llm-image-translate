@@ -2,7 +2,7 @@ import { OCR_ADAPTERS, TRANSLATE_ADAPTERS, translateAdapter } from './backends/r
 import { type PingResult } from './platform/messages.ts';
 import { SHIPPED, type Profile, copyOf, find, newId, uniqueName } from './platform/profiles.ts';
 import {
-  type EndpointSettings, type Role, ROLES, profiles, save, saveProfiles, settings,
+  type EndpointSettings, type Role, ROLES, profiles, purgeResults, save, saveProfiles, settings,
 } from './platform/settings.ts';
 import { $ } from './ui/dom.ts';
 
@@ -142,6 +142,21 @@ async function test(): Promise<void> {
   }
 }
 
+async function purgeCache(): Promise<void> {
+  const button = $<HTMLButtonElement>('purge-cache');
+  button.disabled = true;
+  try {
+    await purgeResults();
+    button.textContent = 'Cache cleared';
+  } catch {
+    button.textContent = 'Could not clear cache';
+  }
+  setTimeout(() => {
+    button.textContent = 'Clear cache';
+    button.disabled = false;
+  }, 1500);
+}
+
 fillAdapters('reader', Object.values(OCR_ADAPTERS));
 fillAdapters('translator', Object.values(TRANSLATE_ADAPTERS));
 
@@ -152,6 +167,7 @@ toggle('images');
 toggle('expand');
 toggle('debug');
 $('test').addEventListener('click', test);
+$('purge-cache').addEventListener('click', purgeCache);
 
 (async () => {
   ({ list, active } = await profiles());

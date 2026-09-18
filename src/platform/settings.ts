@@ -53,7 +53,12 @@ const FLAGS = { expand: PRIVATE_DEFAULTS.expand, debug: PRIVATE_DEFAULTS.debug }
  * says nothing about what the models would answer.
  */
 export const affectsResults = (changes: Record<string, unknown>) =>
-  'profiles' in changes || 'profile' in changes || 'expand' in changes;
+  'profiles' in changes || 'profile' in changes || 'expand' in changes
+  || 'cachePurge' in changes;
+
+/** A storage event reaches the worker and every open page's process-local cache. */
+export const purgeResults = (): Promise<void> =>
+  chrome.storage.local.set({ cachePurge: crypto.randomUUID() });
 
 // sync rides to Google's servers with the rest of the profile, which is fine for
 // a language choice and not for anything that opens a door.
