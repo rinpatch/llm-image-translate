@@ -10,7 +10,7 @@ import { type EncodedImage, type Endpoint, type TranslateAdapter }
   from '../backends/types.ts';
 import { detect } from '../platform/detect.ts';
 import { log, fail } from '../platform/log.ts';
-import { type Settings } from '../platform/settings.ts';
+import { type Settings, toEndpoint } from '../platform/settings.ts';
 import { type BlockReport, type ImageResult, type Timings, type TranslateImage }
   from '../platform/messages.ts';
 
@@ -79,8 +79,8 @@ export async function translateImage(
   config: Settings,
 ): Promise<ImageResult> {
   const timings: Timings = {};
-  const ocr = ocrAdapter(config.ocrAdapter);
-  const translator = translateAdapter(config.translateAdapter);
+  const ocr = ocrAdapter(config.reader.adapter);
+  const translator = translateAdapter(config.translator.adapter);
   let raster: Raster;
   try {
     raster = await rasterize(src, ocr.capabilities.maxDim, dataUrl);
@@ -96,7 +96,7 @@ export async function translateImage(
   let blocks: Block[];
   try {
     let started = Date.now();
-    const reply = await send({ baseUrl: config.reader }, ocr.build(image), 'the reader');
+    const reply = await send(toEndpoint(config.reader), ocr.build(image), 'the reader');
     timings.read_ms = Date.now() - started;
     blocks = group(ocr.parse(reply, image));
     log('read', blocks.length, 'blocks in', timings.read_ms, 'ms');
@@ -105,7 +105,7 @@ export async function translateImage(
     const originals = blocks.map((b) => join(b.lines));
     started = Date.now();
     const translations = await translateAll(
-      { baseUrl: config.translator }, translator, originals, config.source, config.target);
+      toEndpoint(config.translator), translator, originals, config.source, config.target);
     timings.translate_ms = Date.now() - started;
 
     const started2 = Date.now();

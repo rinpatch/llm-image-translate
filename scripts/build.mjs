@@ -9,6 +9,7 @@ const ctx = await context({
     worker: 'src/worker.ts',
     content: 'src/content.ts',
     popup: 'src/popup.ts',
+    options: 'src/options.ts',
   },
   outdir: 'extension/dist',
   bundle: true,

@@ -27,6 +27,10 @@
       "all_frames": true
     }
   ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "action": {
     "default_popup": "popup.html",
     "default_title": "In-Place Translate"

@@ -27,8 +27,9 @@ Then load `extension/` from `chrome://extensions` with developer mode on.
 `npm run watch` rebuilds on save; the extension still has to be reloaded there
 for the worker to pick the new bundle up.
 
-The popup has the two server URLs under **llama.cpp servers** if you run them
-somewhere else, and reports whether it can reach them.
+The popup is the two language pickers and nothing else. Everything else — the
+endpoints, their adapters, and a button that checks whether they answer — is on
+the settings page behind **Settings…**.
 
 `poc/` also has a browser demo of the same pipeline at `http://127.0.0.1:8000`,
 which is easier to iterate on. See `poc/README.md`.
@@ -123,11 +124,15 @@ width, and on a 400x1600 page that comparison flips.
 
 ## Settings
 
+An endpoint is a base URL, an optional key, an optional model name, and the
+adapter to drive it with. There are two of them, one per role, and they can name
+the same server.
+
 Preferences — the two languages and whether badges appear — live in synced
 storage and are the only thing a content script is told. Endpoints live in local
 storage, because a content script runs inside whatever site you are on, and
 because synced storage is copied to Google with the rest of the profile. The
-popup is an extension page, so it reads both directly.
+popup and the settings page are extension pages, so they read both directly.
 
 ## Tests
 

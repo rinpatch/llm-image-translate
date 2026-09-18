@@ -2,19 +2,22 @@ import { health } from './backends/client.ts';
 import { translateImage } from './pipeline/image.ts';
 import { type Message, type PingResult } from './platform/messages.ts';
 import { fail, log, watchDebug } from './platform/log.ts';
-import { migrate, publicSettings, settings } from './platform/settings.ts';
+import { migrate, publicSettings, settings, toEndpoint } from './platform/settings.ts';
 
 watchDebug();
 migrate().then((moved) => {
-  if (moved.length) log('moved out of synced storage:', moved.join(', '));
+  if (moved.length) log('migrated:', moved.join('; '));
 });
 
+// Reported per endpoint rather than as one verdict: the settings page puts each
+// answer beside the field it belongs to.
 async function ping(): Promise<PingResult> {
   const config = await settings();
-  const problems = [await health({ baseUrl: config.reader }, 'the reader'),
-                    await health({ baseUrl: config.translator }, 'the translator')]
-    .filter(Boolean);
-  return problems.length ? { ok: false, error: problems.join('; ') } : { ok: true };
+  const [reader, translator] = await Promise.all([
+    health(toEndpoint(config.reader), 'the reader'),
+    health(toEndpoint(config.translator), 'the translator'),
+  ]);
+  return { ok: !reader && !translator, reader, translator };
 }
 
 chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {

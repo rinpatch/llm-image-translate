@@ -32,6 +32,11 @@ export type ImageResult =
   | { ok: true; image: string | null; original?: string; blocks: BlockReport[]; timings: Timings }
   | Failure;
 
-export type PingResult = { ok: true } | Failure;
+export interface PingResult {
+  ok: boolean;
+  /** null when the endpoint answered, otherwise what went wrong with it. */
+  reader: string | null;
+  translator: string | null;
+}
 
 export type Response = ImageResult | PingResult | PublicSettings;
