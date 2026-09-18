@@ -19,8 +19,12 @@ import { type BlockReport, type ImageResult, type Stage, type Timings,
 interface Raster {
   canvas: OffscreenCanvas;
   ctx: OffscreenCanvasRenderingContext2D;
+  source: Uint8ClampedArray;
   width: number;
   height: number;
+  fetch_ms: number;
+  decode_ms: number;
+  scale_ms: number;
 }
 
 async function rasterize(
@@ -31,9 +35,17 @@ async function rasterize(
 ): Promise<Raster> {
   // Fetched here rather than in the page: a cross-origin image taints a content
   // script's canvas, and the worker's host permissions do not care.
+  let started = Date.now();
   const response = await fetch(dataUrl || src, { credentials: 'include', signal });
   if (!response.ok) throw new Error(`could not load the image (${response.status})`);
-  const bitmap = await createImageBitmap(await response.blob());
+  const blob = await response.blob();
+  const fetch_ms = Date.now() - started;
+
+  started = Date.now();
+  const bitmap = await createImageBitmap(blob);
+  const decode_ms = Date.now() - started;
+
+  started = Date.now();
   const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));
@@ -41,7 +53,9 @@ async function rasterize(
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
-  return { canvas, ctx, width, height };
+  const source = ctx.getImageData(0, 0, width, height).data;
+  const scale_ms = Date.now() - started;
+  return { canvas, ctx, source, width, height, fetch_ms, decode_ms, scale_ms };
 }
 
 const encoded = (canvas: OffscreenCanvas, encode: 'png' | 'jpeg'): Promise<Blob> =>
@@ -135,7 +149,6 @@ export async function translateImage(
   const wholeRun = Date.now();
   const ocr = ocrAdapter(config.reader.adapter);
   const translator = translateAdapter(config.translator.adapter);
-  const fetched = Date.now();
   let raster: Raster;
   try {
     raster = await rasterize(src, ocr.capabilities.maxDim, signal, dataUrl);
@@ -144,15 +157,18 @@ export async function translateImage(
     fail('could not load', src, e);
     return { ok: false, code: 'image_unavailable', error: String(e?.message || e) };
   }
-  const { canvas, ctx, width, height } = raster;
-  const source = ctx.getImageData(0, 0, width, height).data;
+  const { canvas, ctx, source, width, height } = raster;
+  timings.fetch_ms = raster.fetch_ms;
+  timings.decode_ms = raster.decode_ms;
+  timings.scale_ms = raster.scale_ms;
+  let started = Date.now();
   const before = await toDataUrl(canvas, ocr.capabilities.encode);
+  timings.reader_encode_ms = Date.now() - started;
   const image: EncodedImage = { dataUrl: before, width, height };
-  timings.fetch_ms = Date.now() - fetched;
 
   let blocks: Block[];
   try {
-    let started = Date.now();
+    started = Date.now();
     const reply = await send(toEndpoint(config.reader), ocr.build(image), 'the reader',
       signal);
     timings.read = stageOf(Date.now() - started, [reply.stats]);

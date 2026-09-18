@@ -24,11 +24,11 @@
             align-items: center; font-size: 12px; max-width: 320px; }
   .legend i { width: 9px; height: 9px; border-radius: 2px; }
   .legend .num { color: var(--muted); }
+  .legend i.substage { width: 5px; height: 5px; margin-left: 2px; opacity: .55; }
+  .legend .substage-label { padding-left: 4px; color: var(--muted); }
+  .legend .substage-value { opacity: .8; }
 
   .scope { max-width: 280px; margin-top: 16px; }
-
-  .models { font-size: 12px; color: var(--muted); }
-  .models div { padding: 2px 0; }
 
   table.history { width: 100%; table-layout: fixed; border-collapse: collapse;
                   font-size: 12px; }
@@ -60,11 +60,6 @@
 <section id="breakdown">
   <h2>Where the time goes</h2>
   <div id="stages"></div>
-</section>
-
-<section id="models-section">
-  <h2>Models</h2>
-  <div class="models" id="models"></div>
 </section>
 
 <section>

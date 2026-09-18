@@ -45,15 +45,21 @@ export interface Stage {
 
 /** What one image cost, stage by stage. Everything is milliseconds. */
 export interface Timings {
-  /** Fetching the image, decoding it, scaling it, and encoding the reader's copy. */
+  /** Fetching the source through the extension's privileged network context. */
   fetch_ms?: number;
+  /** Decoding the source into pixels at its original size. */
+  decode_ms?: number;
+  /** Scaling the source and copying its pixels into JavaScript. */
+  scale_ms?: number;
+  /** Encoding the scaled image as the data URL the reader accepts. */
+  reader_encode_ms?: number;
   read?: Stage;
   translate?: Stage;
   /** Finding room for the translations without letting two of them overlap. */
   layout_ms?: number;
   /** Clearing the source glyphs and drawing the translations over them. */
   paint_ms?: number;
-  /** Encoding the finished canvas as a data: URL, which is not free at all. */
+  /** Encoding the finished canvas for the page. */
   encode_ms?: number;
   total_ms?: number;
   blocks?: number;

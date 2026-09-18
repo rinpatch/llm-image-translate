@@ -2,11 +2,13 @@ import { type Stage, type Timings } from './messages.ts';
 
 /** A run is a handful of numbers, so the window can be long enough to be dull. */
 const WINDOW = 200;
+const SCHEMA = 2;
 
 const KEY = 'metrics';
 
 /** One image, as the history page shows it. */
 export interface Run extends Timings {
+  schema: number;
   at: number;
   /** Where the image came from. Never the image itself — see `label`. */
   url: string;
@@ -27,36 +29,78 @@ export interface Outcome {
   timings?: Timings;
 }
 
-/** One stage of the pipeline. `key` is also the colour it is drawn in. */
+/** One visible slice of the pipeline. `key` is also the colour it is drawn in. */
 export interface StageRow {
   key: string;
   label: string;
   ms: number;
+  parts?: StageRow[];
 }
 
-// The one place that knows what the stages are and what order they run in.
-// Both the medians and a single run's breakdown are built from it.
-const STAGES: { key: string; label: string; of: (run: Timings) => number | undefined }[] = [
-  { key: 'fetch', label: 'Fetch and scale', of: (run) => run.fetch_ms },
-  { key: 'read', label: 'Read', of: (run) => run.read?.ms },
-  { key: 'translate', label: 'Translate', of: (run) => run.translate?.ms },
-  { key: 'layout', label: 'Lay out', of: (run) => run.layout_ms },
-  { key: 'paint', label: 'Paint', of: (run) => run.paint_ms },
-  { key: 'encode', label: 'Encode', of: (run) => run.encode_ms },
+interface PlainStage {
+  key: string;
+  label: string;
+  of: (run: Timings) => number | undefined;
+  full?: boolean;
+}
+
+const IMAGE_PARTS: PlainStage[] = [
+  { key: 'fetch', label: 'Fetch', of: (run) => run.fetch_ms },
+  { key: 'decode', label: 'Decode source', of: (run) => run.decode_ms },
+  { key: 'scale', label: 'Scale and read pixels', of: (run) => run.scale_ms },
+  { key: 'reader-encode', label: 'Encode for reader', of: (run) => run.reader_encode_ms },
 ];
 
-export const stagesOf = (run: Timings): StageRow[] =>
-  STAGES.map(({ key, label, of }) => ({ key, label, ms: of(run) ?? 0 }));
+const AFTER_MODELS: PlainStage[] = [
+  { key: 'layout', label: 'Lay out', of: (run) => run.layout_ms, full: true },
+  { key: 'paint', label: 'Paint', of: (run) => run.paint_ms, full: true },
+  { key: 'encode', label: 'Encode', of: (run) => run.encode_ms, full: true },
+];
 
-/** One model, across every run in the window. */
-export interface ModelRow {
-  label: string;
-  /** null where the endpoint does not report its own timings — only llama.cpp does. */
-  ttft_ms: number | null;
-  tokens_per_s: number | null;
-  /** Requests per image. More than one means batches came back unusable. */
-  calls: number;
+const rate = (stage?: Stage) =>
+  (stage?.tokens && stage.gen_ms ? Math.round((stage.tokens * 1000) / stage.gen_ms) : undefined);
+
+function group(key: string, label: string, parts: StageRow[]): StageRow {
+  return { key, label, ms: parts.reduce((sum, part) => sum + part.ms, 0), parts };
 }
+
+/** Split server timings only when one request maps cleanly onto one wall-clock interval. */
+function modelStage(key: string, label: string, stage?: Stage,
+                    tokensPerS = rate(stage)): StageRow | undefined {
+  if (!stage) return undefined;
+  if (stage.calls === 1 && stage.ttft_ms !== undefined && stage.gen_ms !== undefined) {
+    const ttft = Math.min(stage.ms, stage.ttft_ms);
+    const decode = Math.min(Math.max(0, stage.ms - ttft), stage.gen_ms);
+    const overhead = Math.max(0, stage.ms - ttft - decode);
+    return { key, label, ms: stage.ms, parts: [
+      { key: `${key}-ttft`, label: 'TTFT', ms: ttft },
+      { key: `${key}-decode`, label: `Decode${tokensPerS ? ` · ${tokensPerS} tok/s` : ''}`,
+        ms: decode },
+      ...(overhead ? [{ key: `${key}-overhead`, label: 'Overhead', ms: overhead }] : []),
+    ] };
+  }
+  const details = [
+    tokensPerS ? `${tokensPerS} tok/s overall` : '',
+    stage.calls > 1 ? `${stage.calls} requests` : '',
+  ].filter(Boolean).join(' · ');
+  return {
+    key, label, ms: stage.ms,
+    ...(details ? { parts: [{ key: `${key}-request`, label: `Full request · ${details}`,
+      ms: stage.ms }] } : {}),
+  };
+}
+
+export const stagesOf = (run: Timings): StageRow[] => {
+  const models = [modelStage('read', 'Read', run.read),
+    modelStage('translate', 'Translate', run.translate)]
+    .filter((stage): stage is StageRow => Boolean(stage));
+  return [
+    group('fetch', 'Fetch and scale', IMAGE_PARTS.map(({ key, label, of }) =>
+      ({ key, label, ms: of(run) ?? 0 }))),
+    ...models,
+    ...AFTER_MODELS.map(({ key, label, of }) => ({ key, label, ms: of(run) ?? 0 })),
+  ];
+};
 
 /**
  * One profile's numbers. Medians are only worth reading within a profile: a
@@ -73,7 +117,6 @@ export interface ProfileReport {
   slowest_ms: number;
   blocks: number;
   stages: StageRow[];
-  models: ModelRow[];
 }
 
 export interface Report {
@@ -101,16 +144,20 @@ function maybe(runs: Run[], of: (run: Run) => number | undefined): number | null
   return values.length ? median(values) : null;
 }
 
-const rate = (stage?: Stage) =>
-  (stage?.tokens && stage.gen_ms ? Math.round((stage.tokens * 1000) / stage.gen_ms) : undefined);
-
-function modelRow(label: string, runs: Run[], of: (run: Run) => Stage | undefined): ModelRow {
-  return {
-    label,
-    ttft_ms: maybe(runs, (run) => of(run)?.ttft_ms),
-    tokens_per_s: maybe(runs, (run) => rate(of(run))),
-    calls: pick(runs, (run) => of(run)?.calls),
+function medianStage(runs: Run[], of: (run: Run) => Stage | undefined): Stage | undefined {
+  const found = runs.map(of).filter((stage): stage is Stage => Boolean(stage));
+  if (!found.length) return undefined;
+  const stage: Stage = {
+    ms: median(found.map((value) => value.ms)),
+    calls: median(found.map((value) => value.calls)),
   };
+  const ttft = found.map((value) => value.ttft_ms)
+    .filter((value): value is number => value !== undefined);
+  const gen = found.map((value) => value.gen_ms)
+    .filter((value): value is number => value !== undefined);
+  if (ttft.length) stage.ttft_ms = median(ttft);
+  if (gen.length) stage.gen_ms = median(gen);
+  return stage;
 }
 
 // The history sits on disk, so it holds what identifies an image and nothing
@@ -125,11 +172,13 @@ function label(src: string): string {
 
 async function stored(): Promise<Run[]> {
   const { [KEY]: runs } = await chrome.storage.local.get({ [KEY]: [] });
-  return Array.isArray(runs) ? runs as Run[] : [];
+  return Array.isArray(runs)
+    ? (runs as Run[]).filter((run) => run.schema === SCHEMA)
+    : [];
 }
 
 export async function record({ url, profile, ok, error, code, timings }: Outcome): Promise<void> {
-  const run: Run = { ...timings, at: Date.now(), url: label(url), profile, ok };
+  const run: Run = { schema: SCHEMA, ...timings, at: Date.now(), url: label(url), profile, ok };
   if (error) run.error = error;
   if (code) run.code = code;
   await chrome.storage.local.set({ [KEY]: [...await stored(), run].slice(-WINDOW) });
@@ -154,6 +203,13 @@ function summarise(profile: string, all: Run[]): ProfileReport {
   // An image with no text in it never reached the translator or the canvas, so
   // counting it would pull every stage below the reader towards zero.
   const full = runs.filter((run) => run.blocks);
+  const plain = (stage: PlainStage): StageRow => ({
+    key: stage.key,
+    label: stage.label,
+    ms: pick(stage.full ? full : runs, stage.of),
+  });
+  const reader = medianStage(runs, (run) => run.read);
+  const translator = medianStage(full, (run) => run.translate);
   return {
     profile,
     runs: runs.length,
@@ -161,16 +217,14 @@ function summarise(profile: string, all: Run[]): ProfileReport {
     total_ms: pick(runs, (run) => run.total_ms),
     slowest_ms: Math.max(0, ...runs.map((run) => run.total_ms ?? 0)),
     blocks: pick(full, (run) => run.blocks),
-    stages: STAGES.map(({ key, label: text, of }) => ({
-      key,
-      label: text,
-      // Everything below the reader only happens when there was text to work on.
-      ms: pick(key === 'fetch' || key === 'read' ? runs : full, of),
-    })),
-    models: [
-      modelRow('Reader', runs, (run) => run.read),
-      modelRow('Translator', full, (run) => run.translate),
-    ],
+    stages: [
+      group('fetch', 'Fetch and scale', IMAGE_PARTS.map(plain)),
+      modelStage('read', 'Read', reader,
+        maybe(runs, (run) => rate(run.read)) ?? undefined),
+      modelStage('translate', 'Translate', translator,
+        maybe(full, (run) => rate(run.translate)) ?? undefined),
+      ...AFTER_MODELS.map(plain),
+    ].filter((stage): stage is StageRow => Boolean(stage)),
   };
 }
 

@@ -29,7 +29,8 @@ const answering = (body: unknown) => {
 };
 
 const run = (total: number, over: Partial<Timings> = {}): Timings => ({
-  total_ms: total, blocks: 2, fetch_ms: 10, layout_ms: 1, paint_ms: 4, encode_ms: 20,
+  total_ms: total, blocks: 2, fetch_ms: 10, decode_ms: 11, scale_ms: 12,
+  reader_encode_ms: 13, layout_ms: 1, paint_ms: 4, encode_ms: 20,
   read: { ms: total, calls: 1 }, translate: { ms: 5, calls: 1 }, ...over,
 });
 
@@ -72,8 +73,13 @@ test('one cold image does not become the number every stage is judged by', async
   assert.equal(out.total_ms, 430, 'the median sits between the warm runs');
   assert.equal(out.slowest_ms, 5000, 'the cold one is still worth seeing');
   assert.deepEqual(out.stages.map((s) => [s.label, s.ms]),
-    [['Fetch and scale', 10], ['Read', 430], ['Translate', 5],
+    [['Fetch and scale', 46], ['Read', 430], ['Translate', 5],
      ['Lay out', 1], ['Paint', 4], ['Encode', 20]]);
+  assert.deepEqual(out.stages[0].parts,
+    [{ key: 'fetch', label: 'Fetch', ms: 10 },
+     { key: 'decode', label: 'Decode source', ms: 11 },
+     { key: 'scale', label: 'Scale and read pixels', ms: 12 },
+     { key: 'reader-encode', label: 'Encode for reader', ms: 13 }]);
 });
 
 test('an image with no text in it is not counted against the stages below the reader',
@@ -88,15 +94,31 @@ test('an image with no text in it is not counted against the stages below the re
       'the painting median is over the images that were painted');
   });
 
-test('a rate is summed over the calls a stage made, not averaged over them', async () => {
+test('a model call is split into TTFT and decode with its throughput', async () => {
   stubStorage();
-  await done(300, { translate: { ms: 90, calls: 3, ttft_ms: 50, tokens: 300, gen_ms: 2000 } });
-  const translator = (await only()).models.find((m) => m.label === 'Translator')!;
-  assert.deepEqual([translator.ttft_ms, translator.tokens_per_s, translator.calls], [50, 150, 3]);
+  await done(300, {
+    read: { ms: 240, calls: 1, ttft_ms: 40, tokens: 300, gen_ms: 150 },
+  });
+  const reader = (await only()).stages.find((stage) => stage.key === 'read');
+  assert.deepEqual(reader, {
+    key: 'read', label: 'Read', ms: 240,
+    parts: [
+      { key: 'read-ttft', label: 'TTFT', ms: 40 },
+      { key: 'read-decode', label: 'Decode · 2000 tok/s', ms: 150 },
+      { key: 'read-overhead', label: 'Overhead', ms: 50 },
+    ],
+  });
+});
 
-  const reader = (await only()).models.find((m) => m.label === 'Reader')!;
-  assert.deepEqual([reader.ttft_ms, reader.tokens_per_s], [null, null],
-    'a stage whose endpoint said nothing shows nothing rather than zero');
+test('several model requests stay one wall-clock stage', async () => {
+  stubStorage();
+  await done(300, { translate: { ms: 90, calls: 3, tokens: 300, gen_ms: 2000 } });
+  const translator = (await only()).stages.find((stage) => stage.key === 'translate')!;
+  assert.deepEqual(translator, {
+    key: 'translate', label: 'Translate', ms: 90,
+    parts: [{ key: 'translate-request',
+      label: 'Full request · 150 tok/s overall · 3 requests', ms: 90 }],
+  });
 });
 
 test('forgetting the timings empties the window rather than zeroing it', async () => {
@@ -153,6 +175,14 @@ test('runs from before profiles are grouped rather than dropped', async () => {
   const out = await only();
   assert.equal(out.profile, '(unknown)');
   assert.equal(out.runs, 1);
+});
+
+test('runs from the old timing schema are discarded', async () => {
+  const old = { at: 1, url: 'http://pics/old.png', profile: 'Local', ok: true,
+                total_ms: 300, fetch_ms: 200 };
+  stubStorage({ metrics: [old] });
+  assert.deepEqual(await report(), { runs: 0, failed: 0, profiles: [] });
+  assert.deepEqual(await entries(), []);
 });
 
 test('a profile that has only ever failed still says so', async () => {

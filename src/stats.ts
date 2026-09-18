@@ -1,5 +1,5 @@
 import {
-  type ModelRow, type ProfileReport, type Report, type Run, type StageRow,
+  type ProfileReport, type Report, type Run, type StageRow,
   NO_PROFILE, stagesOf,
 } from './platform/metrics.ts';
 import { $, clear, el, ms, plural } from './ui/dom.ts';
@@ -20,41 +20,37 @@ function bar(stages: StageRow[], scale: number, tall = false): HTMLElement {
                 style: { width: width(stage.ms) } })));
 }
 
+// Same filter as the bar: a one-pass profile has no translate stage at all, and
+// a legend entry for it would be a line that never runs.
 function legend(stages: StageRow[]): HTMLElement {
   return el('div', { className: 'legend' },
-    ...stages.flatMap((stage) => [
-      el('i', { className: `seg-${stage.key}` }),
-      el('span', {}, stage.label),
-      el('span', { className: 'num' }, ms(stage.ms)),
-    ]));
+    ...stages.filter((stage) => stage.ms > 0).flatMap((stage) => {
+      const parent = [
+        el('i', { className: `seg-${stage.key}` }),
+        el('span', {}, stage.label),
+        el('span', { className: 'num' }, ms(stage.ms)),
+      ];
+      const parts = (stage.parts || []).filter((part) => part.ms > 0).flatMap((part) => [
+        el('i', { className: `seg-${stage.key} substage` }),
+        el('span', { className: 'substage-label' }, part.label),
+        el('span', { className: 'num substage-value' }, ms(part.ms)),
+      ]);
+      return [...parent, ...parts];
+    }));
 }
 
 const stat = (value: string, caption: string) =>
   el('div', { className: 'stat' }, el('b', {}, value), el('span', {}, caption));
-
-/** Whichever numbers this endpoint gave up. A hosted one reports no prefill. */
-function modelLine({ label, ttft_ms, tokens_per_s, calls }: ModelRow): string {
-  const parts = [
-    ttft_ms === null ? null : `${ms(ttft_ms)} to first token`,
-    tokens_per_s === null ? null : `${tokens_per_s} tok/s`,
-    calls > 1 ? `${calls} requests` : null,
-  ].filter(Boolean);
-  return parts.length ? `${label}: ${parts.join(', ')}`
-    : `${label}: this endpoint does not report its own timings.`;
-}
 
 function showReport(report: ProfileReport | undefined): void {
   const summary = clear($('summary'));
   if (!report) {
     summary.append(el('p', { className: 'blurb' }, 'Nothing translated yet.'));
     $('breakdown').hidden = true;
-    $('models-section').hidden = true;
     return;
   }
-  // A profile that has only ever failed has no stages to draw and no model
-  // numbers to report, so it stops at the counts.
+  // A profile that has only ever failed has no stages to draw.
   $('breakdown').hidden = !report.runs;
-  $('models-section').hidden = !report.runs;
 
   summary.append(el('div', { className: 'strip' },
     stat(String(report.runs), report.runs === 1 ? 'image' : 'images'),
@@ -69,9 +65,6 @@ function showReport(report: ProfileReport | undefined): void {
 
   const total = report.stages.reduce((n, stage) => n + stage.ms, 0);
   clear($('stages')).append(bar(report.stages, total, true), legend(report.stages));
-
-  clear($('models')).append(...report.models.map((model) =>
-    el('div', {}, modelLine(model))));
 }
 
 // Seconds are in the tooltip; the column is a place in the afternoon, not a stopwatch.
