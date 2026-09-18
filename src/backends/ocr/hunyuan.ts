@@ -1,8 +1,9 @@
 import { type Box, type TextLine } from '../../core/geometry.ts';
+import { type EncodedImage, type ModelRequest, type OcrAdapter } from '../types.ts';
 
 // The reader was trained to emit this; the JSON variant of the same task is a
 // prompt it largely ignores.
-export const SPOTTING = '检测并识别图片中的文字，将文本坐标格式化输出。';
+const SPOTTING = '检测并识别图片中的文字，将文本坐标格式化输出。';
 
 // TEXT(x0,y0),(x1,y1) run together, normalised to 0-1000 on both axes.
 const SPOT_RE = /(.+?)\((\d+),(\d+)\),\((\d+),(\d+)\)/gs;
@@ -22,3 +23,35 @@ export function parseSpots(reply: string, width: number, height: number): TextLi
   }
   return lines;
 }
+
+export const hunyuanSpotting: OcrAdapter = {
+  id: 'hunyuan-spotting',
+
+  capabilities: {
+    maxDim: 1600,
+    encode: 'png',
+    // It can translate, but not from Chinese, which is why a second model exists.
+    alsoTranslates: false,
+  },
+
+  build(image: EncodedImage): ModelRequest {
+    return {
+      kind: 'chat',
+      body: {
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: image.dataUrl } },
+            { type: 'text', text: SPOTTING },
+          ],
+        }],
+        temperature: 0,
+        max_tokens: 2048,
+      },
+    };
+  },
+
+  parse(content: string, image: EncodedImage): TextLine[] {
+    return parseSpots(content, image.width, image.height);
+  },
+};

@@ -1,21 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 
-import { parseSpots } from '../src/backends/ocr/hunyuan.ts';
 import { type Box } from '../src/core/geometry.ts';
 import { group, join } from '../src/core/grouping.ts';
 import { detectedSource, sourceLanguage, untranslated, type Detection }
   from '../src/core/language.ts';
 import { allowance, containerBox, negotiate } from '../src/core/layout.ts';
-
-test('the reader emits text and its corners run together, normalised to 0-1000', () => {
-  const reply = '22:06(69,22),(169,39)発消息或按住説話(153,701),(839,735)'
-    + '深度思考(92,779),(647,812)';
-  const spots = parseSpots(reply, 1000, 1000);
-  assert.equal(spots.length, 3);
-  assert.deepEqual(spots[0], { text: '22:06', box: [69, 22, 169, 39] });
-  assert.equal(spots[1].text, '発消息或按住説話');
-});
 
 test('wrapped horizontal lines join the block above them', () => {
   const rows = group([

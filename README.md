@@ -99,6 +99,23 @@ so it can be imported and tested directly. Anything a specific model needs said
 to it — the spotting prompt, the coordinate format, TranslateGemma's raw chat
 template — belongs in `backends/` and nowhere else.
 
+A backend is an endpoint and an adapter. The endpoint is a base URL, an optional
+key and a model name; `backends/client.ts` owns every request to one. The
+adapter says what to put in the body and how to read the reply back, and never
+touches the network:
+
+```ts
+build(image)                  → { kind: 'chat', body }     // what to send
+parse(content, image)         → TextLine[]                 // boxes, normalised
+build(texts, source, target)  → { kind, body }
+parse(content, expected)      → string[] | null            // null: lines drifted
+```
+
+`kind` picks the path: `chat` is `/v1/chat/completions`, which anything
+OpenAI-compatible serves, and `completion` is llama.cpp's raw prompt endpoint,
+which only a local server has. TranslateGemma needs the raw one, so it is marked
+`localOnly`.
+
 ## Tests
 
 ```bash

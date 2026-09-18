@@ -1,4 +1,4 @@
-import { health } from './backends/llamacpp.ts';
+import { health } from './backends/client.ts';
 import { translateImage } from './pipeline/image.ts';
 import { type Message, type PingResult } from './platform/messages.ts';
 import { fail, watchDebug } from './platform/log.ts';
@@ -8,8 +8,9 @@ watchDebug();
 
 async function ping(): Promise<PingResult> {
   const config = await settings();
-  const problems = [await health(config.reader, 'the reader'),
-                    await health(config.translator, 'the translator')].filter(Boolean);
+  const problems = [await health({ baseUrl: config.reader }, 'the reader'),
+                    await health({ baseUrl: config.translator }, 'the translator')]
+    .filter(Boolean);
   return problems.length ? { ok: false, error: problems.join('; ') } : { ok: true };
 }
 
