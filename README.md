@@ -32,10 +32,8 @@ endpoints, their adapters, and a button that checks whether they answer — is o
 the settings page behind **Settings…**.
 
 Nothing about that is specific to llama.cpp. Point both endpoints at any
-OpenAI-compatible service, give them a key and a model, and pick the two generic
-adapters. Against OpenRouter, `qwen/qwen3-vl-8b-instruct` with `json-boxes` and
-`google/gemma-3-12b-it` with `chat-lines` translate this README's example image
-for about two hundredths of a cent.
+OpenAI-compatible service, give them a key and a model, and pick the matching
+adapters — **Start from** has tested pairings for both.
 
 `poc/` also has a browser demo of the same pipeline at `http://127.0.0.1:8000`,
 which is easier to iterate on. See `poc/README.md`.
@@ -49,9 +47,24 @@ neither Chinese nor English. Chinese as a source is the one combination never
 measured, and asked for it the model extracts the text, announces
 `翻译成英文为`, and repeats the original.
 
-So one model reads and a second translates. TranslateGemma was the best of the
-translators tried: it renders `晴山空` as "Harayama" where a general 7B produced
-"Aoyama Sora" and a 3B produced "Clear Mountain Sky", and it is half the size.
+So one model reads and a second translates. Hy-MT2 1.8B does that job in
+1.47 GB — a gigabyte less than TranslateGemma 4B, which it matches on quality —
+and it keeps a numbered batch in order, so a page is one request rather than one
+per line whenever the reply drifts.
+
+| | reader | translator | total |
+| --- | --- | --- | --- |
+| Hy-MT2 1.8B Q6_K | 1.31 GB | 1.47 GB | **2.78 GB** |
+| TranslateGemma 4B Q4_K_M | 1.31 GB | 2.49 GB | 3.80 GB |
+
+Neither gets `雨宮静久` right at this size; the hosted 30B is the only model
+tried that does. TranslateGemma still reads `晴山空` slightly better, which is
+why it is still a preset:
+
+```bash
+MT_MODEL=bullerwins/translategemma-4b-it-GGUF:Q4_K_M MT_STYLE=gemma \
+MT_ARGS=--no-jinja ./start.sh
+```
 
 ## What it does
 
@@ -127,6 +140,7 @@ There are four:
 | `json-boxes-yx` | one that answers `[y0, x0, y1, x1]` — Gemini does |
 | `gemma-raw` | TranslateGemma's fixed prompt, local only |
 | `chat-lines` | any instruct model, numbered lines in and out |
+| `hunyuan-mt` | Hy-MT2, which answers to one fixed instruction |
 
 `kind` picks the path: `chat` is `/v1/chat/completions`, which anything
 OpenAI-compatible serves, and `completion` is llama.cpp's raw prompt endpoint,
@@ -182,6 +196,12 @@ for translation rather than chat — answered Amamiya Shizuku; Gemini and the re
 invent Shizuhisa. It is also the cheapest and fastest of them, at $0.00005 a
 page. Its one weakness is sound effects: `ドキドキ` becomes "So nervous" where
 Gemini says "Thump-thump".
+
+Being a translation model rather than a chat model is also why it has its own
+adapter. Asked for JSON it translates the instructions along with the text and
+answers in prose — the task done, in the wrong shape. Given the one instruction
+Tencent documents, with the lines numbered inside the text being translated, it
+answers in order every time.
 
 Avoid reasoning models at both jobs. They spend the budget thinking about a
 mechanical task — one returned 2048 tokens of reasoning and no answer at all.

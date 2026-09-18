@@ -5,11 +5,14 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 OCR_MODEL="${OCR_MODEL:-ggml-org/HunyuanOCR-GGUF}"
-MT_MODEL="${MT_MODEL:-bullerwins/translategemma-4b-it-GGUF:Q4_K_M}"
-# TranslateGemma is trained on one fixed prompt and its chat template
-# refuses a plain string, so the pipeline builds the prompt itself.
-MT_STYLE="${MT_STYLE:-gemma}"
-MT_ARGS="${MT_ARGS:---no-jinja}"
+# Hy-MT2 is a gigabyte smaller than TranslateGemma and keeps a numbered batch in
+# order, so a page is one request rather than one per line when it drifts. For
+# the old translator:
+#   MT_MODEL=bullerwins/translategemma-4b-it-GGUF:Q4_K_M MT_STYLE=gemma \
+#   MT_ARGS=--no-jinja ./start.sh
+MT_MODEL="${MT_MODEL:-tencent/Hy-MT2-1.8B-GGUF:Q6_K}"
+MT_STYLE="${MT_STYLE:-chat}"
+MT_ARGS="${MT_ARGS:-}"
 OCR_PORT="${OCR_PORT:-8090}"
 MT_PORT="${MT_PORT:-8091}"
 DEMO_PORT="${DEMO_PORT:-8000}"

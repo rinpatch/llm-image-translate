@@ -5,6 +5,7 @@ import { send } from '../src/backends/client.ts';
 import { hunyuanSpotting } from '../src/backends/ocr/hunyuan.ts';
 import { jsonBoxes } from '../src/backends/ocr/json-boxes.ts';
 import { chatLines } from '../src/backends/translate/chat-lines.ts';
+import { hunyuanMt } from '../src/backends/translate/hunyuan-mt.ts';
 import { translateGemma } from '../src/backends/translate/gemma.ts';
 import { type EncodedImage } from '../src/backends/types.ts';
 
@@ -166,4 +167,22 @@ test('a reply with no content at all is an empty string, not a crash', async () 
     globalThis.fetch = reply(body) as unknown as typeof fetch;
     assert.equal(await send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image), 'reader'), '');
   }
+});
+
+test('a translation model gets one instruction and numbered lines', () => {
+  const body = hunyuanMt.build(['包邮\n顺丰', 'x'], 'Chinese', 'English').body as any;
+  assert.equal(body.messages.length, 1, 'no system message: it would be translated too');
+  assert.match(body.messages[0].content, /into English/);
+  assert.match(body.messages[0].content, /1\. 包邮 顺丰\n2\. x/);
+});
+
+test('numbered lines come back by number, and a gap stays a gap', () => {
+  assert.deepEqual(hunyuanMt.parse('1. Free shipping\n2. SF Express', 2),
+    ['Free shipping', 'SF Express']);
+  assert.deepEqual(hunyuanMt.parse('2) Only the second', 2), [null, 'Only the second']);
+  assert.deepEqual(hunyuanMt.parse('Here you go:\n1. First\nand that is all', 1), ['First'],
+    'prose around the lines is ignored');
+  assert.deepEqual(hunyuanMt.parse('Limited-time discount', 1), ['Limited-time discount'],
+    'one line in, an unnumbered answer is still the answer');
+  assert.equal(hunyuanMt.parse('I cannot do that', 3), null);
 });

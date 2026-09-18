@@ -36,7 +36,7 @@ export const PUBLIC_DEFAULTS: PublicSettings = {
 
 export const PRIVATE_DEFAULTS: PrivateSettings = {
   reader: { baseUrl: 'http://127.0.0.1:8090', apiKey: '', model: '', adapter: 'hunyuan-spotting' },
-  translator: { baseUrl: 'http://127.0.0.1:8091', apiKey: '', model: '', adapter: 'gemma-raw' },
+  translator: { baseUrl: 'http://127.0.0.1:8091', apiKey: '', model: '', adapter: 'hunyuan-mt' },
   debug: false,
 };
 
@@ -61,7 +61,16 @@ export async function settings(): Promise<Settings> {
     publicSettings(),
     chrome.storage.local.get({ ...PRIVATE_DEFAULTS }),
   ]);
-  return { ...pub, ...PRIVATE_DEFAULTS, ...priv } as Settings;
+  // Endpoints merge field by field. A stored record missing one — written by an
+  // older version, or by hand — would otherwise take the whole default with it,
+  // and a missing adapter silently becomes some other model's prompt.
+  return {
+    ...pub,
+    ...PRIVATE_DEFAULTS,
+    ...priv,
+    reader: { ...PRIVATE_DEFAULTS.reader, ...(priv.reader as object) },
+    translator: { ...PRIVATE_DEFAULTS.translator, ...(priv.translator as object) },
+  } as Settings;
 }
 
 export function save<K extends keyof Settings>(key: K, value: Settings[K]): Promise<void> {

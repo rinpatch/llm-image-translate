@@ -45,6 +45,15 @@ test('a key and a model reach the client only when they are set', () => {
     { baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'sk-x', model: 'qwen' });
 });
 
+test('half an endpoint keeps the rest of the default, adapter included', async () => {
+  stubStorage({}, { translator: { baseUrl: 'http://127.0.0.1:9999' } });
+  const stored = await settings();
+  assert.equal(stored.translator.baseUrl, 'http://127.0.0.1:9999');
+  assert.equal(stored.translator.adapter, 'hunyuan-mt',
+    'a lost adapter would quietly send some other model its prompt');
+  assert.equal(stored.translator.model, '');
+});
+
 test('a preference syncs and an endpoint stays on the machine', async () => {
   const areas = stubStorage();
   await save('target', 'Korean');
