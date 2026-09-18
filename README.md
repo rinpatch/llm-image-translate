@@ -31,6 +31,12 @@ The popup is the two language pickers and nothing else. Everything else — the
 endpoints, their adapters, and a button that checks whether they answer — is on
 the settings page behind **Settings…**.
 
+Nothing about that is specific to llama.cpp. Point both endpoints at any
+OpenAI-compatible service, give them a key and a model, and pick the two generic
+adapters. Against OpenRouter, `qwen/qwen3-vl-8b-instruct` with `json-boxes` and
+`google/gemma-3-12b-it` with `chat-lines` translate this README's example image
+for about two hundredths of a cent.
+
 `poc/` also has a browser demo of the same pipeline at `http://127.0.0.1:8000`,
 which is easier to iterate on. See `poc/README.md`.
 
@@ -109,24 +115,58 @@ touches the network:
 build(image)                  → { kind: 'chat', body }     // what to send
 parse(content, image)         → TextLine[]                 // boxes, in raster pixels
 build(texts, source, target)  → { kind, body }
-parse(content, expected)      → string[] | null            // null: lines drifted
+parse(content, expected)      → (string | null)[] | null
 ```
+
+There are four:
+
+| adapter | for |
+| --- | --- |
+| `hunyuan-spotting` | HunyuanOCR's own spotting task |
+| `json-boxes` | any vision model, asked for a JSON array of boxes |
+| `gemma-raw` | TranslateGemma's fixed prompt, local only |
+| `chat-lines` | any instruct model, numbered lines in and out |
 
 `kind` picks the path: `chat` is `/v1/chat/completions`, which anything
 OpenAI-compatible serves, and `completion` is llama.cpp's raw prompt endpoint,
 which only a local server has. TranslateGemma needs the raw one, so it is marked
-`localOnly`.
+`localOnly` and the settings page says so if you pair it with a hosted service.
+The base URL is written either way round — `http://127.0.0.1:8090` or
+`https://openrouter.ai/api/v1` — and the version segment is taken off and put
+back rather than trusted.
 
 Boxes come back in pixels of the rasterised image, whatever the model emits —
 HunyuanOCR's 0-1000 grid is its adapter's business. Normalising them would make
 the geometry anisotropic: `isVertical` compares a box's height against its
 width, and on a 400x1600 page that comparison flips.
 
+`json-boxes` asks for that same 0-1000 grid, because Qwen3-VL answers on it even
+when the prompt spells out the pixel size of the image. A reply that exceeds
+1000 anywhere is taken as pixels instead, since the grid cannot.
+
+## What comes back from a model
+
+Two lines in, one line out, and every line after it is attributed to the wrong
+box. `chat-lines` numbers them, so a model that merges or drops one loses only
+that line; the rest of the batch stands and the gaps are asked for again, three
+at a time. `gemma-raw` cannot — TranslateGemma is trained on one fixed prompt and
+would translate the numbers — so a drifted reply there costs the whole page.
+
+Replies arrive fenced, wrapped in prose, or after a block of reasoning holding
+the model's own rejected drafts of the answer. `backends/json.ts` takes the last
+balanced JSON value after any `</think>`, which is the answer in each case. A
+reasoning model still burns its thinking on your bill for no benefit here, so
+prefer one that does not.
+
 ## Settings
 
 An endpoint is a base URL, an optional key, an optional model name, and the
 adapter to drive it with. There are two of them, one per role, and they can name
 the same server.
+
+**Test both endpoints** asks each for `/v1/models` rather than llama.cpp's
+`/health`, which a hosted service does not serve — and a key that is wrong fails
+there the same way it would fail in earnest.
 
 Preferences — the two languages and whether badges appear — live in synced
 storage and are the only thing a content script is told. Endpoints live in local

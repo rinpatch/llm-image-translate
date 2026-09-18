@@ -1,13 +1,17 @@
 import { hunyuanSpotting } from './ocr/hunyuan.ts';
+import { jsonBoxes } from './ocr/json-boxes.ts';
+import { chatLines } from './translate/chat-lines.ts';
 import { translateGemma } from './translate/gemma.ts';
 import { type OcrAdapter, type TranslateAdapter } from './types.ts';
 
 export const OCR_ADAPTERS: Record<string, OcrAdapter> = {
   [hunyuanSpotting.id]: hunyuanSpotting,
+  [jsonBoxes.id]: jsonBoxes,
 };
 
 export const TRANSLATE_ADAPTERS: Record<string, TranslateAdapter> = {
   [translateGemma.id]: translateGemma,
+  [chatLines.id]: chatLines,
 };
 
 export const ocrAdapter = (id?: string): OcrAdapter =>

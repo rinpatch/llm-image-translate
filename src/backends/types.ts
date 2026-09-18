@@ -45,6 +45,10 @@ export interface TranslateAdapter {
     localOnly: boolean;
   };
   build(texts: string[], source: string, target: string, maxTokens?: number): ModelRequest;
-  /** One string per input line, or null when the reply's line count drifted. */
-  parse(content: string, expected: number): string[] | null;
+  /**
+   * One entry per input line: the translation, or null where the reply had
+   * nothing usable for it. null instead of an array means the whole reply was
+   * unusable and the batch is worth asking again one line at a time.
+   */
+  parse(content: string, expected: number): (string | null)[] | null;
 }

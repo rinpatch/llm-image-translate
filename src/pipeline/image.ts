@@ -38,13 +38,33 @@ async function rasterize(src: string, maxDim: number, dataUrl?: string): Promise
 }
 
 async function toDataUrl(canvas: OffscreenCanvas, encode: 'png' | 'jpeg'): Promise<string> {
-  const blob = await canvas.convertToBlob({ type: `image/${encode}` });
+  const blob = await canvas.convertToBlob({ type: `image/${encode}`, quality: 0.9 });
   const bytes = new Uint8Array(await blob.arrayBuffer());
   let binary = '';
   for (let i = 0; i < bytes.length; i += 0x8000) {
     binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   }
   return `data:image/${encode};base64,${btoa(binary)}`;
+}
+
+// Retries go out a few at a time. Serially they are slow enough to time a page
+// out; all at once they are a burst at whatever rate limit the endpoint has.
+const RETRY_CONCURRENCY = 3;
+
+async function fill<T>(
+  indices: number[],
+  limit: number,
+  work: (index: number) => Promise<T>,
+  into: T[],
+): Promise<void> {
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, indices.length) }, async () => {
+    while (next < indices.length) {
+      const at = indices[next++];
+      into[at] = await work(at);
+    }
+  });
+  await Promise.all(workers);
 }
 
 async function translateAll(
@@ -63,15 +83,19 @@ async function translateAll(
     );
 
   // The whole page in one request: the lines are context for each other.
-  const all = adapter.capabilities.batch ? await ask(texts) : null;
-  if (all) return all;
+  const batched = adapter.capabilities.batch ? await ask(texts) : null;
+  const out: (string | null)[] = batched || texts.map(() => null);
 
-  // A merged or split line shifts everything after it and there is no way to
-  // tell which moved, so the page is redone one line at a time.
-  if (adapter.capabilities.batch) log('line count drifted, redoing per line');
-  const out: string[] = [];
-  for (const text of texts) out.push((await ask([text], 256))?.[0] || '');
-  return out;
+  // Whatever the batch did not answer for is asked again on its own. An adapter
+  // that numbers its lines loses only the lines that went wrong; one that cannot
+  // tell which line moved loses the page.
+  const missing = out.map((line, i) => (line === null ? i : -1)).filter((i) => i >= 0);
+  if (missing.length) {
+    log(`asking again for ${missing.length} of ${texts.length} line(s)`);
+    await fill(missing, RETRY_CONCURRENCY,
+      async (at) => (await ask([texts[at]], 256))?.[0] ?? '', out as string[]);
+  }
+  return out.map((line) => line ?? '');
 }
 
 export async function translateImage(

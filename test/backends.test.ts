@@ -3,6 +3,8 @@ import assert from 'node:assert';
 
 import { send } from '../src/backends/client.ts';
 import { hunyuanSpotting } from '../src/backends/ocr/hunyuan.ts';
+import { jsonBoxes } from '../src/backends/ocr/json-boxes.ts';
+import { chatLines } from '../src/backends/translate/chat-lines.ts';
 import { translateGemma } from '../src/backends/translate/gemma.ts';
 import { type EncodedImage } from '../src/backends/types.ts';
 
@@ -68,7 +70,8 @@ test('the client addresses the endpoint and unwraps whichever reply shape', asyn
   const endpoint = { baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'sk-x', model: 'qwen' };
   assert.equal(await send(endpoint, translateGemma.build(['x'], 'Chinese', 'English'), 'tr'),
     'written');
-  assert.equal(calls[1].url, 'https://openrouter.ai/api/v1/completion');
+  assert.equal(calls[1].url, 'https://openrouter.ai/api/completion',
+    'the version segment is not doubled onto a base that already has one');
   assert.equal(calls[1].init.headers.Authorization, 'Bearer sk-x');
   assert.equal(JSON.parse(calls[1].init.body).model, 'qwen');
 });
@@ -81,4 +84,66 @@ test('a server that answers badly says so, in terms of what it was asked to be',
   globalThis.fetch = (async () => { throw new Error('ECONNREFUSED'); }) as unknown as typeof fetch;
   await assert.rejects(send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image), 'the reader'),
     /cannot reach the reader at http:\/\/host\/v1\/chat\/completions/);
+});
+
+test('a base written either way round reaches the same place', async () => {
+  const seen: string[] = [];
+  globalThis.fetch = (async (url: string) => {
+    seen.push(url);
+    return { ok: true, json: async () => ({ choices: [{ message: { content: '' } }] }) };
+  }) as unknown as typeof fetch;
+  for (const baseUrl of ['http://127.0.0.1:8090', 'http://127.0.0.1:8090/v1',
+                         'http://127.0.0.1:8090/v1/']) {
+    await send({ baseUrl }, hunyuanSpotting.build(image), 'reader');
+  }
+  assert.deepEqual(new Set(seen), new Set(['http://127.0.0.1:8090/v1/chat/completions']));
+});
+
+test('a numbered reply is put back in order, whatever it is wrapped in', () => {
+  const reply = 'Sure!\n```json\n[{"i": 2, "text": "SF Express"}, {"i": 1, "text": "Free"}]\n```';
+  assert.deepEqual(chatLines.parse(reply, 2), ['Free', 'SF Express']);
+});
+
+test('a line the model dropped is the only one lost', () => {
+  assert.deepEqual(chatLines.parse('[{"i":1,"text":"Free"},{"i":3,"text":"Third"}]', 3),
+    ['Free', null, 'Third'], 'the gap is reported rather than shifting the rest up');
+  assert.equal(chatLines.parse('I cannot read that image', 2), null,
+    'nothing usable at all means ask again line by line');
+  assert.equal(chatLines.parse('[{"i":9,"text":"nope"}]', 2), null,
+    'numbers that fit no line are not this protocol');
+});
+
+test('the numbered prompt keeps one line per line', () => {
+  const body = chatLines.build(['包邮\n顺丰', 'x'], 'Chinese', 'English').body as any;
+  assert.match(body.messages[1].content, /1\. 包邮 顺丰\n2\. x/,
+    'a newline inside a line would be read back as a second line');
+});
+
+test('a 0-1000 grid is scaled onto the image, and junk is dropped', () => {
+  const lines = jsonBoxes.parse(
+    '[{"text":"ok","box":[125,250,500,750]},'
+    + '{"text":"backwards","box":[500,750,125,250]},'
+    + '{"text":"flat","box":[10,10,10,40]},'
+    + '{"text":"junk","box":[1,2]},'
+    + '{"text":"  ","box":[1,2,3,4]}]', image);
+  assert.deepEqual(lines, [
+    { text: 'ok', box: [100, 100, 400, 300] },
+    { text: 'backwards', box: [100, 100, 400, 300] },
+  ], 'a zero-width box, a malformed box and an empty string are all dropped');
+});
+
+// Qwen3-VL answers on the grid whatever the prompt says; something else may not.
+test('a reply in pixels is taken as pixels, since the grid cannot exceed 1000', () => {
+  const lines = jsonBoxes.parse(
+    '[{"text":"a","box":[10,20,100,60]},{"text":"b","box":[200,100,1400,900]}]', image);
+  assert.deepEqual(lines, [
+    { text: 'a', box: [10, 20, 100, 60] },
+    { text: 'b', box: [200, 100, 800, 400] },
+  ], 'and the one that runs off the edge is clamped to it');
+});
+
+test('a model that wraps its array in an object is still understood', () => {
+  const lines = jsonBoxes.parse('{"lines": [{"text":"ok","box":[1,2,3,4]}]}', image);
+  assert.equal(lines.length, 1);
+  assert.deepEqual(jsonBoxes.parse('no text found here', image), []);
 });
