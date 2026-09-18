@@ -7,3 +7,4 @@ poc/.logs/
 poc/models/
 poc/__pycache__/
 extension/dist/
+.openrouter-key

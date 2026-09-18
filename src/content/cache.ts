@@ -1,3 +1,4 @@
+import { Lru } from '../core/lru.ts';
 import { type ImageResult } from '../platform/messages.ts';
 
 const CACHE_LIMIT = 12;
@@ -8,11 +9,12 @@ const CACHE_LIMIT = 12;
  * which avoids putting the full image string in the DOM.
  */
 export class ResultCache {
-  private results = new Map<string, ImageResult>();
-  private limit: number;
+  private results: Lru<ImageResult>;
 
   constructor(limit = CACHE_LIMIT) {
-    this.limit = limit;
+    this.results = new Lru<ImageResult>(limit, (dropped) => {
+      if (dropped.ok && dropped.image) URL.revokeObjectURL(dropped.image);
+    });
   }
 
   get size(): number {
@@ -20,25 +22,18 @@ export class ResultCache {
   }
 
   get(key: string): ImageResult | null {
-    const value = this.results.get(key);
-    if (!value) return null;
-    this.results.delete(key);
-    this.results.set(key, value);
-    return value;
+    return this.results.get(key);
   }
 
   set(key: string, response: ImageResult): ImageResult {
-    const value: ImageResult = response.ok && response.image
+    return this.results.set(key, response.ok && response.image
       ? { ...response, image: blobUrl(response.image) }
-      : response;
-    this.results.set(key, value);
-    if (this.results.size > this.limit) {
-      const oldest = this.results.keys().next().value!;
-      const discarded = this.results.get(oldest)!;
-      if (discarded.ok && discarded.image) URL.revokeObjectURL(discarded.image);
-      this.results.delete(oldest);
-    }
-    return value;
+      : response);
+  }
+
+  /** Whatever is in here was made by settings that no longer apply. */
+  clear(): void {
+    this.results.clear();
   }
 }
 

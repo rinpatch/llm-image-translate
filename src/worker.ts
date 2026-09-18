@@ -1,10 +1,14 @@
 import { health } from './backends/client.ts';
 import { translateImage } from './pipeline/image.ts';
+import { forget, keyFor, once } from './pipeline/jobs.ts';
 import { type Message, type PingResult } from './platform/messages.ts';
 import { fail, log, watchDebug } from './platform/log.ts';
 import { migrate, publicSettings, settings, toEndpoint } from './platform/settings.ts';
 
 watchDebug();
+// Results made with the old endpoint are answers to a different question.
+chrome.storage.local.onChanged.addListener(forget);
+
 migrate().then((moved) => {
   if (moved.length) log('migrated:', moved.join('; '));
 });
@@ -24,7 +28,11 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
   (async () => {
     try {
       switch (msg.type) {
-        case 'translateImage': sendResponse(await translateImage(msg, await settings())); break;
+        case 'translateImage': {
+          const config = await settings();
+          sendResponse(await once(keyFor(msg, config), () => translateImage(msg, config)));
+          break;
+        }
         case 'settings': sendResponse(await publicSettings()); break;
         case 'ping': sendResponse(await ping()); break;
         default: sendResponse({ ok: false, error: `unknown message ${(msg as any).type}` });

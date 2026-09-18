@@ -109,6 +109,16 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
   setStatus(img, 'shown');
 }
 
+/** Back to untranslated: the blob URLs are about to be revoked under them. */
+function invalidate(): void {
+  for (const [img, state] of states) {
+    if (state.status === 'shown') restore(img);
+    state.translated = null;
+    setStatus(img, 'idle');
+  }
+  cache.clear();
+}
+
 function blobToDataUrl(src: string): Promise<string> {
   return fetch(src).then((r) => r.blob()).then((blob) => new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -122,6 +132,11 @@ send<PublicSettings>({ type: 'settings' }).then((loaded) => {
   if (loaded && !('error' in loaded)) config = loaded;
   if (config.images !== false) layer.start();
 });
+
+// A changed endpoint or adapter means everything translated so far was made by
+// something else. The values are none of this page's business; that one changed
+// is enough to know the results are stale.
+chrome.storage.local.onChanged.addListener(() => invalidate());
 
 // Only the synced area: the worker's endpoints are none of this page's business.
 chrome.storage.sync.onChanged.addListener((changes) => {
