@@ -7,13 +7,17 @@ const COLUMN_OVERLAP = 0.4;
 
 const CJK = /[㐀-䶿一-鿿぀-ヿ가-힯]/;
 
-function groupRows(lines: TextLine[]): Block[] {
+/** Says whether two boxes are divided by something, whatever their spacing. */
+export type Divided = (above: Box, below: Box) => boolean;
+
+function groupRows(lines: TextLine[], divided?: Divided): Block[] {
   const blocks: Block[] = [];
   for (const line of [...lines].sort((a, b) => a.box[1] - b.box[1] || a.box[0] - b.box[0])) {
     const [x0, y0, x1, y1] = line.box;
     let joined = false;
     for (let i = blocks.length - 1; i >= 0; i--) {
       const b = blocks[i];
+      if (divided?.(b.box, line.box)) continue;
       const lineH = b.lineH!;
       const gap = y0 - b.box[3];
       const overlap = Math.min(b.box[2], x1) - Math.max(b.box[0], x0);
@@ -62,9 +66,9 @@ function groupColumns(lines: TextLine[]): Block[] {
   return blocks;
 }
 
-export function group(lines: TextLine[]): Block[] {
+export function group(lines: TextLine[], divided?: Divided): Block[] {
   return [
-    ...groupRows(lines.filter((l) => !isVertical(l.box))),
+    ...groupRows(lines.filter((l) => !isVertical(l.box)), divided),
     ...groupColumns(lines.filter((l) => isVertical(l.box))),
   ];
 }

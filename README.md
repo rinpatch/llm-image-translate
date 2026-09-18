@@ -71,7 +71,13 @@ MT_ARGS=--no-jinja ./start.sh
 **Reads** with the `spotting_hunyuan` task, whose output is `TEXT(x0,y0),(x1,y1)`
 run together and normalised to 0-1000.
 
-**Groups** lines into blocks. Horizontal lines join the block above them;
+**Groups** lines into blocks. A rule drawn between two lines keeps them apart
+whatever their spacing says: on a price list the wrap inside one cell and the gap
+to the next row measured 3px and 19px against a 21px threshold, so without that
+check a table comes back as one block per column instead of one per cell. Where
+nothing is ruled, the spacing decides as before.
+
+Horizontal lines join the block above them;
 vertical CJK columns join the block to their right, which is the direction
 Japanese is read in. Without that a manga page arrives as dozens of 28-pixel
 columns that no font size will fit English into.

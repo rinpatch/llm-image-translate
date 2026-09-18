@@ -1,5 +1,6 @@
 import { type Box, type Block } from '../core/geometry.ts';
 import { group, join } from '../core/grouping.ts';
+import { ruledBetween } from '../core/rules.ts';
 import { detectedSource, untranslated } from '../core/language.ts';
 import { dominant, inkFor, rgb } from '../core/color.ts';
 import { allowance, containerBox, negotiate } from '../core/layout.ts';
@@ -134,7 +135,10 @@ export async function translateImage(
     const reply = await send(toEndpoint(config.reader), ocr.build(image), 'the reader',
       signal);
     timings.read_ms = Date.now() - started;
-    blocks = group(ocr.parse(reply, image));
+    // A table's rows sit as close together as a wrapped sentence's lines, so
+    // the spacing alone would run a price list into one block.
+    blocks = group(ocr.parse(reply, image),
+      (a, b) => ruledBetween(source, width, height, a, b));
     log('read', blocks.length, 'blocks in', timings.read_ms, 'ms');
     if (!blocks.length) return { ok: true, image: null, blocks: [], timings };
 
