@@ -61,15 +61,16 @@ test('the client addresses the endpoint and unwraps whichever reply shape', asyn
   };
 
   globalThis.fetch = reply({ choices: [{ message: { content: 'read' } }] }) as typeof fetch;
-  assert.equal(await send({ baseUrl: 'http://host/' }, hunyuanSpotting.build(image), 'reader'),
-    'read');
+  assert.equal(
+    (await send({ baseUrl: 'http://host/' }, hunyuanSpotting.build(image), 'reader')).text, 'read');
   assert.equal(calls[0].url, 'http://host/v1/chat/completions', 'trailing slash does not double');
   assert.equal(calls[0].init.headers.Authorization, undefined, 'no key, no header');
   assert.equal(JSON.parse(calls[0].init.body).model, undefined, 'no model unless one is named');
 
   globalThis.fetch = reply({ content: 'written' }) as typeof fetch;
   const endpoint = { baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'sk-x', model: 'qwen' };
-  assert.equal(await send(endpoint, translateGemma.build(['x'], 'Chinese', 'English'), 'tr'),
+  assert.equal(
+    (await send(endpoint, translateGemma.build(['x'], 'Chinese', 'English'), 'tr')).text,
     'written');
   assert.equal(calls[1].url, 'https://openrouter.ai/api/completion',
     'the version segment is not doubled onto a base that already has one');
@@ -165,7 +166,8 @@ test('a reply with no content at all is an empty string, not a crash', async () 
   const reply = (body: unknown) => (async () => ({ ok: true, json: async () => body }));
   for (const body of [{ choices: [{ message: { content: null } }] }, { choices: [] }, {}]) {
     globalThis.fetch = reply(body) as unknown as typeof fetch;
-    assert.equal(await send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image), 'reader'), '');
+    assert.equal(
+      (await send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image), 'reader')).text, '');
   }
 });
 

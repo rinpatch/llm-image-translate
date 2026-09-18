@@ -10,6 +10,7 @@ const ctx = await context({
     content: 'src/content.ts',
     popup: 'src/popup.ts',
     options: 'src/options.ts',
+    stats: 'src/stats.ts',
   },
   outdir: 'extension/dist',
   bundle: true,

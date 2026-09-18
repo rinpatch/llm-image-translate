@@ -2,12 +2,16 @@ import { health } from './backends/client.ts';
 import { translateImage } from './pipeline/image.ts';
 import { forget, keyFor, once } from './pipeline/jobs.ts';
 import { type ImageResult, type Message, type PingResult } from './platform/messages.ts';
+import { clear, entries, record, report } from './platform/metrics.ts';
 import { fail, log, watchDebug } from './platform/log.ts';
-import { migrate, publicSettings, settings, toEndpoint } from './platform/settings.ts';
+import { affectsResults, migrate, publicSettings, settings, toEndpoint }
+  from './platform/settings.ts';
 
 watchDebug();
 // Results made with the old endpoint are answers to a different question.
-chrome.storage.local.onChanged.addListener(forget);
+chrome.storage.local.onChanged.addListener((changes) => {
+  if (affectsResults(changes)) forget();
+});
 
 migrate().then((moved) => {
   if (moved.length) log('migrated:', moved.join('; '));
@@ -24,8 +28,24 @@ async function run(request: Extract<Message, { type: 'translateImage' }>): Promi
   const controller = new AbortController();
   jobs.set(request.jobId, controller);
   try {
-    return await once(keyFor(request, config), controller.signal,
-      (signal) => translateImage(request, config, signal));
+    // Timed inside the work rather than around it: a second click on the same
+    // image is answered from the cache and never went near a model.
+    return await once(keyFor(request, config), controller.signal, async (signal) => {
+      const result = await translateImage(request, config, signal);
+      // A cancelled image is the page changing its mind, not an outcome worth
+      // keeping; everything else goes in the history, failures most of all.
+      if (result.ok || result.code !== 'cancelled') {
+        await record({
+          url: request.src,
+          // Growth off is a different layout, and its numbers would otherwise
+          // land in the same medians as the runs that had it on.
+          profile: config.expand ? config.profileName : `${config.profileName} (no growth)`,
+          ok: result.ok,
+          ...(result.ok ? { timings: result.timings } : { error: result.error, code: result.code }),
+        });
+      }
+      return result;
+    });
   } finally {
     jobs.delete(request.jobId);
   }
@@ -48,6 +68,9 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
         case 'cancelImage': jobs.get(msg.jobId)?.abort(); sendResponse({ ok: true }); break;
         case 'settings': sendResponse(await publicSettings()); break;
         case 'ping': sendResponse(await ping()); break;
+        case 'metrics': sendResponse(await report()); break;
+        case 'log': sendResponse(await entries()); break;
+        case 'clearMetrics': await clear(); sendResponse(await report()); break;
         default: sendResponse({ ok: false, error: `unknown message ${(msg as any).type}` });
       }
     } catch (e: any) {

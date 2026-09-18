@@ -1,4 +1,4 @@
-import { type Endpoint, type ModelRequest } from './types.ts';
+import { type Endpoint, type ModelRequest, type ModelStats, type Reply } from './types.ts';
 
 // A hung request holds the service worker awake for as long as it lasts, so
 // there is an outer limit even when nobody cancels.
@@ -56,21 +56,41 @@ async function post(
   return response.json();
 }
 
+// llama.cpp puts a `timings` block beside the answer; everyone else has `usage`
+// and nothing about prefill. Where the server did not time itself, the round trip
+// stands in for the generation, which charges it for the network too.
+function statsOf(out: any, wall_ms: number): ModelStats {
+  const stats: ModelStats = { wall_ms };
+  const timings = out?.timings;
+  if (Number.isFinite(timings?.prompt_ms)) stats.ttft_ms = Math.round(timings.prompt_ms);
+  const tokens = Number(timings?.predicted_n ?? out?.usage?.completion_tokens);
+  if (Number.isFinite(tokens) && tokens > 0) {
+    stats.tokens = tokens;
+    stats.gen_ms = Math.round(
+      Number.isFinite(timings?.predicted_ms) ? timings.predicted_ms : wall_ms);
+  }
+  return stats;
+}
+
 /** Posts what an adapter built and hands back the text the model produced. */
 export async function send(
   endpoint: Endpoint,
   request: ModelRequest,
   what: string,
   signal?: AbortSignal,
-): Promise<string> {
+): Promise<Reply> {
   const body = endpoint.model ? { ...request.body, model: endpoint.model } : request.body;
+  const started = Date.now();
   const out = await post(endpoint, pathFor(endpoint.baseUrl, request.kind), body, what, signal);
   // A model that answers with nothing at all — a refusal, or a reasoning model
   // that spent its budget thinking — still has to come back as a string.
   const content = request.kind === 'chat'
     ? out.choices?.[0]?.message?.content
     : out.content;
-  return typeof content === 'string' ? content : '';
+  return {
+    text: typeof content === 'string' ? content : '',
+    stats: statsOf(out, Date.now() - started),
+  };
 }
 
 // /v1/models rather than llama.cpp's /health: every OpenAI-compatible server has

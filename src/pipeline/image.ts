@@ -7,13 +7,13 @@ import { allowance, containerBox, negotiate } from '../core/layout.ts';
 import { drawBlock } from '../core/paint.ts';
 import { Cancelled, send } from '../backends/client.ts';
 import { ocrAdapter, translateAdapter } from '../backends/registry.ts';
-import { type EncodedImage, type Endpoint, type TranslateAdapter }
+import { type EncodedImage, type Endpoint, type ModelStats, type TranslateAdapter }
   from '../backends/types.ts';
 import { detect } from '../platform/detect.ts';
 import { log, fail } from '../platform/log.ts';
 import { type Settings, toEndpoint } from '../platform/settings.ts';
-import { type BlockReport, type ImageResult, type Timings, type TranslateImage }
-  from '../platform/messages.ts';
+import { type BlockReport, type ImageResult, type Stage, type Timings,
+  type TranslateImage } from '../platform/messages.ts';
 
 interface Raster {
   canvas: OffscreenCanvas;
@@ -82,15 +82,16 @@ async function translateAll(
   sourceSetting: string,
   target: string,
   signal: AbortSignal,
+  calls: ModelStats[],
 ): Promise<string[]> {
   if (!texts.length) return [];
   const source = await detectedSource(texts, sourceSetting, detect);
-  const ask = async (batch: string[], maxTokens?: number) =>
-    adapter.parse(
-      await send(endpoint, adapter.build(batch, source, target, maxTokens), 'the translator',
-        signal),
-      batch.length,
-    );
+  const ask = async (batch: string[], maxTokens?: number) => {
+    const reply = await send(endpoint, adapter.build(batch, source, target, maxTokens),
+      'the translator', signal);
+    calls.push(reply.stats);
+    return adapter.parse(reply.text, batch.length);
+  };
 
   // The whole page in one request: the lines are context for each other.
   const batched = adapter.capabilities.batch ? await ask(texts) : null;
@@ -108,14 +109,32 @@ async function translateAll(
   return out.map((line) => line ?? '');
 }
 
+/**
+ * Rolls a stage's calls into one line. Prefill is the first call's: the retries
+ * that follow a partly answered batch are one line each and say nothing about
+ * how long the page itself took to read.
+ */
+function stageOf(ms: number, calls: ModelStats[]): Stage {
+  const stage: Stage = { ms, calls: calls.length };
+  if (calls[0]?.ttft_ms !== undefined) stage.ttft_ms = calls[0].ttft_ms;
+  const counted = calls.filter((c) => c.tokens);
+  if (counted.length) {
+    stage.tokens = counted.reduce((n, c) => n + c.tokens!, 0);
+    stage.gen_ms = counted.reduce((n, c) => n + (c.gen_ms ?? 0), 0);
+  }
+  return stage;
+}
+
 export async function translateImage(
   { src, dataUrl }: TranslateImage,
   config: Settings,
   signal: AbortSignal,
 ): Promise<ImageResult> {
   const timings: Timings = {};
+  const wholeRun = Date.now();
   const ocr = ocrAdapter(config.reader.adapter);
   const translator = translateAdapter(config.translator.adapter);
+  const fetched = Date.now();
   let raster: Raster;
   try {
     raster = await rasterize(src, ocr.capabilities.maxDim, signal, dataUrl);
@@ -128,27 +147,33 @@ export async function translateImage(
   const source = ctx.getImageData(0, 0, width, height).data;
   const before = await toDataUrl(canvas, ocr.capabilities.encode);
   const image: EncodedImage = { dataUrl: before, width, height };
+  timings.fetch_ms = Date.now() - fetched;
 
   let blocks: Block[];
   try {
     let started = Date.now();
     const reply = await send(toEndpoint(config.reader), ocr.build(image), 'the reader',
       signal);
-    timings.read_ms = Date.now() - started;
+    timings.read = stageOf(Date.now() - started, [reply.stats]);
     // A table's rows sit as close together as a wrapped sentence's lines, so
     // the spacing alone would run a price list into one block.
-    blocks = group(ocr.parse(reply, image),
+    blocks = group(ocr.parse(reply.text, image),
       (a, b) => ruledBetween(source, width, height, a, b));
-    log('read', blocks.length, 'blocks in', timings.read_ms, 'ms');
-    if (!blocks.length) return { ok: true, image: null, blocks: [], timings };
+    timings.blocks = blocks.length;
+    log('read', blocks.length, 'blocks in', timings.read.ms, 'ms');
+    if (!blocks.length) {
+      timings.total_ms = Date.now() - wholeRun;
+      return { ok: true, image: null, blocks: [], timings };
+    }
 
     const originals = blocks.map((b) => join(b.lines));
     started = Date.now();
-    const translations = await translateAll(
-      toEndpoint(config.translator), translator, originals, config.source, config.target, signal);
-    timings.translate_ms = Date.now() - started;
+    const calls: ModelStats[] = [];
+    const translations = await translateAll(toEndpoint(config.translator), translator, originals,
+      config.source, config.target, signal, calls);
+    timings.translate = stageOf(Date.now() - started, calls);
 
-    const started2 = Date.now();
+    started = Date.now();
     const proposals: [Box, Box | null][] = blocks.map((block, i) => {
       const [x0, y0, x1, y1] = block.box;
       const padded: Box = [Math.max(0, x0 - 2), Math.max(0, y0 - 2),
@@ -157,12 +182,17 @@ export async function translateImage(
       if (!translated || untranslated(originals[i], translated, config.target)) {
         return [padded, null];
       }
+      // With growth off the translation stays in the box the reader drew, which
+      // is what a page without bubbles to grow into wants.
+      if (!config.expand) return [padded, null];
       const fill = dominant(source, width, height, block.box);
       const found = containerBox(source, width, height, block.box, fill);
       const wide = found && (found[2] - found[0]) <= (x1 - x0) * allowance(translated);
       return [padded, wide ? found : null];
     });
     const layout = negotiate(proposals);
+    timings.layout_ms = Date.now() - started;
+    started = Date.now();
 
     // Removing source glyphs is independent from finding room for the result.
     // Clear only the OCR bounds; a container is merely a layout constraint.
@@ -183,15 +213,14 @@ export async function translateImage(
       drawBlock(ctx, layout[i], translations[i], null, inkFor(fill), rgb(fill));
       report.push({ box: layout[i], src: originals[i], en: translations[i], skipped: null });
     });
-    timings.render_ms = Date.now() - started2;
+    timings.paint_ms = Date.now() - started;
 
-    return {
-      ok: true,
-      image: await toDataUrl(canvas, ocr.capabilities.encode),
-      original: before,
-      blocks: report,
-      timings,
-    };
+    started = Date.now();
+    const after = await toDataUrl(canvas, ocr.capabilities.encode);
+    timings.encode_ms = Date.now() - started;
+    timings.total_ms = Date.now() - wholeRun;
+
+    return { ok: true, image: after, original: before, blocks: report, timings };
   } catch (e: any) {
     if (e instanceof Cancelled || signal.aborted) return cancelled();
     fail('pipeline failed', e);

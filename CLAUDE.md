@@ -1,0 +1,127 @@
+# Testing
+
+Three layers, cheapest first. Most changes only need the first.
+
+```bash
+npm test          # tsc --noEmit, then node --test test/
+npm run build     # esbuild src/ -> extension/dist/
+```
+
+`core/` and `backends/` are pure — no `chrome.*`, no network — so they are imported
+and called directly. Anything touching `chrome.storage` gets a hand-written stub
+(see the top of `test/settings.test.ts`); anything touching the DOM runs under
+jsdom (`test/content.test.ts`). `globalThis.fetch` is replaced outright to fake a
+model's reply.
+
+## Driving the real extension
+
+`agent-browser --extension <path>` loads an unpacked extension and gives you a
+CDP-driven browser over it. The extension ID is fixed at
+`khbiipgidcclbakblacconmmpnacljae`, because `manifest.json` carries a `key` field
+(the public half of `tools/extension_key.pem`), so extension pages have a stable
+URL you can navigate straight to:
+
+```bash
+npm run build     # the manifest points at extension/dist/, not src/
+agent-browser --extension "$PWD/extension" \
+  open chrome-extension://khbiipgidcclbakblacconmmpnacljae/options.html
+
+agent-browser get text "#history"   # on stats.html — the timings live there now
+agent-browser screenshot /tmp/options.png
+agent-browser errors            # page errors, empty is the pass
+agent-browser close --all
+```
+
+`AGENT_BROWSER_COLOR_SCHEME=light` on that first command is how you see the light
+half of `extension/ui.css`; the flag form of it cannot start a browser.
+
+Only the first command of a session needs `--extension`; the rest attach to the
+browser it left running. `close --all` is what picks up a rebuild — an MV3 worker
+keeps the `dist/` it started with. It also takes the profile with it, so
+`chrome.storage` starts empty every session and anything a test needs in there
+has to be seeded again.
+
+Do not reach for stable Chrome and `--load-extension`. Chrome removed it: on 151
+it is accepted, logs nothing, and leaves `extensions.settings` empty in the
+profile, so the extension URL fails with `ERR_BLOCKED_BY_CLIENT` and it looks
+like the extension is broken rather than absent. `--enable-unsafe-extension-debugging`
+does not bring it back. agent-browser drives Chrome for Testing, which still
+honours it.
+
+## Reaching the worker from a page
+
+An extension page shares the extension's origin, so `eval` there can talk to the
+MV3 service worker and to storage directly. That gets at the pipeline without
+hunting for a badge to click:
+
+```bash
+agent-browser eval 'chrome.runtime.sendMessage({type:"metrics"}).then(JSON.stringify)'
+agent-browser eval 'chrome.runtime.sendMessage({type:"log"}).then(JSON.stringify)'
+agent-browser eval 'chrome.storage.local.set({metrics: [...]}).then(() => "ok")'
+```
+
+`translateImage` takes a `dataUrl`, so a whole translation can be driven from
+here with no page and no image server — pass a throwaway `src` for the cache key
+and put the real bytes in `dataUrl`. Build the call in a file and pass it as
+`agent-browser eval "$(cat script.js)"`; a base64 PNG is too big to quote inline
+by hand.
+
+Two calls with the same bytes is the check that `once()` still dedupes: the
+second comes back with timings identical to the first, and `metrics` reports one
+run rather than two.
+
+## Against the live models
+
+`./macos/install.sh` puts the reader on :8090 and the translator on :8091.
+`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8090/v1/models` before
+blaming the code.
+
+Both sleep after a minute idle, so the first translation after a pause costs
+seconds more than the next one — real, and the reason the settings page reports
+medians. A test that asserts on a wall-clock number will fail on whichever run
+happens to land cold.
+
+`test/fixtures/manga-page.png` is the heavy case: 2297x3123, 7 MB, a dense
+Japanese page with 52 spotted lines and furigana. It is the one to reach for when
+something is slow; a small sample will not show it. Serve it rather than inlining
+it — a 7 MB PNG is ~10 MB as base64, past what `agent-browser eval` can take as
+an argument:
+
+```bash
+(cd test/fixtures && python3 -m http.server 8777 &)
+# then pass src: "http://127.0.0.1:8777/manga-page.png" to translateImage
+```
+
+One translation of it takes ~19s end to end, which outruns the agent-browser
+daemon's read timeout if you loop over several in a single `eval`. Drive one per
+call, or go at the server directly with `tools/probe-reader.py`.
+
+## Profiling the reader
+
+```bash
+poc/.venv/bin/python tools/probe-reader.py test/fixtures/manga-page.png 1600 1280
+```
+
+Reports llama.cpp's own split of prefill and generation per scale. Two traps:
+
+**The prompt cache.** Asking twice with the same image comes back `prompt_n: 1`
+and no prefill at all — ~8s rather than ~12.6s on the manga page. Both numbers
+are real, they answer different questions. Vary the image, or the scale, to
+measure a cold prefill.
+
+**Shrinking is not free.** Below about 1280 HunyuanOCR starts repeating itself
+and runs to `max_tokens`, so the smaller image is *slower* and its extra spots
+are duplicates. Watch `unique` against `spots` and `finish`, never `spots` alone.
+
+Generate a small CJK sample with the poc's venv, which already has PIL:
+
+```bash
+poc/.venv/bin/python -c "
+from PIL import Image, ImageDraw, ImageFont
+img = Image.new('RGB', (520, 260), 'white'); d = ImageDraw.Draw(img)
+f = ImageFont.truetype('/System/Library/Fonts/Supplemental/Songti.ttc', 40)
+d.text((30, 40), '全场包邮', font=f, fill='black'); img.save('/tmp/sample.png')"
+```
+
+`/System/Library/Fonts/PingFang.ttc` is there but PIL cannot open it — use
+`Supplemental/Songti.ttc`.

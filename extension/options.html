@@ -1,26 +1,8 @@
 <meta charset="utf-8">
 <title>Image Translate settings</title>
+<link rel="stylesheet" href="ui.css">
 <style>
-  :root { color-scheme: light dark; }
-  body { max-width: 560px; margin: 0 auto; padding: 32px 24px 64px;
-         font: 14px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; }
-  h1 { font-size: 17px; margin: 0 0 4px; }
-  h2 { font-size: 14px; margin: 0 0 2px; }
-  p.blurb { margin: 0 0 14px; opacity: .65; font-size: 12px; }
-  section { margin-top: 28px; padding-top: 20px; border-top: 1px solid rgba(128,128,128,.3); }
-  label { display: block; margin-bottom: 12px; }
-  label > span { display: block; opacity: .65; margin-bottom: 3px; font-size: 12px; }
-  input, select { width: 100%; font: inherit; padding: 5px 6px; box-sizing: border-box; }
-  .row { display: flex; gap: 12px; }
-  .row > label { flex: 1; }
-  .check { display: flex; align-items: center; gap: 8px; }
-  .check input { width: auto; }
-  .check span { margin: 0; opacity: 1; font-size: 14px; }
-  .status { font-size: 12px; min-height: 18px; opacity: .8; }
-  .status.ok { color: #2f855a; opacity: 1; }
-  .status.bad { color: #c0392b; opacity: 1; }
-  button { font: inherit; padding: 6px 14px; margin-top: 4px; }
-  footer { margin-top: 28px; font-size: 12px; opacity: .65; }
+  body { max-width: 560px; margin: 0 auto; padding: 32px 24px 64px; }
 </style>
 
 <h1>Image Translate</h1>
@@ -28,10 +10,17 @@
 translates it. They can be the same server.</p>
 
 <section>
-  <h2>Start from</h2>
-  <p class="blurb">A tested pairing of endpoints and adapters. Your API key is kept.</p>
-  <label><select id="preset"></select></label>
-  <p class="blurb" id="preset-note"></p>
+  <h2>Profile</h2>
+  <p class="blurb">A named pair of endpoints, switchable from the popup. The one picked
+  here is the one in use and the one the fields below edit.</p>
+  <label><span>In use</span><select id="profile"></select></label>
+  <label><span>Name</span><input type="text" id="profile-name"></label>
+  <p class="blurb" id="profile-note"></p>
+  <div class="buttons">
+    <button type="button" id="profile-new">New</button>
+    <button type="button" id="profile-copy">Duplicate</button>
+    <button type="button" id="profile-delete">Delete</button>
+  </div>
 </section>
 
 <section>
@@ -63,6 +52,17 @@ translates it. They can be the same server.</p>
 </section>
 
 <section>
+  <h2>Layout</h2>
+  <label class="check"><input type="checkbox" id="expand">
+    <span>Let a translation grow into the shape around it</span></label>
+  <p class="blurb">A vertical Japanese column is about one glyph wide and no font size
+  makes it hold a line of English, so a flood fill looks for the speech balloon it sits
+  in and lays the text out in there instead. Off, translations stay in the box the
+  reader drew — the shape to grow into is a comic's, and a screenshot or a photo has
+  none.</p>
+</section>
+
+<section>
   <h2>Pages</h2>
   <label class="check"><input type="checkbox" id="images">
     <span>Show a badge on images</span></label>
@@ -73,6 +73,9 @@ translates it. They can be the same server.</p>
 </section>
 
 <footer>
-  <button type="button" id="test">Test both endpoints</button>
+  <div class="rule">
+    <button type="button" id="test">Test both endpoints</button>
+    <a href="stats.html">Timings and history →</a>
+  </div>
 </footer>
 <script src="dist/options.js"></script>

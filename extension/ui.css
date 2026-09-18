@@ -1,0 +1,119 @@
+/* Shared by the popup, the settings page and the stats page. Anything that is
+   not specific to one of them belongs here rather than in a page's own block. */
+
+:root {
+  color-scheme: light dark;
+
+  --fg: #1a1a1a;
+  --muted: #6b6b6b;
+  --line: #e4e4e4;
+  --sunken: #f6f6f6;
+  --field: #fff;
+  --bg: #fff;
+  --accent: #35618e;
+  --ok: #2f855a;
+  --bad: #c0392b;
+
+  /* One colour per pipeline stage, used by every bar on the stats page so a
+     segment means the same thing wherever it turns up. */
+  --seg-fetch: #8a94a6;
+  --seg-read: #35618e;
+  --seg-translate: #2f8f83;
+  --seg-layout: #b08130;
+  --seg-paint: #7b5ea7;
+  --seg-encode: #ab5a6c;
+
+  --step: 4px;
+  --radius: 5px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #e6e6e6;
+    --muted: #9a9a9a;
+    --line: #363636;
+    --sunken: #232323;
+    --field: #2a2a2a;
+    --bg: #1b1b1b;
+    --accent: #7fa8d8;
+    --ok: #68d391;
+    --bad: #fc8181;
+
+    --seg-fetch: #737d8e;
+    --seg-read: #5b8fd0;
+    --seg-translate: #48b3a4;
+    --seg-layout: #d3a04a;
+    --seg-paint: #9b82c7;
+    --seg-encode: #cf7c8e;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+h1 { font-size: 17px; margin: 0 0 var(--step); }
+h2 { font-size: 14px; margin: 0 0 calc(var(--step) / 2); }
+
+p.blurb, .blurb { margin: 0 0 calc(var(--step) * 3); color: var(--muted); font-size: 12px; }
+
+section {
+  margin-top: calc(var(--step) * 7);
+  padding-top: calc(var(--step) * 5);
+  border-top: 1px solid var(--line);
+}
+
+label { display: block; margin-bottom: calc(var(--step) * 3); }
+label > span { display: block; color: var(--muted); margin-bottom: 3px; font-size: 12px; }
+
+input, select {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 5px 6px;
+  box-sizing: border-box;
+}
+
+/* Chrome draws no focus ring at all on a styled field, and a settings page you
+   cannot tab through is a settings page half the keyboard cannot reach. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.row { display: flex; gap: calc(var(--step) * 3); }
+.row > label { flex: 1; }
+
+.check { display: flex; align-items: center; gap: calc(var(--step) * 2); }
+.check input { width: auto; }
+.check span { margin: 0; color: inherit; font-size: 14px; }
+
+.status { font-size: 12px; min-height: 18px; color: var(--muted); }
+.status.ok { color: var(--ok); }
+.status.bad { color: var(--bad); }
+
+button {
+  font: inherit;
+  color: inherit;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 6px 14px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button[disabled] { color: var(--muted); cursor: default; border-color: var(--line); }
+
+.buttons { display: flex; gap: calc(var(--step) * 2); }
+
+a { color: var(--accent); }
+
+.rule { display: flex; align-items: baseline; justify-content: space-between;
+        gap: calc(var(--step) * 3); }
+
+.num { font-variant-numeric: tabular-nums; }
+
+footer { margin-top: calc(var(--step) * 7); font-size: 12px; }

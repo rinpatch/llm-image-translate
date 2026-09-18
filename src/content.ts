@@ -2,7 +2,7 @@ import { BadgeLayer, type Status } from './content/badges.ts';
 import { ResultCache } from './content/cache.ts';
 import { restore, show } from './content/swap.ts';
 import { type ImageResult, type Message, type TranslateImage } from './platform/messages.ts';
-import { type PublicSettings } from './platform/settings.ts';
+import { affectsResults, type PublicSettings } from './platform/settings.ts';
 
 const TITLES: Record<Status, string> = {
   idle: 'Translate the text in this image',
@@ -108,8 +108,9 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
     return;
   }
 
-  console.log(`[translate] ${res.blocks.length} block(s), read ${res.timings.read_ms}ms `
-    + `translate ${res.timings.translate_ms}ms`);
+  const { read, translate, total_ms } = res.timings;
+  console.log(`[translate] ${res.blocks.length} block(s) in ${total_ms}ms — `
+    + `read ${read?.ms}ms, translate ${translate?.ms}ms`);
   console.table(res.blocks.map((b) => ({ original: b.src, translated: b.en, skipped: b.skipped })));
   state.translated = res.image;
   // A page that re-renders will put its own src back; noticing is better than
@@ -157,7 +158,9 @@ send<PublicSettings>({ type: 'settings' }).then((loaded) => {
 // A changed endpoint or adapter means everything translated so far was made by
 // something else. The values are none of this page's business; that one changed
 // is enough to know the results are stale.
-chrome.storage.local.onChanged.addListener(() => invalidate());
+chrome.storage.local.onChanged.addListener((changes) => {
+  if (affectsResults(changes)) invalidate();
+});
 
 // Leaving the page does not stop the worker, which may be halfway through a
 // paid request for a picture nobody is looking at any more.

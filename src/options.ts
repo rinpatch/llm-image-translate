@@ -1,15 +1,23 @@
 import { OCR_ADAPTERS, TRANSLATE_ADAPTERS, translateAdapter } from './backends/registry.ts';
 import { type PingResult } from './platform/messages.ts';
-import { PRESETS, matching, presetFor } from './platform/presets.ts';
-import { type EndpointSettings, type Settings, save, settings } from './platform/settings.ts';
+import { SHIPPED, type Profile, copyOf, find, newId, uniqueName } from './platform/profiles.ts';
+import {
+  type EndpointSettings, type Role, ROLES, profiles, save, saveProfiles, settings,
+} from './platform/settings.ts';
+import { $ } from './ui/dom.ts';
 
-type Role = 'reader' | 'translator';
 type Field = keyof EndpointSettings;
 
 const FIELDS: Field[] = ['baseUrl', 'model', 'apiKey', 'adapter'];
-
-const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const field = <T extends HTMLElement>(role: Role, name: Field) => $<T>(`${role}-${name}`);
+
+const picker = $<HTMLSelectElement>('profile');
+const nameBox = $<HTMLInputElement>('profile-name');
+
+// The page edits the profile that is in use, so this pair is the whole state:
+// every handler changes them and writes the list back.
+let list: Profile[] = [];
+let active: Profile = SHIPPED[0];
 
 function say(role: Role, text: string, kind = ''): void {
   const status = $(`${role}-status`);
@@ -22,32 +30,89 @@ function fillAdapters(role: Role, adapters: { id: string; label: string }[]): vo
   for (const { id, label } of adapters) select.append(new Option(label, id));
 }
 
-function showFields(stored: Settings): void {
-  for (const role of ['reader', 'translator'] as Role[]) {
-    for (const name of FIELDS) field<HTMLInputElement>(role, name).value = stored[role][name];
+function show(): void {
+  picker.textContent = '';
+  for (const profile of list) picker.append(new Option(profile.name, profile.id));
+  picker.value = active.id;
+  nameBox.value = active.name;
+  $('profile-note').textContent = active.note;
+  $<HTMLButtonElement>('profile-delete').disabled = list.length < 2;
+  for (const role of ROLES) {
+    for (const name of FIELDS) field<HTMLInputElement>(role, name).value = active[role][name];
   }
-  const preset = matching(stored.reader, stored.translator);
-  $<HTMLSelectElement>('preset').value = preset;
-  $('preset-note').textContent = presetFor(preset)?.note || '';
 }
 
-// A preset says nothing about keys, so whatever is stored stays where it is.
-async function applyPreset(id: string): Promise<void> {
-  const preset = presetFor(id);
-  if (!preset) return;
-  const stored = await settings();
-  await save('reader', { ...preset.reader, apiKey: stored.reader.apiKey });
-  await save('translator', { ...preset.translator, apiKey: stored.translator.apiKey });
-  showFields(await settings());
-  for (const role of ['reader', 'translator'] as Role[]) say(role, '');
+/** Every edit on this page ends here: keep the list, keep the fields honest. */
+async function commit(): Promise<void> {
+  await saveProfiles(list);
+  show();
   checkPairing();
 }
 
-// Endpoints are stored as one record per role, so a changed field is written by
-// reading the rest back out rather than tracking them one at a time.
-async function edit(role: Role, name: Field, value: string): Promise<void> {
-  const current = (await settings())[role];
-  await save(role, { ...current, [name]: value });
+async function switchTo(profile: Profile): Promise<void> {
+  active = profile;
+  // List first: an active id naming a profile nobody has stored yet reads back
+  // as no profile at all.
+  await commit();
+  await save('profile', profile.id);
+  for (const role of ROLES) say(role, '');
+}
+
+function wireProfile(): void {
+  picker.addEventListener('change', () => {
+    switchTo(find(list, picker.value) || list[0]);
+  });
+
+  nameBox.addEventListener('change', () => {
+    active.name = uniqueName(list.filter((p) => p !== active), nameBox.value.trim() || 'Unnamed');
+    commit();
+  });
+
+  $('profile-new').addEventListener('click', () => {
+    const blank: Profile = {
+      id: newId(),
+      name: uniqueName(list, 'New profile'),
+      note: '',
+      reader: { baseUrl: '', apiKey: '', model: '', adapter: Object.keys(OCR_ADAPTERS)[0] },
+      translator: { baseUrl: '', apiKey: '', model: '', adapter: Object.keys(TRANSLATE_ADAPTERS)[0] },
+    };
+    list.push(blank);
+    switchTo(blank).then(() => nameBox.select());
+  });
+
+  $('profile-copy').addEventListener('click', () => {
+    const copy = copyOf(list, active);
+    list.push(copy);
+    switchTo(copy);
+  });
+
+  // Two clicks, because a profile carries an API key that is not stored anywhere
+  // else and there is no undo.
+  const remove = $<HTMLButtonElement>('profile-delete');
+  let armed = 0;
+  remove.addEventListener('click', () => {
+    if (Date.now() > armed) {
+      armed = Date.now() + 4000;
+      remove.textContent = 'Delete for good?';
+      setTimeout(() => { remove.textContent = 'Delete'; }, 4000);
+      return;
+    }
+    armed = 0;
+    remove.textContent = 'Delete';
+    list = list.filter((p) => p !== active);
+    switchTo(list[0]);
+  });
+}
+
+function wire(role: Role): void {
+  for (const name of FIELDS) {
+    // On change rather than per keystroke: a half-typed URL is not worth storing.
+    field<HTMLInputElement>(role, name).addEventListener('change', (e) => {
+      active[role][name] = (e.target as HTMLInputElement).value;
+      say(role, '');
+      commit();
+    });
+  }
 }
 
 const LOCAL = /^(https?:\/\/)?(127\.0\.0\.1|localhost|\[::1\]|0\.0\.0\.0)\b/;
@@ -57,35 +122,23 @@ const LOCAL = /^(https?:\/\/)?(127\.0\.0\.1|localhost|\[::1\]|0\.0\.0\.0)\b/;
  * OpenAI-compatible service has. Saying so beats a 404 with no explanation.
  */
 function checkPairing(): void {
-  const url = field<HTMLInputElement>('translator', 'baseUrl').value.trim();
-  const adapter = field<HTMLSelectElement>('translator', 'adapter').value;
+  const url = active.translator.baseUrl.trim();
+  const adapter = active.translator.adapter;
   if (!url || !translateAdapter(adapter).capabilities.localOnly || LOCAL.test(url)) return;
   say('translator', `${adapter} needs llama.cpp's /completion endpoint, which a hosted `
     + 'service does not have. Use chat-lines there.', 'bad');
 }
 
-function wire(role: Role): void {
-  for (const name of FIELDS) {
-    // On change rather than per keystroke: a half-typed URL is not worth storing.
-    field<HTMLInputElement>(role, name).addEventListener('change', async (e) => {
-      await edit(role, name, (e.target as HTMLInputElement).value);
-      say(role, '');
-      checkPairing();
-      showFields(await settings());
-    });
-  }
-}
-
-function toggle(id: keyof Settings & ('images' | 'debug')): void {
+function toggle(id: 'images' | 'expand' | 'debug'): void {
   $<HTMLInputElement>(id).addEventListener('change', (e) => {
     save(id, (e.target as HTMLInputElement).checked);
   });
 }
 
 async function test(): Promise<void> {
-  for (const role of ['reader', 'translator'] as Role[]) say(role, 'Checking…');
+  for (const role of ROLES) say(role, 'Checking…');
   const ping: PingResult = await chrome.runtime.sendMessage({ type: 'ping' });
-  for (const role of ['reader', 'translator'] as Role[]) {
+  for (const role of ROLES) {
     const problem = ping[role];
     say(role, problem || 'Answered.', problem ? 'bad' : 'ok');
   }
@@ -94,20 +147,20 @@ async function test(): Promise<void> {
 fillAdapters('reader', Object.values(OCR_ADAPTERS));
 fillAdapters('translator', Object.values(TRANSLATE_ADAPTERS));
 
-const presets = $<HTMLSelectElement>('preset');
-presets.append(new Option('Custom', ''));
-for (const preset of PRESETS) presets.append(new Option(preset.label, preset.id));
-presets.addEventListener('change', () => applyPreset(presets.value));
+wireProfile();
 wire('reader');
 wire('translator');
 toggle('images');
+toggle('expand');
 toggle('debug');
 $('test').addEventListener('click', test);
 
 (async () => {
+  ({ list, active } = await profiles());
+  show();
   const stored = await settings();
-  showFields(stored);
   $<HTMLInputElement>('images').checked = stored.images;
+  $<HTMLInputElement>('expand').checked = stored.expand;
   $<HTMLInputElement>('debug').checked = stored.debug;
   checkPairing();
 })();

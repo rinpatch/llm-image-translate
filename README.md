@@ -84,7 +84,7 @@ per line whenever the reply drifts.
 
 Neither gets `雨宮静久` right at this size; the hosted 30B is the only model
 tried that does. TranslateGemma still reads `晴山空` slightly better, which is
-why it is still a preset:
+why it still has a profile of its own:
 
 ```bash
 MT_MODEL=bullerwins/translategemma-4b-it-GGUF:Q4_K_M MT_STYLE=gemma \
@@ -116,7 +116,12 @@ source is named in the prompt — without it, `晴山空` comes back as "Qing Sh
 **Fits** text to the shape it sits in rather than the box the glyphs occupied. A
 flood fill outward finds the speech balloon; growth is capped by how much text
 there is, so a one-glyph sound effect cannot claim a whole bubble, and
-neighbouring boxes are negotiated so none paints over another.
+neighbouring boxes are negotiated so none paints over another. The shape being
+grown into is a comic's, so **Let a translation grow into the shape around it**
+on the settings page turns the whole step off for pages that have none — the
+flood fill goes with it, which is most of the layout time. Runs with it off are
+recorded under `<profile> (no growth)`, so the two sets of timings do not land in
+the same medians.
 
 **Leaves blocks alone** when the translation still looks like the source — a
 half-translated line drawn over the original is worse than the original.
@@ -193,13 +198,16 @@ when the prompt spells out the pixel size of the image. A reply that exceeds
 The axis order is not something a prompt settles. Gemini answers
 `[ymin, xmin, ymax, xmax]` however it is asked, and read the other way round its
 boxes are not merely wrong but nonsense — so it gets its own adapter rather than
-a guess, and the preset pairs the two.
+a guess, and a profile pairs the two.
 
 ## Which models
 
-**Start from** on the settings page is three tested pairings: local llama.cpp,
-Gemini 3.1 Flash Lite with Hunyuan MT2, and Qwen3-VL with Hunyuan MT2. Picking
-one fills in both endpoints and both adapters, and leaves your API key alone.
+A **profile** is a named pair of endpoints — a reader and a translator, each
+with its adapter, model and key — and the popup switches between them, so a page
+the local models struggle with can go to a hosted one without retyping anything.
+Four ship: local llama.cpp, the same with TranslateGemma, Gemini 3.1 Flash Lite
+with Hunyuan MT2, and Qwen3-VL with Hunyuan MT2. They are ordinary profiles once
+installed — rename, edit or delete them, and duplicate one to start your own.
 
 Readers were scored against two generated pages whose true boxes are known,
 because the pages are drawn rather than found: a clean comic page of nine lines,
@@ -271,6 +279,31 @@ the same server.
 **Test both endpoints** asks each for `/v1/models` rather than llama.cpp's
 `/health`, which a hosted service does not serve — and a key that is wrong fails
 there the same way it would fail in earnest.
+
+**Timings** is a page of its own, linked from the settings footer and the popup.
+It holds the median of the last 200 images, stage by stage, with the time to
+the first token and the tokens per second each model managed. Every run records
+the profile that ran it and the page reports one profile at a time, picked at the
+top: a local reader and a hosted one are seconds apart, so a median over both
+describes neither. The picker appears once a second profile has translated
+something, and opens on whichever ran last. A profile renamed after the fact
+keeps its old runs under the old name — the history says what was used, not what
+it is called now. Those two come from
+the `timings` block llama.cpp puts beside its answer; a hosted OpenAI-compatible
+server reports token counts at best, so the rate there includes the network and
+there is no prefill figure at all. Medians rather than means, because the first
+request after the models have handed their weights back costs seconds and would
+otherwise colour the whole window. The slowest run is shown beside the total so
+that cost stays visible instead of being smoothed away.
+
+Timings are recorded where the work happens rather than at the badge, so a second
+click on the same image — answered from the worker's cache — is not counted.
+
+Under them is the history: one row per image, newest first, opening on to its
+stages. Failures are in there too — they are the rows worth having — with the
+error the pipeline gave up. A row holds the image's URL and never the image, so
+a `blob:` or `data:` one is logged as `(inline image)`, and a URL long enough to
+be a payload in its own right is cut at 200 characters.
 
 Preferences — the two languages and whether badges appear — live in synced
 storage and are the only thing a content script is told. Endpoints live in local

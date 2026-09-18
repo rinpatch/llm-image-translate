@@ -1,0 +1,85 @@
+<meta charset="utf-8">
+<title>Image Translate stats</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+  body { max-width: 720px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  .strip { display: flex; gap: 28px; margin: 20px 0 4px; }
+  .stat b { display: block; font-size: 21px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 12px; }
+
+  .bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden;
+         background: var(--sunken); }
+  .bar i { display: block; min-width: 1px; }
+  .bar.tall { height: 16px; border-radius: var(--radius); margin: 4px 0 14px; }
+
+  .seg-fetch { background: var(--seg-fetch); }
+  .seg-read { background: var(--seg-read); }
+  .seg-translate { background: var(--seg-translate); }
+  .seg-layout { background: var(--seg-layout); }
+  .seg-paint { background: var(--seg-paint); }
+  .seg-encode { background: var(--seg-encode); }
+
+  .legend { display: grid; grid-template-columns: auto 1fr auto; gap: 3px 10px;
+            align-items: center; font-size: 12px; max-width: 320px; }
+  .legend i { width: 9px; height: 9px; border-radius: 2px; }
+  .legend .num { color: var(--muted); }
+
+  .scope { max-width: 280px; margin-top: 16px; }
+
+  .models { font-size: 12px; color: var(--muted); }
+  .models div { padding: 2px 0; }
+
+  table.history { width: 100%; table-layout: fixed; border-collapse: collapse;
+                  font-size: 12px; }
+  table.history th { text-align: left; font-weight: 400; color: var(--muted);
+                     padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+  table.history td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--line);
+                     vertical-align: middle; }
+  table.history tr.run { cursor: pointer; }
+  table.history tr.run:hover td { background: var(--sunken); }
+  td.where, th.where { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  td.twist, th.twist { width: 16px; color: var(--muted); padding-right: 0; }
+  td.when, th.when { width: 72px; }
+  td.shape, th.shape { width: 28%; }
+  td.total, th.total { text-align: right; width: 52px; }
+  td.what, th.what { width: 76px; }
+  tr.bad td.what { color: var(--bad); }
+  tr.detail td { padding: 2px 0 12px 16px; color: var(--muted); }
+  tr.detail .legend { max-width: 300px; }
+  tr.detail .why { color: var(--bad); padding-top: 6px; }
+</style>
+
+<h1>Timings</h1>
+<p class="blurb">The last 200 images of one profile, as medians. Two profiles are two
+sets of models, so a number over both would describe neither. An image answered from the
+cache never reached a model, so it is not counted here.</p>
+
+<label class="scope" id="scope" hidden><span>Profile</span><select id="profile"></select></label>
+
+<div id="summary"></div>
+
+<section id="breakdown">
+  <h2>Where the time goes</h2>
+  <div id="stages"></div>
+</section>
+
+<section id="models-section">
+  <h2>Models</h2>
+  <div class="models" id="models"></div>
+</section>
+
+<section>
+  <h2>History</h2>
+  <label class="check"><input type="checkbox" id="failures-only">
+    <span>Failures only</span></label>
+  <div id="history"></div>
+</section>
+
+<footer>
+  <div class="rule">
+    <a href="options.html">← Settings</a>
+    <button type="button" id="clear">Forget the history</button>
+  </div>
+</footer>
+<script src="dist/stats.js"></script>

@@ -17,6 +17,27 @@ export interface ModelRequest {
   body: Record<string, unknown>;
 }
 
+/**
+ * What one call to a model cost. llama.cpp reports its own split of prefill and
+ * generation; an OpenAI-compatible server gives token counts at best, so the
+ * numbers taken from one of those include the network and the queue.
+ */
+export interface ModelStats {
+  /** The whole round trip. */
+  wall_ms: number;
+  /** Prefill — the wait before the first token. Absent unless the server said. */
+  ttft_ms?: number;
+  tokens?: number;
+  /** How long those tokens took, so rates can be summed rather than averaged. */
+  gen_ms?: number;
+}
+
+/** What a model answered, and what it cost to ask. */
+export interface Reply {
+  text: string;
+  stats: ModelStats;
+}
+
 export interface EncodedImage {
   dataUrl: string;
   width: number;

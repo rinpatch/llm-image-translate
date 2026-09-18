@@ -1,15 +1,17 @@
 <meta charset="utf-8">
 <title>Image Translate</title>
+<link rel="stylesheet" href="ui.css">
 <style>
-  :root { color-scheme: light dark; }
-  body { width: 220px; margin: 0; padding: 14px;
-         font: 13px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; }
-  label { display: block; margin-bottom: 10px; }
-  label > span { display: block; opacity: .65; margin-bottom: 3px; font-size: 11px; }
-  select { width: 100%; font: inherit; padding: 4px; }
+  body { width: 240px; padding: 14px; font-size: 13px; line-height: 1.45; }
+  label { margin-bottom: 10px; }
+  label > span { font-size: 11px; }
   footer { margin-top: 14px; font-size: 11px; }
-  a { color: inherit; opacity: .65; }
 </style>
+
+<label>
+  <span>Models</span>
+  <select id="profile"></select>
+</label>
 
 <label>
   <span>Translate from</span>
@@ -21,5 +23,8 @@
   <select id="target"></select>
 </label>
 
-<footer><a href="#" id="settings">Settings…</a></footer>
+<footer class="rule">
+  <a href="#" id="settings">Settings…</a>
+  <a href="#" id="stats">Timings…</a>
+</footer>
 <script src="dist/popup.js"></script>

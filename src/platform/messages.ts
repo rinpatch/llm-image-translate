@@ -1,5 +1,6 @@
 import { type Box } from '../core/geometry.ts';
 import { type PublicSettings } from './settings.ts';
+import { type Report, type Run } from './metrics.ts';
 
 export interface TranslateImage {
   type: 'translateImage';
@@ -14,7 +15,10 @@ export type Message =
   | TranslateImage
   | { type: 'cancelImage'; jobId: string }
   | { type: 'settings' }
-  | { type: 'ping' };
+  | { type: 'ping' }
+  | { type: 'metrics' }
+  | { type: 'log' }
+  | { type: 'clearMetrics' };
 
 export interface BlockReport {
   box: Box;
@@ -23,10 +27,30 @@ export interface BlockReport {
   skipped: string | null;
 }
 
+/** The model calls one stage made, rolled into one line. */
+export interface Stage {
+  /** Wall clock for the stage, retries and waiting for a free slot included. */
+  ms: number;
+  calls: number;
+  ttft_ms?: number;
+  tokens?: number;
+  gen_ms?: number;
+}
+
+/** What one image cost, stage by stage. Everything is milliseconds. */
 export interface Timings {
-  read_ms?: number;
-  translate_ms?: number;
-  render_ms?: number;
+  /** Fetching the image, decoding it, scaling it, and encoding the reader's copy. */
+  fetch_ms?: number;
+  read?: Stage;
+  translate?: Stage;
+  /** Finding room for the translations without letting two of them overlap. */
+  layout_ms?: number;
+  /** Clearing the source glyphs and drawing the translations over them. */
+  paint_ms?: number;
+  /** Encoding the finished canvas as a data: URL, which is not free at all. */
+  encode_ms?: number;
+  total_ms?: number;
+  blocks?: number;
 }
 
 export type Failure = { ok: false; error: string; code?: string };
@@ -42,4 +66,4 @@ export interface PingResult {
   translator: string | null;
 }
 
-export type Response = ImageResult | PingResult | PublicSettings;
+export type Response = ImageResult | PingResult | PublicSettings | Report | Run[];
