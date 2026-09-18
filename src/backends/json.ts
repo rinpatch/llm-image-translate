@@ -28,8 +28,8 @@ function balancedEnd(text: string, start: number): number {
   return -1;
 }
 
-export function extractJson<T = unknown>(content: string): T | null {
-  const text = afterThinking(content);
+/** Every top-level JSON value in the text, in the order they appear. */
+function collect(text: string): unknown[] {
   const found: unknown[] = [];
   for (let i = 0; i < text.length; i++) {
     if (text[i] !== '[' && text[i] !== '{') continue;
@@ -42,9 +42,30 @@ export function extractJson<T = unknown>(content: string): T | null {
       // Not JSON, or not finished — keep looking from the next bracket.
     }
   }
+  return found;
+}
+
+export function extractJson<T = unknown>(content: string): T | null {
+  const found = collect(afterThinking(content));
   if (!found.length) return null;
   const arrays = found.filter(Array.isArray);
   return (arrays.length ? arrays[arrays.length - 1] : found[found.length - 1]) as T;
+}
+
+/**
+ * The rows a model was asked for, however it chose to deliver them: an array, an
+ * object wrapping one, or — as the smaller Hunyuan translator does — one object
+ * per line with no array around them at all.
+ */
+export function extractRows(content: string): unknown[] | null {
+  const found = collect(afterThinking(content));
+  const arrays = found.filter(Array.isArray);
+  if (arrays.length) return arrays[arrays.length - 1];
+
+  const objects = found.filter((v) => v && typeof v === 'object');
+  if (objects.length > 1) return objects;
+  if (objects.length === 1) return asArray(objects[0]) || objects;
+  return null;
 }
 
 /** An array, or the first array inside an object the model wrapped it in. */

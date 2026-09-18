@@ -13,10 +13,11 @@ export interface Preset {
 
 const OPENROUTER = 'https://openrouter.ai/api/v1';
 
-// Scored against a test page of horizontal Japanese, a vertical column, Chinese
-// on a coloured band and small print. Gemini placed all nine lines and read them
-// all correctly; Qwen3-VL placed them loosely and missed the vertical column;
-// Seed 1.6 invented round numbers rather than looking.
+// Scored against two generated pages whose true boxes are known — a clean comic
+// page and a noisy one with tilted, low-contrast and small text. Gemini 3.1
+// Flash Lite placed and read every line on both; Hunyuan MT2 is the only
+// translator tried that reads 雨宮静久 as Amamiya Shizuku rather than inventing
+// a reading, which is the failure the README calls out.
 export const PRESETS: Preset[] = [
   {
     id: 'llamacpp',
@@ -26,22 +27,22 @@ export const PRESETS: Preset[] = [
     translator: { baseUrl: 'http://127.0.0.1:8091', model: '', adapter: 'gemma-raw' },
   },
   {
-    id: 'openrouter-gemini',
-    label: 'OpenRouter — Gemini 2.5 Flash Lite',
-    note: 'The most accurate of the hosted models tried, and the cheapest of them: '
-      + 'about $0.0004 an image for both passes. Needs an API key.',
-    reader: { baseUrl: OPENROUTER, model: 'google/gemini-2.5-flash-lite',
+    id: 'openrouter',
+    label: 'OpenRouter — Gemini 3.1 Flash Lite + Hunyuan MT2',
+    note: 'The best of the models tried at both jobs: every line found and read, and '
+      + 'the only translator that gets Japanese name readings right. About $0.001 an '
+      + 'image. Needs an API key.',
+    reader: { baseUrl: OPENROUTER, model: 'google/gemini-3.1-flash-lite',
               adapter: 'json-boxes-yx' },
-    translator: { baseUrl: OPENROUTER, model: 'google/gemini-2.5-flash-lite',
-                  adapter: 'chat-lines' },
+    translator: { baseUrl: OPENROUTER, model: 'tencent/hy-mt2-30b-a3b', adapter: 'chat-lines' },
   },
   {
-    id: 'openrouter-qwen',
-    label: 'OpenRouter — Qwen3-VL 8B + Gemma 3 12B',
-    note: 'Open weights, similar price, looser boxes — it reads the text but places '
-      + 'vertical columns badly. Needs an API key.',
+    id: 'openrouter-open',
+    label: 'OpenRouter — Qwen3-VL 8B + Hunyuan MT2',
+    note: 'Open weights and half the price. It reads every line but draws looser boxes, '
+      + 'so the text is replaced less tidily. Needs an API key.',
     reader: { baseUrl: OPENROUTER, model: 'qwen/qwen3-vl-8b-instruct', adapter: 'json-boxes' },
-    translator: { baseUrl: OPENROUTER, model: 'google/gemma-3-12b-it', adapter: 'chat-lines' },
+    translator: { baseUrl: OPENROUTER, model: 'tencent/hy-mt2-30b-a3b', adapter: 'chat-lines' },
   },
 ];
 

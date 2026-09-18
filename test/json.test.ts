@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 
-import { asArray, extractJson } from '../src/backends/json.ts';
+import { asArray, extractJson, extractRows } from '../src/backends/json.ts';
 
 test('a fenced array is found, and so is a bare one', () => {
   assert.deepEqual(extractJson('```json\n[1, 2]\n```'), [1, 2]);
@@ -30,4 +30,14 @@ test('an object holding the array is unwrapped, and a bare array passes through'
   assert.deepEqual(asArray({ lines: [1, 2] }), [1, 2]);
   assert.deepEqual(asArray([3]), [3]);
   assert.equal(asArray({ ok: true }), null);
+});
+
+// The smaller Hunyuan translator answers one object per line, with no array.
+test('rows delivered as JSON lines are still rows', () => {
+  const reply = '{"i": 1, "text": "first"}  \n{"i": 2, "text": "second"}';
+  assert.deepEqual(extractRows(reply), [{ i: 1, text: 'first' }, { i: 2, text: 'second' }]);
+  assert.deepEqual(extractRows('[{"i":1}]'), [{ i: 1 }], 'an array is still preferred');
+  assert.deepEqual(extractRows('{"lines":[{"i":1}]}'), [{ i: 1 }], 'and so is a wrapped one');
+  assert.deepEqual(extractRows('{"i":1,"text":"only"}'), [{ i: 1, text: 'only' }]);
+  assert.equal(extractRows('nothing here'), null);
 });

@@ -153,33 +153,38 @@ a guess, and the preset pairs the two.
 ## Which models
 
 **Start from** on the settings page is three tested pairings: local llama.cpp,
-Gemini 2.5 Flash Lite, and Qwen3-VL with Gemma. Picking one fills in both
-endpoints and both adapters, and leaves your API key alone.
+Gemini 3.1 Flash Lite with Hunyuan MT2, and Qwen3-VL with Hunyuan MT2. Picking
+one fills in both endpoints and both adapters, and leaves your API key alone.
 
-Candidates were scored against a page of horizontal Japanese in a balloon, a
-vertical column, Chinese on a coloured band, and small print — nine lines whose
-true boxes are known because the page is generated. *Located* counts lines
-matched at IoU > 0.3, *read* counts exact text:
+Readers were scored against two generated pages whose true boxes are known,
+because the pages are drawn rather than found: a clean comic page of nine lines,
+and a noisy one of twelve — tilted text, grey on a grey gradient, dense small
+print in two languages, a vertical column, and a line that is barely visible at
+all. *Located* counts lines matched at IoU > 0.3, *read* counts exact text.
 
-| model | located | mean IoU | read | per image |
+| model | clean | noisy | mean IoU | per image |
 | --- | --- | --- | --- | --- |
-| `google/gemini-2.5-flash-lite` | 9/9 | 0.90 | 9/9 | $0.0003 |
-| `qwen/qwen3-vl-8b-instruct` | 5/9 | 0.44 | 7/9 | $0.0002 |
-| `qwen/qwen3-vl-32b-instruct` | 5/9 | 0.48 | 6/9 | $0.0002 |
-| `z-ai/glm-5.3-flash` | 4/9 | 0.67 | 8/9 | $0.0008 |
-| `deepseek/deepseek-v4-flash-vision-exp` | 4/9 | 0.58 | 4/9 | $0.0029 |
-| `bytedance-seed/seed-1.6-flash` | 0/9 | — | 0/9 | $0.0006 |
+| `google/gemini-3.1-flash-lite` | 9/9 | 12/12 | 0.93 | $0.0009 |
+| `qwen/qwen3.8-flash` | 9/9 | 12/12 | 0.88 | $0.0004 |
+| `google/gemini-2.5-flash-lite` | 9/9 | 11/12 | 0.91 | $0.0004 |
+| `qwen/qwen3-vl-8b-instruct` | 5/9 | 12/12 | 0.59 | $0.0003 |
+| `z-ai/glm-5.3-flash` | 4/9 | — | 0.67 | $0.0008 |
+| `bytedance-seed/seed-1.6-flash` | 0/9 | — | — | $0.0006 |
 
-Gemini wins on every axis including price. GLM and DeepSeek read the text well
-but place it loosely. Qwen3-VL reads well and misses the vertical column, which
-is the case this extension exists for. Seed 1.6 returned round numbers like
-`[50, 50, 450, 150]` — it is not looking at the image to answer this, so no
-prompt will fix it.
+Gemini 3.1 Flash Lite reads and places everything on both pages and is the
+fastest tried. Qwen3-VL 8B reads everything too but draws boxes half again too
+large, which shows in the replacement. Seed 1.6 answered with round numbers like
+`[50, 50, 450, 150]` — it is not looking at the image, so no prompt will fix it.
 
-For translation the difference is small: Gemini gave "Senpai" and "Thump-thump"
-where Gemma 3 12B gave "Senior" and "Heartbeat", at roughly twice the price of a
-rounding error. A reasoning model is the one thing to avoid — one spent 1300
-tokens thinking about two lines.
+For translation the difference is smaller but lands on the thing this project is
+worst at. Asked for `雨宮静久`, only `tencent/hy-mt2-30b-a3b` — a model trained
+for translation rather than chat — answered Amamiya Shizuku; Gemini and the rest
+invent Shizuhisa. It is also the cheapest and fastest of them, at $0.00005 a
+page. Its one weakness is sound effects: `ドキドキ` becomes "So nervous" where
+Gemini says "Thump-thump".
+
+Avoid reasoning models at both jobs. They spend the budget thinking about a
+mechanical task — one returned 2048 tokens of reasoning and no answer at all.
 
 ## Giving up
 

@@ -1,5 +1,5 @@
 import { type Box, type TextLine } from '../../core/geometry.ts';
-import { asArray, extractJson } from '../json.ts';
+import { extractRows } from '../json.ts';
 import { type EncodedImage, type ModelRequest, type OcrAdapter } from '../types.ts';
 
 interface Spot {
@@ -54,13 +54,14 @@ function jsonBoxesAdapter(id: string, label: string, yFirst: boolean): OcrAdapte
           ],
         }],
         temperature: 0,
-        max_tokens: 2048,
+        // A dense page runs long, and an unfinished array parses to nothing.
+        max_tokens: 4096,
       },
     };
   },
 
   parse(content: string, image: EncodedImage): TextLine[] {
-    const rows = asArray(extractJson(content));
+    const rows = extractRows(content);
     if (!rows) return [];
 
     const spots: { text: string; quad: number[] }[] = [];

@@ -1,5 +1,5 @@
 import { code } from '../../core/language.ts';
-import { asArray, extractJson } from '../json.ts';
+import { extractRows } from '../json.ts';
 import { type ModelRequest, type TranslateAdapter } from '../types.ts';
 
 interface Line {
@@ -45,7 +45,7 @@ export const chatLines: TranslateAdapter = {
   },
 
   parse(content: string, expected: number): (string | null)[] | null {
-    const rows = asArray(extractJson(content));
+    const rows = extractRows(content);
     if (!rows) return null;
 
     const out: (string | null)[] = Array(expected).fill(null);

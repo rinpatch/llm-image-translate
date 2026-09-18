@@ -65,7 +65,12 @@ export async function send(
 ): Promise<string> {
   const body = endpoint.model ? { ...request.body, model: endpoint.model } : request.body;
   const out = await post(endpoint, pathFor(endpoint.baseUrl, request.kind), body, what, signal);
-  return request.kind === 'chat' ? out.choices[0].message.content : (out.content || '');
+  // A model that answers with nothing at all — a refusal, or a reasoning model
+  // that spent its budget thinking — still has to come back as a string.
+  const content = request.kind === 'chat'
+    ? out.choices?.[0]?.message?.content
+    : out.content;
+  return typeof content === 'string' ? content : '';
 }
 
 // /v1/models rather than llama.cpp's /health: every OpenAI-compatible server has

@@ -159,3 +159,11 @@ test('giving up is not reported as the endpoint failing', async () => {
   controller.abort();
   await assert.rejects(job, (e: Error) => e.name === 'Cancelled');
 });
+
+test('a reply with no content at all is an empty string, not a crash', async () => {
+  const reply = (body: unknown) => (async () => ({ ok: true, json: async () => body }));
+  for (const body of [{ choices: [{ message: { content: null } }] }, { choices: [] }, {}]) {
+    globalThis.fetch = reply(body) as unknown as typeof fetch;
+    assert.equal(await send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image), 'reader'), '');
+  }
+});
