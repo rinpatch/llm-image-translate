@@ -1,6 +1,6 @@
 import { LANGUAGES } from './core/language.ts';
 import { type PingResult } from './platform/messages.ts';
-import { type Settings } from './platform/settings.ts';
+import { type Settings, save, settings } from './platform/settings.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -15,26 +15,28 @@ const target = $<HTMLSelectElement>('target');
 for (const name of ['Auto', ...LANGUAGES]) source.append(new Option(name, name));
 for (const name of LANGUAGES) target.append(new Option(name, name));
 
-const save = (key: keyof Settings) => (e: Event) => {
+const onEdit = (key: keyof Settings) => (e: Event) => {
   const field = e.target as HTMLInputElement;
-  chrome.storage.sync.set({ [key]: field.type === 'checkbox' ? field.checked : field.value });
+  save(key, field.type === 'checkbox' ? field.checked : field.value);
 };
-source.addEventListener('change', save('source'));
-target.addEventListener('change', save('target'));
-$('images').addEventListener('change', save('images'));
-$('debug').addEventListener('change', save('debug'));
+source.addEventListener('change', onEdit('source'));
+target.addEventListener('change', onEdit('target'));
+$('images').addEventListener('change', onEdit('images'));
+$('debug').addEventListener('change', onEdit('debug'));
 // Saved on blur rather than per keystroke: a half-typed URL is not worth storing.
-$('reader').addEventListener('change', save('reader'));
-$('translator').addEventListener('change', save('translator'));
+$('reader').addEventListener('change', onEdit('reader'));
+$('translator').addEventListener('change', onEdit('translator'));
 
+// The popup is extension pages, not a content script, so it reads storage
+// itself rather than asking the worker for what the worker will not hand out.
 (async () => {
-  const settings: Settings = await chrome.runtime.sendMessage({ type: 'settings' });
-  source.value = settings.source;
-  target.value = settings.target;
-  $<HTMLInputElement>('images').checked = settings.images;
-  $<HTMLInputElement>('debug').checked = settings.debug;
-  $<HTMLInputElement>('reader').value = settings.reader;
-  $<HTMLInputElement>('translator').value = settings.translator;
+  const stored = await settings();
+  source.value = stored.source;
+  target.value = stored.target;
+  $<HTMLInputElement>('images').checked = stored.images;
+  $<HTMLInputElement>('debug').checked = stored.debug;
+  $<HTMLInputElement>('reader').value = stored.reader;
+  $<HTMLInputElement>('translator').value = stored.translator;
 
   say('Checking the servers…');
   const ping: PingResult = await chrome.runtime.sendMessage({ type: 'ping' });

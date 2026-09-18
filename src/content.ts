@@ -2,7 +2,7 @@ import { BadgeLayer, type Status } from './content/badges.ts';
 import { ResultCache } from './content/cache.ts';
 import { restore, show } from './content/swap.ts';
 import { type ImageResult, type Message } from './platform/messages.ts';
-import { type Settings } from './platform/settings.ts';
+import { type PublicSettings } from './platform/settings.ts';
 
 const TITLES: Record<Status, string> = {
   idle: 'Translate the text in this image',
@@ -22,8 +22,7 @@ const states = new Map<HTMLImageElement, State>();
 const cache = new ResultCache();
 const layer = new BadgeLayer(onActivate);
 
-let config: Pick<Settings, 'images' | 'source' | 'target'> =
-  { images: true, source: 'Auto', target: 'English' };
+let config: PublicSettings = { images: true, source: 'Auto', target: 'English' };
 
 // Reloading the extension leaves this script running in the page with a dead
 // chrome.runtime. sendMessage then throws where it stands rather than rejecting,
@@ -119,12 +118,13 @@ function blobToDataUrl(src: string): Promise<string> {
   }));
 }
 
-send<Settings>({ type: 'settings' }).then((loaded) => {
+send<PublicSettings>({ type: 'settings' }).then((loaded) => {
   if (loaded && !('error' in loaded)) config = loaded;
   if (config.images !== false) layer.start();
 });
 
-chrome.storage.onChanged.addListener((changes) => {
+// Only the synced area: the worker's endpoints are none of this page's business.
+chrome.storage.sync.onChanged.addListener((changes) => {
   if (changes.source) config.source = String(changes.source.newValue);
   if (changes.target) config.target = String(changes.target.newValue);
   if (!changes.images) return;

@@ -1,5 +1,5 @@
 import { type Box } from '../core/geometry.ts';
-import { type Settings } from './settings.ts';
+import { type PublicSettings } from './settings.ts';
 
 export interface TranslateImage {
   type: 'translateImage';
@@ -34,4 +34,4 @@ export type ImageResult =
 
 export type PingResult = { ok: true } | Failure;
 
-export type Response = ImageResult | PingResult | Settings;
+export type Response = ImageResult | PingResult | PublicSettings;

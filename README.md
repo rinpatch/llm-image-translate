@@ -106,7 +106,7 @@ touches the network:
 
 ```ts
 build(image)                  → { kind: 'chat', body }     // what to send
-parse(content, image)         → TextLine[]                 // boxes, normalised
+parse(content, image)         → TextLine[]                 // boxes, in raster pixels
 build(texts, source, target)  → { kind, body }
 parse(content, expected)      → string[] | null            // null: lines drifted
 ```
@@ -115,6 +115,19 @@ parse(content, expected)      → string[] | null            // null: lines drif
 OpenAI-compatible serves, and `completion` is llama.cpp's raw prompt endpoint,
 which only a local server has. TranslateGemma needs the raw one, so it is marked
 `localOnly`.
+
+Boxes come back in pixels of the rasterised image, whatever the model emits —
+HunyuanOCR's 0-1000 grid is its adapter's business. Normalising them would make
+the geometry anisotropic: `isVertical` compares a box's height against its
+width, and on a 400x1600 page that comparison flips.
+
+## Settings
+
+Preferences — the two languages and whether badges appear — live in synced
+storage and are the only thing a content script is told. Endpoints live in local
+storage, because a content script runs inside whatever site you are on, and
+because synced storage is copied to Google with the rest of the profile. The
+popup is an extension page, so it reads both directly.
 
 ## Tests
 
