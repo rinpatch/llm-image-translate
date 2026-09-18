@@ -6,6 +6,7 @@ import { group, join } from '../src/core/grouping.ts';
 import { detectedSource, sourceLanguage, untranslated, type Detection }
   from '../src/core/language.ts';
 import { allowance, containerBox, negotiate } from '../src/core/layout.ts';
+import { dominant } from '../src/core/color.ts';
 
 test('wrapped horizontal lines join the block above them', () => {
   const rows = group([
@@ -98,4 +99,31 @@ test('a narrow tail is excluded from the safe text rectangle', () => {
   }
   assert.equal(containerBox(leaking, width, height, box, [255, 255, 255]), null,
     'a region reaching the search edge is not treated as an enclosure');
+});
+
+test('the background colour is the one that is there, not the bucket it fell in', () => {
+  // A 20x20 field of #161616 — the dark grey of a chat window — with a block in
+  // the middle of it.
+  const width = 20;
+  const height = 20;
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = 22; data[i + 1] = 22; data[i + 2] = 22; data[i + 3] = 255;
+  }
+  assert.deepEqual(dominant(data, width, height, [6, 6, 14, 14]), [22, 22, 22],
+    'snapping to the bucket would paint #111 over #161616');
+});
+
+test('a few noisy pixels do not carry the background off', () => {
+  const width = 20;
+  const height = 20;
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let i = 0; i < data.length; i += 4) {
+    // JPEG leaves the flat area a shade either side of itself.
+    const jitter = (i / 4) % 3;
+    data[i] = 56 + jitter; data[i + 1] = 56; data[i + 2] = 58; data[i + 3] = 255;
+  }
+  const [r, g, b] = dominant(data, width, height, [6, 6, 14, 14]);
+  assert.ok(r >= 56 && r <= 58, `red came back ${r}`);
+  assert.deepEqual([g, b], [56, 58]);
 });
