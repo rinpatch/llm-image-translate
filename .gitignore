@@ -1,5 +1,4 @@
 node_modules/
-native/.build/
 tools/extension_key.pem
 extension/vendor/
 extension/offscreen.bundle.js
