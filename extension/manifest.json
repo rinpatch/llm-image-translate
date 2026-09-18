@@ -8,13 +8,23 @@
   "message_serialization": "structured_clone",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
     "<all_urls>"
   ],
   "background": {
     "service_worker": "dist/worker.js"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "pixiv_images",
+        "enabled": true,
+        "path": "rules/pixiv-images.json"
+      }
+    ]
   },
   "content_scripts": [
     {
