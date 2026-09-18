@@ -108,3 +108,39 @@ test('the image result cache stays bounded and revokes what it drops', () => {
   assert.deepEqual(revoked, ['blob:test-1'], 'evicted blob URL is revoked');
   dom.window.close();
 });
+
+test('a badge keeps out of the way until the modifier is held', () => {
+  const dom = new JSDOM('<img id="pic">', { url: 'https://example.com' });
+  adopt(dom);
+  any.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
+  any.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+
+  const doc = dom.window.document;
+  const img = doc.querySelector('#pic') as HTMLImageElement;
+  img.getBoundingClientRect = () => ({ width: 200, height: 120, left: 0, top: 0 }) as DOMRect;
+
+  const layer = new BadgeLayer(() => {});
+  layer.start();
+  const badge = () => layer.controllers.get(img)!.badge;
+  const key = (type: string, metaKey: boolean) =>
+    dom.window.dispatchEvent(new dom.window.KeyboardEvent(type, { metaKey, key: 'Meta' }));
+
+  assert.equal(badge().style.display, 'none', 'hidden until asked for');
+  key('keydown', true);
+  assert.equal(badge().style.display, '', 'the modifier brings it out');
+  key('keyup', false);
+  assert.equal(badge().style.display, 'none');
+
+  // Once an image has been acted on, its badge is the way back.
+  layer.setStatus(img, 'shown', 'Show the original image');
+  assert.equal(badge().style.display, '', 'a translated image keeps its badge');
+  layer.setStatus(img, 'idle', 'Translate the text in this image');
+  assert.equal(badge().style.display, 'none', 'and gives it up again when it is idle');
+
+  key('keydown', true);
+  dom.window.dispatchEvent(new dom.window.Event('blur'));
+  assert.equal(badge().style.display, 'none', 'cmd-tabbing away puts it back');
+
+  layer.stop();
+  dom.window.close();
+});

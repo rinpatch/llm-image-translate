@@ -16,6 +16,10 @@ to chase the picture through scrolling, zooming, or a lazily swapped `src` —
 and the result is a real image you can save. Clicking the badge again puts the
 original back.
 
+Badges appear while ⌘ is held — Super elsewhere — so an ordinary page is left
+alone. A badge stays out once its image has been translated, because it is the
+only way back to the original and the only way to call a slow translation off.
+
 ## Running it
 
 ```bash

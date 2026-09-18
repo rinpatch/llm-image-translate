@@ -39,6 +39,8 @@ export class BadgeLayer {
   private mutations: MutationObserver | null = null;
   private ticker: ReturnType<typeof setInterval> | null = null;
   private enabled = false;
+  /** Whether the modifier is down. Badges stay out of the way until it is. */
+  private armed = false;
 
   private onActivate: (img: HTMLImageElement) => void;
 
@@ -85,6 +87,12 @@ export class BadgeLayer {
     // nothing fires for that, so badge positions are refreshed on a slow tick.
     this.ticker = setInterval(() => this.sync(), SYNC_MS);
     addEventListener('resize', this.sync, { passive: true });
+    // Capture, because a page that handles the key itself would otherwise stop
+    // this from ever hearing it.
+    addEventListener('keydown', this.modifier, true);
+    addEventListener('keyup', this.modifier, true);
+    // Cmd-tabbing away releases the key somewhere this page will never hear.
+    addEventListener('blur', this.disarm);
   }
 
   stop(): void {
@@ -92,6 +100,9 @@ export class BadgeLayer {
     if (this.ticker) clearInterval(this.ticker);
     this.ticker = null;
     removeEventListener('resize', this.sync);
+    removeEventListener('keydown', this.modifier, true);
+    removeEventListener('keyup', this.modifier, true);
+    removeEventListener('blur', this.disarm);
     for (const img of new Set([...this.controllers.keys(), ...this.candidates])) this.detach(img);
     this.mutations?.disconnect();
     this.visibility?.disconnect();
@@ -111,6 +122,7 @@ export class BadgeLayer {
     c.status = status;
     c.title = title;
     this.render(img);
+    this.place(img);
   }
 
   scan(root: Node): void {
@@ -188,7 +200,11 @@ export class BadgeLayer {
     const c = this.controllers.get(img);
     if (!c || !this.host?.isConnected) return;
     const rect = img.getBoundingClientRect();
-    const hidden = rect.width < MIN_SIDE || rect.height < MIN_SIDE || c.offscreen;
+    // An image that has been acted on keeps its badge: it is the only way back
+    // to the original, and the only way to call a slow translation off.
+    const idle = c.status === 'idle';
+    const hidden = (idle && !this.armed)
+      || rect.width < MIN_SIDE || rect.height < MIN_SIDE || c.offscreen;
     c.badge.style.display = hidden ? 'none' : '';
     if (hidden) return;
     // Both rects are viewport-relative and the host sits in the page, so the
@@ -207,6 +223,16 @@ export class BadgeLayer {
     badge.classList.toggle('bad', status === 'error');
     badge.textContent = ({ working: '…', error: '!' } as Record<string, string>)[status] || 'T';
     badge.title = c.title;
+  }
+
+  private modifier = (e: KeyboardEvent): void => this.arm(e.metaKey);
+
+  private disarm = (): void => this.arm(false);
+
+  private arm(armed: boolean): void {
+    if (armed === this.armed) return;
+    this.armed = armed;
+    for (const img of this.controllers.keys()) this.place(img);
   }
 
   private sync = (): void => {
