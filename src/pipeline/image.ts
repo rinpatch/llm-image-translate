@@ -169,8 +169,8 @@ export async function translateImage(
   let blocks: Block[];
   try {
     started = Date.now();
-    const reply = await send(toEndpoint(config.reader), ocr.build(image), 'the reader',
-      signal);
+    const reply = await send(toEndpoint(config.reader), ocr.build(image, config.target),
+      'the reader', signal);
     timings.read = stageOf(Date.now() - started, [reply.stats]);
     // A table's rows sit as close together as a wrapped sentence's lines, so
     // the spacing alone would run a price list into one block.
@@ -184,11 +184,18 @@ export async function translateImage(
     }
 
     const originals = blocks.map((b) => join(b.lines));
-    started = Date.now();
-    const calls: ModelStats[] = [];
-    const translations = await translateAll(toEndpoint(config.translator), translator, originals,
-      config.source, config.target, signal, calls);
-    timings.translate = stageOf(Date.now() - started, calls);
+    let translations: string[];
+    if (ocr.capabilities.alsoTranslates) {
+      // The reader answered both questions, so there is no translate stage to
+      // time — the cost of it is already inside the read.
+      translations = blocks.map((b) => join(b.translations || []));
+    } else {
+      started = Date.now();
+      const calls: ModelStats[] = [];
+      translations = await translateAll(toEndpoint(config.translator), translator, originals,
+        config.source, config.target, signal, calls);
+      timings.translate = stageOf(Date.now() - started, calls);
+    }
 
     started = Date.now();
     const appearances = blocks.map((block, i) => {

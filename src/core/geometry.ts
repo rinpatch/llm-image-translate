@@ -4,11 +4,15 @@ export type Box = [number, number, number, number];
 export interface TextLine {
   text: string;
   box: Box;
+  /** Set only by a reader that translates in the same pass. */
+  translation?: string;
 }
 
 export interface Block {
   box: Box;
   lines: string[];
+  /** One per entry in `lines`, or absent when the reader only read. */
+  translations?: string[];
   vertical: boolean;
   /** Height of the last line joined, used to decide what else belongs here. */
   lineH?: number;

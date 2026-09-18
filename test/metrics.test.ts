@@ -46,20 +46,20 @@ test('a server that times itself is believed, one that does not is measured', as
     timings: { prompt_ms: 812.4, predicted_n: 60, predicted_ms: 1500 },
     usage: { completion_tokens: 99 },
   });
-  const local = await send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image), 'reader');
+  const local = await send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image, 'English'), 'reader');
   assert.equal(local.stats.ttft_ms, 812, 'prefill is the wait before the first token');
   assert.deepEqual([local.stats.tokens, local.stats.gen_ms], [60, 1500],
     'the server counted its own tokens, so usage is not consulted');
 
   answering({ choices: [{ message: { content: 'read' } }], usage: { completion_tokens: 40 } });
-  const hosted = await send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image), 'reader');
+  const hosted = await send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image, 'English'), 'reader');
   assert.equal(hosted.stats.ttft_ms, undefined, 'nothing reported, so nothing claimed');
   assert.equal(hosted.stats.tokens, 40);
   assert.equal(hosted.stats.gen_ms, hosted.stats.wall_ms,
     'the round trip stands in where the server did not split it');
 
   answering({ choices: [{ message: { content: 'read' } }] });
-  const blind = await send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image), 'reader');
+  const blind = await send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image, 'English'), 'reader');
   assert.deepEqual([blind.stats.tokens, blind.stats.gen_ms], [undefined, undefined],
     'no token count, so no rate to report');
 });

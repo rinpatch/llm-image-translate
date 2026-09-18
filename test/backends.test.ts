@@ -3,7 +3,7 @@ import assert from 'node:assert';
 
 import { send } from '../src/backends/client.ts';
 import { hunyuanSpotting } from '../src/backends/ocr/hunyuan.ts';
-import { jsonBoxes } from '../src/backends/ocr/json-boxes.ts';
+import { jsonBoxes, jsonBoxesTranslating } from '../src/backends/ocr/json-boxes.ts';
 import { chatLines } from '../src/backends/translate/chat-lines.ts';
 import { hunyuanMt } from '../src/backends/translate/hunyuan-mt.ts';
 import { translateGemma } from '../src/backends/translate/gemma.ts';
@@ -12,7 +12,7 @@ import { type EncodedImage } from '../src/backends/types.ts';
 const image: EncodedImage = { dataUrl: 'data:image/png;base64,dGVzdA==', width: 800, height: 400 };
 
 test('the reader is asked for spotting, with the image first', () => {
-  const request = hunyuanSpotting.build(image);
+  const request = hunyuanSpotting.build(image, 'English');
   assert.equal(request.kind, 'chat');
   const content = (request.body.messages as any[])[0].content;
   assert.equal(content[0].image_url.url, image.dataUrl);
@@ -62,7 +62,7 @@ test('the client addresses the endpoint and unwraps whichever reply shape', asyn
 
   globalThis.fetch = reply({ choices: [{ message: { content: 'read' } }] }) as typeof fetch;
   assert.equal(
-    (await send({ baseUrl: 'http://host/' }, hunyuanSpotting.build(image), 'reader')).text, 'read');
+    (await send({ baseUrl: 'http://host/' }, hunyuanSpotting.build(image, 'English'), 'reader')).text, 'read');
   assert.equal(calls[0].url, 'http://host/v1/chat/completions', 'trailing slash does not double');
   assert.equal(calls[0].init.headers.Authorization, undefined, 'no key, no header');
   assert.equal(JSON.parse(calls[0].init.body).model, undefined, 'no model unless one is named');
@@ -80,11 +80,11 @@ test('the client addresses the endpoint and unwraps whichever reply shape', asyn
 
 test('a server that answers badly says so, in terms of what it was asked to be', async () => {
   globalThis.fetch = (async () => ({ ok: false, status: 503 })) as unknown as typeof fetch;
-  await assert.rejects(send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image), 'the reader'),
+  await assert.rejects(send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image, 'English'), 'the reader'),
     /the reader answered 503/);
 
   globalThis.fetch = (async () => { throw new Error('ECONNREFUSED'); }) as unknown as typeof fetch;
-  await assert.rejects(send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image), 'the reader'),
+  await assert.rejects(send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image, 'English'), 'the reader'),
     /cannot reach the reader at http:\/\/host\/v1\/chat\/completions/);
 });
 
@@ -96,7 +96,7 @@ test('a base written either way round reaches the same place', async () => {
   }) as unknown as typeof fetch;
   for (const baseUrl of ['http://127.0.0.1:8090', 'http://127.0.0.1:8090/v1',
                          'http://127.0.0.1:8090/v1/']) {
-    await send({ baseUrl }, hunyuanSpotting.build(image), 'reader');
+    await send({ baseUrl }, hunyuanSpotting.build(image, 'English'), 'reader');
   }
   assert.deepEqual(new Set(seen), new Set(['http://127.0.0.1:8090/v1/chat/completions']));
 });
@@ -134,14 +134,34 @@ test('a 0-1000 grid is scaled onto the image, and junk is dropped', () => {
   ], 'a zero-width box, a malformed box and an empty string are all dropped');
 });
 
-// Qwen3-VL answers on the grid whatever the prompt says; something else may not.
-test('a reply in pixels is taken as pixels, since the grid cannot exceed 1000', () => {
+test('an out-of-range coordinate is clamped without changing the coordinate system', () => {
   const lines = jsonBoxes.parse(
-    '[{"text":"a","box":[10,20,100,60]},{"text":"b","box":[200,100,1400,900]}]', image);
+    '[{"text":"a","bbox_2d":[10,20,100,60]},'
+    + '{"text":"b","bbox_2d":[200,100,1400,900]}]', image);
   assert.deepEqual(lines, [
-    { text: 'a', box: [10, 20, 100, 60] },
-    { text: 'b', box: [200, 100, 800, 400] },
-  ], 'and the one that runs off the edge is clamped to it');
+    { text: 'a', box: [8, 8, 80, 24] },
+    { text: 'b', box: [160, 40, 800, 360] },
+  ], 'one bad value must not make every box look like pixel coordinates');
+});
+
+test('the one-pass reader asks for the target language and reads it back per line', () => {
+  const request = jsonBoxesTranslating.build(image, 'German');
+  const prompt = (request.body.messages as any[])[0].content[1].text as string;
+  assert.match(prompt, /"translation"/);
+  assert.match(prompt, /"bbox_2d"/);
+  assert.match(prompt, /tight bounding box around only the visible glyphs/);
+  assert.match(prompt, /normalized independently to 0-1000/);
+  assert.match(prompt, /in German/);
+  assert.ok(jsonBoxesTranslating.capabilities.alsoTranslates);
+  assert.equal(jsonBoxes.capabilities.alsoTranslates, false);
+
+  const lines = jsonBoxesTranslating.parse(
+    '[{"text":"包邮","translation":"Free shipping","bbox_2d":[0,0,500,500]},'
+    + '{"text":"OK","bbox_2d":[500,500,1000,1000]}]', image);
+  assert.deepEqual(lines, [
+    { text: '包邮', box: [0, 0, 400, 200], translation: 'Free shipping' },
+    { text: 'OK', box: [400, 200, 800, 400], translation: '' },
+  ], 'a line the model left out is empty, which reads as untranslated');
 });
 
 test('a model that wraps its array in an object is still understood', () => {
@@ -156,7 +176,7 @@ test('giving up is not reported as the endpoint failing', async () => {
     init.signal.addEventListener('abort', () => reject(new Error('aborted')));
   })) as unknown as typeof fetch;
 
-  const job = send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image), 'the reader',
+  const job = send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image, 'English'), 'the reader',
     controller.signal);
   controller.abort();
   await assert.rejects(job, (e: Error) => e.name === 'Cancelled');
@@ -167,7 +187,7 @@ test('a reply with no content at all is an empty string, not a crash', async () 
   for (const body of [{ choices: [{ message: { content: null } }] }, { choices: [] }, {}]) {
     globalThis.fetch = reply(body) as unknown as typeof fetch;
     assert.equal(
-      (await send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image), 'reader')).text, '');
+      (await send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image, 'English'), 'reader')).text, '');
   }
 });
 

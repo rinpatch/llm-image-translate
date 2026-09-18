@@ -23,6 +23,8 @@
 <section>
   <h2>Reader</h2>
   <p class="blurb">Locates the text in the image and says what it says.</p>
+  <p class="blurb" id="one-pass" hidden>This adapter translates as it reads, so an
+  image costs one request and no translator is used.</p>
   <label><span>Endpoint</span><input type="url" id="reader-baseUrl"
     placeholder="http://127.0.0.1:8090"></label>
   <div class="row">
@@ -34,7 +36,7 @@
   <div class="status" id="reader-status"></div>
 </section>
 
-<section>
+<section id="translator-section">
   <h2>Translator</h2>
   <label><span>Endpoint</span><input type="url" id="translator-baseUrl"
     placeholder="http://127.0.0.1:8091"></label>

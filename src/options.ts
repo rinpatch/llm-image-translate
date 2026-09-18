@@ -1,4 +1,5 @@
-import { OCR_ADAPTERS, TRANSLATE_ADAPTERS, translateAdapter } from './backends/registry.ts';
+import { OCR_ADAPTERS, TRANSLATE_ADAPTERS, ocrAdapter, translateAdapter }
+  from './backends/registry.ts';
 import { type PingResult } from './platform/messages.ts';
 import { SHIPPED, type Profile, copyOf, find, newId, uniqueName } from './platform/profiles.ts';
 import {
@@ -36,6 +37,10 @@ function show(): void {
   picker.value = active.id;
   nameBox.value = active.name;
   $<HTMLButtonElement>('profile-delete').disabled = list.length < 2;
+  const onePass = ocrAdapter(active.reader.adapter).capabilities.alsoTranslates;
+  $('one-pass').hidden = !onePass;
+  $('translator-section').hidden = onePass;
+  $('test').textContent = onePass ? 'Test the endpoint' : 'Test both endpoints';
   for (const role of ROLES) {
     for (const name of FIELDS) field<HTMLInputElement>(role, name).value = active[role][name];
   }
@@ -120,6 +125,7 @@ const LOCAL = /^(https?:\/\/)?(127\.0\.0\.1|localhost|\[::1\]|0\.0\.0\.0)\b/;
  * OpenAI-compatible service has. Saying so beats a 404 with no explanation.
  */
 function checkPairing(): void {
+  if (ocrAdapter(active.reader.adapter).capabilities.alsoTranslates) return;
   const url = active.translator.baseUrl.trim();
   const adapter = active.translator.adapter;
   if (!url || !translateAdapter(adapter).capabilities.localOnly || LOCAL.test(url)) return;
@@ -136,10 +142,8 @@ function toggle(id: 'images' | 'expand' | 'debug'): void {
 async function test(): Promise<void> {
   for (const role of ROLES) say(role, 'Checking…');
   const ping: PingResult = await chrome.runtime.sendMessage({ type: 'ping' });
-  for (const role of ROLES) {
-    const problem = ping[role];
-    say(role, problem || 'Answered.', problem ? 'bad' : 'ok');
-  }
+  say('reader', ping.reader || 'Answered.', ping.reader ? 'bad' : 'ok');
+  say('translator', ping.translator || 'Answered.', ping.translator ? 'bad' : 'ok');
 }
 
 async function purgeCache(): Promise<void> {

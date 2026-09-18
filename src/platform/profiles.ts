@@ -45,6 +45,10 @@ const endpoint = (baseUrl: string, adapter: string, model = ''): EndpointSetting
 // Flash Lite placed and read every line on both. Hy-MT2 is a translation model
 // rather than a chat model, and the only family tried that reads 雨宮静久 as
 // Amamiya Shizuku instead of inventing a reading.
+//
+// The one-pass pairing trades that reading for a round trip: the reader sees the
+// page while it translates, which no text-only translator does, but a general
+// model is the one naming the characters.
 export const SHIPPED: Profile[] = [
   {
     id: 'llamacpp',
@@ -62,6 +66,14 @@ export const SHIPPED: Profile[] = [
     id: 'openrouter',
     name: 'OpenRouter — Gemini',
     reader: endpoint(OPENROUTER, 'json-boxes-yx', 'google/gemini-3.1-flash-lite'),
+    translator: endpoint(OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
+  },
+  {
+    id: 'openrouter-one-pass',
+    name: 'OpenRouter — Gemini, one pass',
+    reader: endpoint(OPENROUTER, 'json-boxes-yx-translate', 'google/gemini-3.1-flash-lite'),
+    // Unused while the reader translates, and there so that switching the reader
+    // adapter on this profile leaves something that works.
     translator: endpoint(OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
   },
   {

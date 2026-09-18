@@ -29,6 +29,18 @@ test('vertical CJK columns join rightward, because that is the reading order', (
   assert.deepEqual(columns[0].lines, ['応該什麼都会', '編代碼啊'], 'rightmost column first');
 });
 
+test('a translation travels with the line it belongs to when blocks merge', () => {
+  const rows = group([
+    { text: 'Ceci est une image', box: [262, 357, 745, 446], translation: 'This is an image' },
+    { text: 'avec du texte', box: [203, 501, 795, 582], translation: 'with text in it' },
+    { text: 'Bonjour le monde', box: [289, 121, 713, 227], translation: 'Hello world' },
+  ]);
+  assert.deepEqual(rows[1].translations, ['This is an image', 'with text in it']);
+  assert.deepEqual(rows[0].translations, ['Hello world']);
+  assert.equal(group([{ text: 'a', box: [0, 0, 10, 10] }])[0].translations, undefined,
+    'a reader that only read leaves no empty translations behind');
+});
+
 test('CJK had no spaces before the renderer wrapped it; everything else did', () => {
   assert.equal(join(['編代碼啊', '応該什麼']), '編代碼啊応該什麼');
   assert.equal(join(['hello', 'world']), 'hello world');

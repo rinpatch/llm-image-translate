@@ -7,6 +7,23 @@ const COLUMN_OVERLAP = 0.4;
 
 const CJK = /[㐀-䶿一-鿿぀-ヿ가-힯]/;
 
+// A one-pass reader hands back a translation per line, and the lines are what
+// gets merged, so the translations have to be merged with them or the block ends
+// up holding someone else's sentence.
+function append(block: Block, line: TextLine): void {
+  block.lines.push(line.text);
+  if (line.translation !== undefined) {
+    (block.translations ??= new Array(block.lines.length - 1).fill('')).push(line.translation);
+  }
+}
+
+const started = (line: TextLine, rest: Partial<Block>): Block => {
+  const [x0, y0, x1, y1] = line.box;
+  const block: Block = { box: [x0, y0, x1, y1], lines: [], vertical: false, ...rest };
+  append(block, line);
+  return block;
+};
+
 /** Says whether two boxes are divided by something, whatever their spacing. */
 export type Divided = (above: Box, below: Box) => boolean;
 
@@ -25,15 +42,13 @@ function groupRows(lines: TextLine[], divided?: Divided): Block[] {
           && overlap > MIN_OVERLAP * Math.min(b.box[2] - b.box[0], x1 - x0)) {
         b.box = [Math.min(b.box[0], x0), Math.min(b.box[1], y0),
                  Math.max(b.box[2], x1), Math.max(b.box[3], y1)];
-        b.lines.push(line.text);
+        append(b, line);
         b.lineH = y1 - y0;
         joined = true;
         break;
       }
     }
-    if (!joined) {
-      blocks.push({ box: [x0, y0, x1, y1], lines: [line.text], lineH: y1 - y0, vertical: false });
-    }
+    if (!joined) blocks.push(started(line, { lineH: y1 - y0 }));
   }
   return blocks;
 }
@@ -53,15 +68,13 @@ function groupColumns(lines: TextLine[]): Block[] {
           && overlap > COLUMN_OVERLAP * Math.min(b.box[3] - b.box[1], y1 - y0)) {
         b.box = [Math.min(b.box[0], x0), Math.min(b.box[1], y0),
                  Math.max(b.box[2], x1), Math.max(b.box[3], y1)];
-        b.lines.push(line.text);
+        append(b, line);
         b.lineW = width;
         joined = true;
         break;
       }
     }
-    if (!joined) {
-      blocks.push({ box: [x0, y0, x1, y1], lines: [line.text], lineW: width, vertical: true });
-    }
+    if (!joined) blocks.push(started(line, { lineW: width, vertical: true }));
   }
   return blocks;
 }
