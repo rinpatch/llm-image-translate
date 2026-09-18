@@ -40,6 +40,13 @@ func handle(_ request: Request) async -> Response {
             )
             return Response(id: request.id, ok: true, source: source, translations: translations)
 
+        case "ocr":
+            guard let image = request.image else {
+                throw HostError.bad("ocr needs an image", code: "bad_request")
+            }
+            let boxes = try OCR.recognize(base64: image, languages: request.languages)
+            return Response(id: request.id, ok: true, boxes: boxes)
+
         default:
             throw HostError.bad("Unknown action \(request.action)", code: "bad_request")
         }

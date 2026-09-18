@@ -1,3 +1,10 @@
 node_modules/
 native/.build/
 tools/extension_key.pem
+extension/vendor/
+extension/offscreen.bundle.js
+proto/node_modules/
+poc/.venv/
+poc/.logs/
+poc/models/
+poc/__pycache__/

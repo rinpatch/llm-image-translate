@@ -1,86 +1,86 @@
-# In-Place Translate
+# Image Translate
 
-A Chrome extension that translates the page you are reading, in place, using
-Apple's on-device Translation framework. No screenshots, no OCR, no API key, no
-network round trip — the DOM text goes straight to the same translator macOS
-uses for Live Text.
-
-Extensions cannot call native frameworks, so a small Swift binary sits behind
-Chrome's native messaging as the bridge:
+A Chrome extension that translates the text inside images, and a proof of
+concept that does the same from the command line. Both run entirely on your own
+machine, against a [llama.cpp](https://github.com/ggml-org/llama.cpp) server you
+start yourself.
 
 ```
-content.js  →  background.js  →  translator-host (Swift)  →  Translation.framework
-   DOM            port              stdin/stdout                   on-device
+<img> ─→ background.js ─→ HunyuanOCR ─→ boxes + text ─→ group ─→ TranslateGemma
+              fetch,                                                  │
+            rasterise  ←──────────── paint onto a canvas ←────────────┘
 ```
 
-## Requirements
+The worker replaces the image rather than drawing boxes over it, so nothing has
+to chase the picture through scrolling, zooming, or a lazily swapped `src` —
+and the result is a real image you can save. Clicking the badge again puts the
+original back.
 
-- macOS 26 or newer. The headless `TranslationSession(installedSource:target:)`
-  used here does not exist on earlier versions, where the framework had to be
-  anchored to a SwiftUI view.
-- Xcode command line tools (for `swift build`).
-- A Chromium-based browser: Chrome, Chromium, Brave, Edge, Vivaldi, or Arc.
-
-## Install
+## Running it
 
 ```bash
-./install.sh
+cd poc && ./start.sh        # reader on :8090, translator on :8091
 ```
 
-That builds the host, installs it to `~/Library/Application Support/InPlaceTranslate`,
-and writes the native messaging manifest into every Chromium profile it finds.
-Then load `extension/` as an unpacked extension from `chrome://extensions` with
-developer mode on, and restart the browser.
+Then load `extension/` from `chrome://extensions` with developer mode on. There
+is no build step and nothing to download into the extension — it is about 50 KB.
 
-The extension ID is pinned by the `key` field in `extension/manifest.json`, so
-the manifest written by `install.sh` keeps matching across reloads.
+The popup has the two server URLs under **llama.cpp servers** if you run them
+somewhere else, and reports whether it can reach them.
 
-## Language packs
+`poc/` also has a browser demo of the same pipeline at `http://127.0.0.1:8000`,
+which is easier to iterate on. See `poc/README.md`.
 
-Translation is offline, which means the language pair has to be on the machine
-first. There is no API to download one silently — add pairs under **System
-Settings → General → Language & Region → Translation Languages**. Until then the
-popup reports `needs_download` and points you there.
+## Why two models
 
-## Using it
+HunyuanOCR reads and locates text better than anything else its size, and it
+translates well — 76.5 on MMTIT other→English at 1B, beating Qwen3-VL-8B. But
+its benchmarks are `other2en`, `other2zh` and `en2zh`, where *other* means
+neither Chinese nor English. Chinese as a source is the one combination never
+measured, and asked for it the model extracts the text, announces
+`翻译成英文为`, and repeats the original.
 
-Click the toolbar icon, pick a target language, hit Translate — or press
-⌥⇧T. Restore puts the original text back. While a page stays translated, a
-MutationObserver picks up content that loads later, so infinite scroll and SPA
-navigation keep translating.
+So one model reads and a second translates. TranslateGemma was the best of the
+translators tried: it renders `晴山空` as "Harayama" where a general 7B produced
+"Aoyama Sora" and a 3B produced "Clear Mountain Sky", and it is half the size.
 
-Text nodes, plus `placeholder`, `title`, `alt`, and `aria-label`, are
-translated. `<script>`, `<style>`, `<pre>`, `<code>`, editable regions, and
-anything marked `translate="no"` or `.notranslate` are left alone.
+## What it does
 
-## Native host protocol
+**Reads** with the `spotting_hunyuan` task, whose output is `TEXT(x0,y0),(x1,y1)`
+run together and normalised to 0-1000.
 
-Newline-free JSON with Chrome's 4-byte length prefix, over stdin/stdout:
+**Groups** lines into blocks. Horizontal lines join the block above them;
+vertical CJK columns join the block to their right, which is the direction
+Japanese is read in. Without that a manga page arrives as dozens of 28-pixel
+columns that no font size will fit English into.
 
-| Request | Response |
-| --- | --- |
-| `{"id":1,"action":"ping"}` | `{"id":1,"ok":true,"status":"ready"}` |
-| `{"id":2,"action":"availability","source":"en","target":"ja"}` | `{"ok":true,"status":"installed\|supported\|unsupported"}` |
-| `{"id":3,"action":"prepare","source":"en","target":"ja"}` | `{"ok":true,"status":"..."}` |
-| `{"id":4,"action":"translate","source":"auto","target":"ja","texts":[...]}` | `{"ok":true,"source":"en","translations":[...]}` |
+**Translates** the whole page in one request so the blocks are context for each
+other, falling back to one request per block if the reply comes back with the
+wrong number of lines. Obvious scripts are identified directly; Latin text uses
+Chrome's language detector and can be overridden with **Translate from**. The
+source is named in the prompt — without it, `晴山空` comes back as "Qing Shan Kuo".
 
-`source: "auto"` runs `NLLanguageRecognizer` over the joined batch. Failures come
-back as `{"ok":false,"code":"needs_download"\|"unsupported"\|"undetected"\|"bad_request"\|"translation_failed"}`.
+**Fits** text to the shape it sits in rather than the box the glyphs occupied. A
+flood fill outward finds the speech balloon; growth is capped by how much text
+there is, so a one-glyph sound effect cannot claim a whole bubble, and
+neighbouring boxes are negotiated so none paints over another.
 
-You can drive it by hand:
+**Leaves blocks alone** when the translation still looks like the source — a
+half-translated line drawn over the original is worse than the original.
 
-```bash
-python3 - <<'PY'
-import json, struct, subprocess
-p = subprocess.Popen(["native/.build/release/translator-host"],
-                     stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-msg = json.dumps({"id": 1, "action": "translate", "source": "auto",
-                  "target": "ja", "texts": ["Hello, world"]}).encode()
-p.stdin.write(struct.pack("=I", len(msg)) + msg); p.stdin.flush()
-n = struct.unpack("=I", p.stdout.read(4))[0]
-print(json.loads(p.stdout.read(n)))
-PY
-```
+## What it is bad at
+
+**Japanese names.** Readings get invented: `雨宮静久` (Amamiya Shizuku) comes
+back wrong from every model tried. Readings are genuinely ambiguous, which is
+why manga prints furigana beside the kanji — and the reader picks that gloss up
+as its own column, which then gets translated as if it were words.
+
+**Sound effects.** `ぼ` becomes "P". Manga translators usually leave them alone.
+
+**Backgrounds with texture.** The original is painted over with the dominant
+colour around it, which is invisible on a flat background and obvious over a
+photograph. Real inpainting needs a model the browser cannot host; `poc/` has it
+behind a flag.
 
 ## Tests
 
@@ -88,13 +88,6 @@ PY
 npm install && npm test
 ```
 
-Runs the content script against jsdom: whitespace handling, skip rules,
-dedup, idempotent re-runs, observer pickup, and restore.
-
-## Firefox
-
-Firefox uses the same native messaging protocol but a different manifest
-location (`~/Library/Application Support/Mozilla/NativeMessagingHosts/`) with
-`allowed_extensions` instead of `allowed_origins`, and its MV3 needs
-`background.scripts` rather than a service worker. The Swift host works as-is;
-the extension needs those two edits.
+Runs the worker's geometry and language logic against strings the reader
+actually returned: spot parsing, row and column grouping, CJK joining, script
+detection, the untranslated check, and container negotiation.

@@ -48,6 +48,8 @@ struct Request: Decodable {
     var source: String?
     var target: String?
     var texts: [String]?
+    var image: String?
+    var languages: [String]?
 }
 
 struct Response: Encodable {
@@ -58,6 +60,7 @@ struct Response: Encodable {
     var status: String?
     var source: String?
     var translations: [String]?
+    var boxes: [TextBox]?
 }
 
 enum HostError: Error {

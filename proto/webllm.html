@@ -1,0 +1,320 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Phase 0b — WebLLM translation bake-off</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 14px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; margin: 24px; max-width: 1100px; }
+  h1 { font-size: 16px; }
+  fieldset { border: 1px solid #8884; border-radius: 6px; margin: 0 0 14px; }
+  legend { font-size: 11px; opacity: .7; text-transform: uppercase; letter-spacing: .06em; }
+  textarea { width: 100%; height: 120px; font: 13px/1.5 ui-monospace, monospace; }
+  button { font: inherit; padding: 6px 14px; }
+  select { font: inherit; max-width: 100%; }
+  table { border-collapse: collapse; width: 100%; margin-top: 14px; }
+  th, td { border-bottom: 1px solid #8884; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { font-size: 11px; opacity: .7; text-transform: uppercase; letter-spacing: .06em; }
+  td.ms { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .src { font-size: 12px; opacity: .7; }
+  #summary { margin-top: 14px; padding: 10px 12px; background: #8881; border-radius: 6px; white-space: pre-wrap;
+             font: 12px/1.6 ui-monospace, monospace; }
+  .bad { color: #c0392b; }
+  .warn { color: #b7791f; }
+</style>
+
+<h1>Phase 0b — is an LLM in the browser a better translator than NMT?</h1>
+<p class="src">
+  Weights stream straight into GPU buffers here, so the 32-bit wasm ceiling that blocked
+  NLLB does not apply. WebGPU is required — there is no wasm fallback.
+</p>
+
+<fieldset>
+  <legend>Model</legend>
+  <select id="model"></select>
+  <div class="src" id="modelNote"></div>
+</fieldset>
+
+<fieldset>
+  <legend>Generation</legend>
+  <label>max_tokens <input id="maxTokens" type="number" value="256" min="16" max="1024" style="width:70px"></label>
+  &nbsp;
+  <label>temperature <input id="temp" type="number" value="0" min="0" max="2" step="0.1" style="width:70px"></label>
+  &nbsp;
+  <label><input type="checkbox" id="keep" checked> keep engine loaded between runs</label>
+  &nbsp;
+  <label><input type="checkbox" id="batch"> one request for all lines (numbered)</label>
+</fieldset>
+
+<fieldset>
+  <legend>System prompt</legend>
+  <textarea id="system" style="height:96px"></textarea>
+  <label class="src"><input type="checkbox" id="fewshot" checked> send the worked examples below first</label>
+  <textarea id="examples" style="height:96px"></textarea>
+  <div class="src">One example per line as <code>source :: translation</code>.</div>
+</fieldset>
+
+<fieldset>
+  <legend>Source sentences (one per line)</legend>
+  <textarea id="input">全新正品 2024款 男士休闲运动鞋 透气防滑 轻便舒适
+包邮 顺丰发货 七天无理由退换 支持货到付款
+这款面料柔软亲肤，弹力好，适合春秋季节穿着
+库存紧张，最后三件，拍下即发
+亲，这个尺码建议您比平时大一码哦
+产品参数：材质 聚酯纤维；重量 约 280 克；产地 广东
+买家秀：物流很快，质量不错，就是颜色比图片稍微深一点</textarea>
+</fieldset>
+
+<button id="run">Run</button>
+<div id="summary"></div>
+<div id="out"></div>
+
+<script type="module">
+import * as webllm from 'https://esm.run/@mlc-ai/web-llm';
+
+const $ = (id) => document.getElementById(id);
+const summary = $('summary');
+const out = $('out');
+
+function note(line, kind = '') {
+  const span = document.createElement('span');
+  if (kind) span.className = kind;
+  span.textContent = line + '\n';
+  summary.append(span);
+}
+
+// Only instruction-tuned models can be asked to translate; the base completions
+// in the catalogue will happily continue the Chinese instead.
+const models = webllm.prebuiltAppConfig.model_list
+  .filter((m) => /instruct|-it-/i.test(m.model_id))
+  .sort((a, b) => (a.vram_required_MB ?? 0) - (b.vram_required_MB ?? 0));
+
+for (const m of models) {
+  const gb = m.vram_required_MB ? (m.vram_required_MB / 1024).toFixed(1) + ' GB' : 'size unknown';
+  $('model').append(new Option(`${m.model_id}  —  ${gb}`, m.model_id));
+}
+const preferred = models.find((m) => /Qwen2\.5-1\.5B-Instruct-q4f16/.test(m.model_id));
+if (preferred) $('model').value = preferred.model_id;
+
+$('model').addEventListener('change', describe);
+function describe() {
+  const m = models.find((x) => x.model_id === $('model').value);
+  $('modelNote').textContent = m?.vram_required_MB
+    ? `Downloads once, then cached. Needs about ${(m.vram_required_MB / 1024).toFixed(1)} GB of VRAM.`
+    : '';
+}
+describe();
+
+// Positive framing plus worked examples, because prohibitions are the weakest
+// thing you can hand a small model. The domain line matters most: without it a
+// fragment like a button label gets expanded into invented prose.
+const DEFAULT_SYSTEM = [
+  'You translate Chinese to English.',
+  'The text is lifted from screenshots and web pages, so it arrives as short pieces:',
+  'button labels, captions, menu items, chat messages, single sentences.',
+  'Translate each piece as the same kind of piece it already is.',
+  'A label stays a label. A fragment stays a fragment. Add nothing that is not there.',
+  'Latin letters already in the source, like AI or a brand name, stay as they are.',
+  'Your entire reply is the English text.'
+].join(' ');
+
+// A worked example is worth more than a rule here: the first shows a fragment
+// staying a fragment, the second that embedded Latin survives untouched.
+const DEFAULT_EXAMPLES = [
+  '发消息或按住说话 :: Send a message or hold to talk',
+  '深度思考 :: Deep thinking',
+  '不过我是AI，应该什么都会一点吧。 :: But I am an AI, so I should know a little of everything.',
+  '包邮 顺丰发货 :: Free shipping, sent by SF Express'
+].join('\n');
+
+$('system').value = DEFAULT_SYSTEM;
+$('examples').value = DEFAULT_EXAMPLES;
+
+// An image is a handful of short blocks. Sent one per request, prefill is paid
+// every time and dominates; sent together it is paid once, and the model also
+// gets to see the blocks as one screen instead of unrelated fragments.
+const NUMBERED = ' The input is a numbered list. Reply with the same numbers in the'
+  + ' same order, one translation per line, and nothing else.';
+
+function parseNumbered(reply, count) {
+  const out = new Array(count).fill(null);
+  for (const line of reply.split('\n')) {
+    const m = line.match(/^\s*(\d+)\s*[.):]\s*(.+)$/);
+    if (!m) continue;
+    const at = Number(m[1]) - 1;
+    if (at >= 0 && at < count) out[at] = m[2].trim();
+  }
+  return out;
+}
+
+const CHATTY = /^(here('s| is)|certainly|translation:|the translation)\b/i;
+const CJK = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/;
+
+const median = (xs) => {
+  const s = [...xs].sort((a, b) => a - b);
+  return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
+};
+
+let engine = null;
+let loaded = null;
+
+$('run').addEventListener('click', async () => {
+  $('run').disabled = true;
+  summary.textContent = '';
+  out.textContent = '';
+
+  const model = $('model').value;
+  const maxTokens = Number($('maxTokens').value);
+  const temperature = Number($('temp').value);
+  const sentences = $('input').value.split('\n').map((s) => s.trim()).filter(Boolean);
+
+  note(`webgpu available: ${'gpu' in navigator}`);
+  if (!('gpu' in navigator)) {
+    note('WebLLM cannot run without WebGPU. Nothing else will work on this browser.', 'bad');
+    $('run').disabled = false;
+    return;
+  }
+  note(`model: ${model}`);
+  note(`${sentences.length} sentences\n`);
+
+  if (engine && (loaded !== model || !$('keep').checked)) {
+    await engine.unload();
+    engine = null;
+  }
+
+  const t0 = performance.now();
+  if (!engine) {
+    let lastPct = -1;
+    try {
+      engine = await webllm.CreateMLCEngine(model, {
+        initProgressCallback: (p) => {
+          const pct = Math.floor((p.progress ?? 0) * 100);
+          if (pct !== lastPct && pct % 10 === 0) { note(`  loading ${pct}%`); lastPct = pct; }
+        }
+      });
+      loaded = model;
+    } catch (e) {
+      note(`FAILED to load: ${e.message}`, 'bad');
+      $('run').disabled = false;
+      return;
+    }
+    note(`  load: ${((performance.now() - t0) / 1000).toFixed(1)}s`);
+  } else {
+    note('  reusing loaded engine');
+  }
+
+  const table = document.createElement('table');
+  table.innerHTML = '<tr><th>source</th><th>translation</th><th>tok/s</th><th>ms</th></tr>';
+  out.append(table);
+
+  // Worked examples go in as real turns rather than pasted into the system
+  // message: the model is being shown the shape of a reply, not told about it.
+  const priming = [{ role: 'system', content: $('system').value.trim() }];
+  if ($('fewshot').checked) {
+    for (const line of $('examples').value.split('\n')) {
+      const [source, translation] = line.split('::').map((p) => p.trim());
+      if (source && translation) {
+        priming.push({ role: 'user', content: source });
+        priming.push({ role: 'assistant', content: translation });
+      }
+    }
+  }
+  note(`  priming turns: ${priming.length - 1}`);
+
+  if ($('batch').checked) {
+    const numbered = sentences.map((line, i) => `${i + 1}. ${line}`).join('\n');
+    const started = performance.now();
+    let texts;
+    let raw = '';
+    try {
+      const reply = await engine.chat.completions.create({
+        messages: [
+          { role: 'system', content: $('system').value.trim() + NUMBERED },
+          { role: 'user', content: numbered }
+        ],
+        temperature,
+        max_tokens: maxTokens * sentences.length
+      });
+      raw = reply.choices[0].message.content.trim();
+      texts = parseNumbered(raw, sentences.length);
+    } catch (e) {
+      note(`  batch failed: ${e.message}`, 'bad');
+      texts = sentences.map(() => null);
+    }
+    const total = performance.now() - started;
+
+    let missing = 0;
+    sentences.forEach((line, i) => {
+      const row = table.insertRow();
+      row.insertCell().textContent = line;
+      const body = row.insertCell();
+      if (texts[i] === null) { body.className = 'bad'; body.textContent = 'NOT RETURNED'; missing += 1; }
+      else if (CJK.test(texts[i])) { body.className = 'bad'; body.textContent = texts[i]; }
+      else body.textContent = texts[i];
+      row.insertCell().textContent = '';
+      row.insertCell().textContent = '';
+    });
+
+    // A line the model merged or dropped shifts every line after it, so the
+    // count is the thing that decides whether this mode is usable at all.
+    note(`  lines not returned: ${missing}/${sentences.length}`, missing ? 'bad' : '');
+    note(`  batch of ${sentences.length}: ${Math.round(total)}ms total`);
+    note(`  effective per line: ${Math.round(total / sentences.length)}ms`);
+    note('done.');
+    $('run').disabled = false;
+    return;
+  }
+
+  const timings = [];
+  let chatty = 0;
+  let residue = 0;
+
+  for (const sentence of sentences) {
+    const started = performance.now();
+    let text;
+    let rate = '';
+    try {
+      const reply = await engine.chat.completions.create({
+        messages: [...priming, { role: 'user', content: sentence }],
+        temperature,
+        max_tokens: maxTokens
+      });
+      text = reply.choices[0].message.content.trim();
+      const decode = reply.usage?.extra?.decode_tokens_per_s;
+      if (decode) rate = decode.toFixed(1);
+    } catch (e) {
+      text = `ERROR: ${e.message}`;
+    }
+    const ms = performance.now() - started;
+    timings.push(ms);
+
+    const row = table.insertRow();
+    row.insertCell().textContent = sentence;
+    const body = row.insertCell();
+    const left = text.match(new RegExp(CJK.source, 'g')) || [];
+    if (left.length) {
+      body.className = 'bad';
+      body.textContent = `UNTRANSLATED (${left.join('')}) — ${text}`;
+      residue += 1;
+    } else if (CHATTY.test(text) || text.includes('\n')) {
+      body.className = 'warn';
+      body.textContent = `CHATTY — ${text}`;
+      chatty += 1;
+    } else {
+      body.textContent = text;
+    }
+    row.insertCell().textContent = rate;
+    const cell = row.insertCell();
+    cell.className = 'ms';
+    cell.textContent = Math.round(ms);
+    await new Promise((r) => setTimeout(r));
+  }
+
+  note(`\n  left Chinese in the output: ${residue}/${sentences.length}`, residue ? 'bad' : '');
+  note(`  preamble or multi-line replies: ${chatty}/${sentences.length}`, chatty ? 'warn' : '');
+  note(`  first inference: ${Math.round(timings[0])}ms`);
+  note(`  median after warm-up: ${Math.round(median(timings.slice(1)))}ms`);
+  note(`  slowest after warm-up: ${Math.round(Math.max(...timings.slice(1)))}ms`);
+  note(`\n  a 300-node page at this median: ${(median(timings.slice(1)) * 300 / 1000 / 60).toFixed(1)} min`);
+  note('done.');
+  $('run').disabled = false;
+});
+</script>

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node test/content.test.mjs"
+    "test": "node test/images.test.mjs"
   },
   "devDependencies": {
     "jsdom": "^27.0.0"
