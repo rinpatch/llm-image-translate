@@ -191,18 +191,22 @@ export async function translateImage(
     timings.translate = stageOf(Date.now() - started, calls);
 
     started = Date.now();
+    const appearances = blocks.map((block, i) => {
+      const skipped = untranslated(originals[i], translations[i], config.target);
+      if (skipped) return { skipped, fill: null, background: '', ink: '' };
+      const fill = dominant(source, width, height, block.box);
+      return { skipped: null, fill, background: rgb(fill), ink: inkFor(fill) };
+    });
     const proposals: [Box, Box | null][] = blocks.map((block, i) => {
       const [x0, y0, x1, y1] = block.box;
       const padded: Box = [Math.max(0, x0 - 2), Math.max(0, y0 - 2),
                            Math.min(width, x1 + 2), Math.min(height, y1 + 2)];
       const translated = translations[i];
-      if (!translated || untranslated(originals[i], translated, config.target)) {
-        return [padded, null];
-      }
+      if (!translated || appearances[i].skipped) return [padded, null];
       // With growth off the translation stays in the box the reader drew, which
       // is what a page without bubbles to grow into wants.
       if (!config.expand) return [padded, null];
-      const fill = dominant(source, width, height, block.box);
+      const fill = appearances[i].fill!;
       const found = containerBox(source, width, height, block.box, fill);
       const wide = found && (found[2] - found[0]) <= (x1 - x0) * allowance(translated);
       return [padded, wide ? found : null];
@@ -213,21 +217,21 @@ export async function translateImage(
 
     // Removing source glyphs is independent from finding room for the result.
     // Clear only the OCR bounds; a container is merely a layout constraint.
-    blocks.forEach((block, i) => {
-      if (untranslated(originals[i], translations[i], config.target)) return;
-      const fill = dominant(source, width, height, block.box);
-      drawBlock(ctx, proposals[i][0], '', rgb(fill), inkFor(fill), null);
+    blocks.forEach((_, i) => {
+      const appearance = appearances[i];
+      if (appearance.skipped) return;
+      drawBlock(ctx, proposals[i][0], '', appearance.background, appearance.ink, null);
     });
 
     const report: BlockReport[] = [];
-    blocks.forEach((block, i) => {
-      const skipped = untranslated(originals[i], translations[i], config.target);
-      if (skipped) {
-        report.push({ box: layout[i], src: originals[i], en: translations[i] || '', skipped });
+    blocks.forEach((_, i) => {
+      const appearance = appearances[i];
+      if (appearance.skipped) {
+        report.push({ box: layout[i], src: originals[i], en: translations[i] || '',
+          skipped: appearance.skipped });
         return;
       }
-      const fill = dominant(source, width, height, block.box);
-      drawBlock(ctx, layout[i], translations[i], null, inkFor(fill), rgb(fill));
+      drawBlock(ctx, layout[i], translations[i], null, appearance.ink, appearance.background);
       report.push({ box: layout[i], src: originals[i], en: translations[i], skipped: null });
     });
     timings.paint_ms = Date.now() - started;
