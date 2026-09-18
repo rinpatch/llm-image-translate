@@ -23,9 +23,30 @@ only way back to the original and the only way to call a slow translation off.
 ## Running it
 
 ```bash
-cd poc && ./start.sh        # reader on :8090, translator on :8091
+./macos/install.sh         # reader on :8090, translator on :8091, at login
 npm install && npm run build
 ```
+
+The two models run as launchd agents that start at login. A minute after the
+last request they hand their weights back, which takes them from 4.2 GB between
+them to 0.34 GB:
+
+| | reader | translator |
+| --- | --- | --- |
+| working | 2.19 GB | 1.99 GB |
+| idle | 0.22 GB | 0.12 GB |
+| first request after idling | 4.7s | 3.1s |
+| once awake | 0.4s | 0.2s |
+
+The wait is reading the weights back off disk, and it is per model — translating
+a picture wakes both, translating the next one wakes neither. If you would rather
+have the seconds than the gigabytes, `IDLE=-1 ./macos/install.sh` never sleeps.
+
+`./macos/install.sh --uninstall` takes them out again; logs are in
+`~/Library/Logs/image-translate/`.
+
+`poc/start.sh` does the same thing in the foreground, with the browser demo
+alongside, and leaves anything already listening alone.
 
 Then load `extension/` from `chrome://extensions` with developer mode on.
 `npm run watch` rebuilds on save; the extension still has to be reloaded there
