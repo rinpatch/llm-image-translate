@@ -4,9 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node test/images.test.mjs"
+    "test": "npm run check && node --test test/",
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "check": "tsc --noEmit"
   },
   "devDependencies": {
-    "jsdom": "^27.0.0"
+    "@types/chrome": "^0.3.0",
+    "@types/jsdom": "^30.0.0",
+    "@types/node": "^26.6.1",
+    "esbuild": "^0.28.2",
+    "jsdom": "^27.0.0",
+    "typescript": "^7.0.2"
   }
 }

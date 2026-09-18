@@ -13,7 +13,7 @@
     "<all_urls>"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "dist/worker.js"
   },
   "content_scripts": [
     {
@@ -21,7 +21,7 @@
         "<all_urls>"
       ],
       "js": [
-        "images.js"
+        "dist/content.js"
       ],
       "run_at": "document_idle",
       "all_frames": true

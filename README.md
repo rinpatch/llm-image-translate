@@ -6,9 +6,9 @@ machine, against a [llama.cpp](https://github.com/ggml-org/llama.cpp) server you
 start yourself.
 
 ```
-<img> ─→ background.js ─→ HunyuanOCR ─→ boxes + text ─→ group ─→ TranslateGemma
-              fetch,                                                  │
-            rasterise  ←──────────── paint onto a canvas ←────────────┘
+<img> ─→ worker ─→ HunyuanOCR ─→ boxes + text ─→ group ─→ TranslateGemma
+          fetch,                                              │
+        rasterise  ←────────── paint onto a canvas ←──────────┘
 ```
 
 The worker replaces the image rather than drawing boxes over it, so nothing has
@@ -20,10 +20,12 @@ original back.
 
 ```bash
 cd poc && ./start.sh        # reader on :8090, translator on :8091
+npm install && npm run build
 ```
 
-Then load `extension/` from `chrome://extensions` with developer mode on. There
-is no build step and nothing to download into the extension — it is about 50 KB.
+Then load `extension/` from `chrome://extensions` with developer mode on.
+`npm run watch` rebuilds on save; the extension still has to be reloaded there
+for the worker to pick the new bundle up.
 
 The popup has the two server URLs under **llama.cpp servers** if you run them
 somewhere else, and reports whether it can reach them.
@@ -82,12 +84,28 @@ colour around it, which is invisible on a flat background and obvious over a
 photograph. Real inpainting needs a model the browser cannot host; `poc/` has it
 behind a flag.
 
+## Layout
+
+```
+src/core/       geometry, grouping, colour, layout, painting — no chrome, no fetch
+src/backends/   what each model wants said to it and how its reply is read
+src/pipeline/   rasterise → read → group → translate → lay out → paint
+src/platform/   settings, messages, logging: the chrome.* surface
+src/content/    the badge layer, the image swap, the page-side result cache
+```
+
+`core/` is where the work that has nothing to do with a particular model lives,
+so it can be imported and tested directly. Anything a specific model needs said
+to it — the spotting prompt, the coordinate format, TranslateGemma's raw chat
+template — belongs in `backends/` and nowhere else.
+
 ## Tests
 
 ```bash
 npm install && npm test
 ```
 
-Runs the worker's geometry and language logic against strings the reader
-actually returned: spot parsing, row and column grouping, CJK joining, script
-detection, the untranslated check, and container negotiation.
+Type-checks, then runs the geometry and language logic against strings the
+reader actually returned — spot parsing, row and column grouping, CJK joining,
+script detection, the untranslated check, container negotiation — and the
+page-side pieces under jsdom.
