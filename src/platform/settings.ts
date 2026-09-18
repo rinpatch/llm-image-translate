@@ -73,7 +73,6 @@ const whole = (role: Role, stored: unknown): EndpointSettings =>
 const wholeProfile = (stored: Partial<Profile>): Profile => ({
   id: stored.id || newId(),
   name: stored.name || 'Unnamed',
-  note: stored.note || '',
   reader: whole('reader', stored.reader),
   translator: whole('translator', stored.translator),
 });
@@ -139,7 +138,7 @@ function adopt(reader: EndpointSettings, translator: EndpointSettings): Profile[
     match.translator.apiKey = translator.apiKey;
     return [match, ...list.filter((p) => p !== match)];
   }
-  return [{ id: newId(), name: 'My endpoints', note: '', reader, translator }, ...list];
+  return [{ id: newId(), name: 'My endpoints', reader, translator }, ...list];
 }
 
 export async function migrate(): Promise<string[]> {

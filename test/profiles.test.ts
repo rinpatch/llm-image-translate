@@ -37,7 +37,6 @@ test('a duplicate is a separate profile with the key and a name of its own', () 
   assert.notEqual(copy.id, from.id);
   assert.equal(copy.name, `${from.name} (2)`);
   assert.equal(copy.reader.apiKey, 'sk-x', 'the key comes along, or the copy cannot run');
-  assert.equal(copy.note, '', 'the shipped blurb no longer describes it');
 
   copy.reader.baseUrl = 'http://elsewhere';
   assert.notEqual(from.reader.baseUrl, 'http://elsewhere', 'editing one leaves the other alone');

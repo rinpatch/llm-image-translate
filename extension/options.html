@@ -6,16 +6,13 @@
 </style>
 
 <h1>Image Translate</h1>
-<p class="blurb">Two OpenAI-compatible endpoints: one finds and reads the text, one
-translates it. They can be the same server.</p>
+<p class="blurb">Two OpenAI-compatible endpoints. They can be the same server.</p>
 
 <section>
   <h2>Profile</h2>
-  <p class="blurb">A named pair of endpoints, switchable from the popup. The one picked
-  here is the one in use and the one the fields below edit.</p>
+  <p class="blurb">A named pair of endpoints, switchable from the popup.</p>
   <label><span>In use</span><select id="profile"></select></label>
   <label><span>Name</span><input type="text" id="profile-name"></label>
-  <p class="blurb" id="profile-note"></p>
   <div class="buttons">
     <button type="button" id="profile-new">New</button>
     <button type="button" id="profile-copy">Duplicate</button>
@@ -39,7 +36,6 @@ translates it. They can be the same server.</p>
 
 <section>
   <h2>Translator</h2>
-  <p class="blurb">Translates what the reader found.</p>
   <label><span>Endpoint</span><input type="url" id="translator-baseUrl"
     placeholder="http://127.0.0.1:8091"></label>
   <div class="row">
@@ -55,10 +51,7 @@ translates it. They can be the same server.</p>
   <h2>Layout</h2>
   <label class="check"><input type="checkbox" id="expand">
     <span>Let a translation grow into the shape around it</span></label>
-  <p class="blurb">A vertical Japanese column is about one glyph wide and no font size
-  makes it hold a line of English, so a flood fill looks for the speech balloon it sits
-  in and lays the text out in there instead. Off, translations stay in the box the
-  reader drew — the shape to grow into is a comic's, and a screenshot or a photo has
+  <p class="blurb">Only a comic has a shape to grow into; a screenshot or a photo has
   none.</p>
 </section>
 
@@ -66,8 +59,7 @@ translates it. They can be the same server.</p>
   <h2>Pages</h2>
   <label class="check"><input type="checkbox" id="images">
     <span>Show a badge on images</span></label>
-  <p class="blurb">The badge appears while ⌘ (Super on Windows and Linux) is held, and
-  stays out once an image has been translated so you can put the original back.</p>
+  <p class="blurb">The badge appears while ⌘ is held (Super on Windows and Linux).</p>
   <label class="check"><input type="checkbox" id="debug">
     <span>Log every stage to the console</span></label>
 </section>

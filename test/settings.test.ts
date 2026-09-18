@@ -29,7 +29,6 @@ const endpoint = (baseUrl: string, extra = {}) =>
 const profile = (id: string, extra = {}) => ({
   id,
   name: id,
-  note: '',
   reader: endpoint('http://127.0.0.1:8090'),
   translator: endpoint('http://127.0.0.1:8091', { adapter: 'hunyuan-mt' }),
   ...extra,

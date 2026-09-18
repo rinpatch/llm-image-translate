@@ -35,7 +35,6 @@ function show(): void {
   for (const profile of list) picker.append(new Option(profile.name, profile.id));
   picker.value = active.id;
   nameBox.value = active.name;
-  $('profile-note').textContent = active.note;
   $<HTMLButtonElement>('profile-delete').disabled = list.length < 2;
   for (const role of ROLES) {
     for (const name of FIELDS) field<HTMLInputElement>(role, name).value = active[role][name];
@@ -72,7 +71,6 @@ function wireProfile(): void {
     const blank: Profile = {
       id: newId(),
       name: uniqueName(list, 'New profile'),
-      note: '',
       reader: { baseUrl: '', apiKey: '', model: '', adapter: Object.keys(OCR_ADAPTERS)[0] },
       translator: { baseUrl: '', apiKey: '', model: '', adapter: Object.keys(TRANSLATE_ADAPTERS)[0] },
     };

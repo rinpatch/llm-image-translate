@@ -31,8 +31,6 @@ export const DEFAULT_ENDPOINTS: Record<Role, EndpointSettings> = {
 export interface Profile {
   id: string;
   name: string;
-  /** Why you would pick this one. Filled in on the shipped pairings only. */
-  note: string;
   reader: EndpointSettings;
   translator: EndpointSettings;
 }
@@ -51,34 +49,24 @@ export const SHIPPED: Profile[] = [
   {
     id: 'llamacpp',
     name: 'Local',
-    note: 'HunyuanOCR and Hy-MT2 1.8B on your machine, for nothing. 2.8 GB of weights. '
-      + 'Start them with poc/start.sh.',
     reader: endpoint('http://127.0.0.1:8090', 'hunyuan-spotting'),
     translator: endpoint('http://127.0.0.1:8091', 'hunyuan-mt'),
   },
   {
     id: 'llamacpp-gemma',
     name: 'Local + TranslateGemma',
-    note: 'The same reader with the older translator: a gigabyte larger, and it cannot '
-      + 'keep a batch in order, so a drifted page is redone line by line. '
-      + 'MT_MODEL=bullerwins/translategemma-4b-it-GGUF:Q4_K_M MT_ARGS=--no-jinja ./start.sh',
     reader: endpoint('http://127.0.0.1:8090', 'hunyuan-spotting'),
     translator: endpoint('http://127.0.0.1:8091', 'gemma-raw'),
   },
   {
     id: 'openrouter',
     name: 'OpenRouter — Gemini',
-    note: 'Gemini 3.1 Flash Lite and Hy-MT2 30B, the best of the models tried at both '
-      + 'jobs, about $0.001 an image. Nothing runs on your machine. Needs an API key.',
     reader: endpoint(OPENROUTER, 'json-boxes-yx', 'google/gemini-3.1-flash-lite'),
     translator: endpoint(OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
   },
   {
     id: 'openrouter-open',
     name: 'OpenRouter — Qwen3-VL',
-    note: 'Qwen3-VL 8B and Hy-MT2 30B: open weights and a third of the price. It reads '
-      + 'every line but draws looser boxes, so the text is replaced less tidily. '
-      + 'Needs an API key.',
     reader: endpoint(OPENROUTER, 'json-boxes', 'qwen/qwen3-vl-8b-instruct'),
     translator: endpoint(OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
   },
@@ -103,7 +91,6 @@ export function copyOf(list: Profile[], from: Profile, name = from.name): Profil
   return {
     id: newId(),
     name: uniqueName(list, name),
-    note: '',
     reader: { ...from.reader },
     translator: { ...from.translator },
   };
