@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-OCR_MODEL="${OCR_MODEL:-ggml-org/HunyuanOCR-GGUF}"
+OCR_MODEL="${OCR_MODEL:-prithivMLmods/HunyuanOCR-1.5-GGUF-Updated:Q8_0}"
 # Hy-MT2 is a gigabyte smaller than TranslateGemma and keeps a numbered batch in
 # order, so a page is one request rather than one per line when it drifts. For
 # the old translator:
@@ -44,7 +44,7 @@ serve() {
   [[ "$name" == translator ]] && extra="$MT_ARGS"
   # shellcheck disable=SC2086
   nohup llama-server -hf "$model" --port "$port" --host 127.0.0.1 \
-    --parallel 1 -c "$CTX" --sleep-idle-seconds "$IDLE" $extra > "$LOGS/$name.log" 2>&1 &
+    --parallel 1 -fa on -c "$CTX" --sleep-idle-seconds "$IDLE" $extra > "$LOGS/$name.log" 2>&1 &
 }
 
 await() {

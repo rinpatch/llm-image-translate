@@ -10,7 +10,7 @@ PREFIX="me.wantan.image-translate"
 AGENTS="$HOME/Library/LaunchAgents"
 LOGS="$HOME/Library/Logs/image-translate"
 
-OCR_MODEL="${OCR_MODEL:-ggml-org/HunyuanOCR-GGUF}"
+OCR_MODEL="${OCR_MODEL:-prithivMLmods/HunyuanOCR-1.5-GGUF-Updated:Q8_0}"
 MT_MODEL="${MT_MODEL:-tencent/Hy-MT2-1.8B-GGUF:Q6_K}"
 OCR_PORT="${OCR_PORT:-8090}"
 MT_PORT="${MT_PORT:-8091}"
@@ -56,14 +56,19 @@ write_agent() {
     <string>--host</string><string>127.0.0.1</string>
     <string>--port</string><string>$port</string>
     <string>--parallel</string><string>1</string>
+    <!-- llama.cpp leaves flash attention off for this model unless asked. On
+         the reader it is worth 155 -> 200 tok/s of decode and cuts prefill by
+         a third, for byte-identical output. -->
+    <string>-fa</string><string>on</string>
     <string>-c</string><string>$CTX</string>
     <string>--sleep-idle-seconds</string><string>$IDLE</string>
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
-  <!-- Background would have launchd throttle the CPU and the disk, and the
-       first request after a sleep has to read the weights back off it. -->
-  <key>ProcessType</key><string>Adaptive</string>
+  <!-- Interactive, not Adaptive: under Adaptive launchd throttles the process
+       enough to cost half the decode rate — 106 vs 155 tok/s on the reader,
+       same flags, same build. The throttle also masks the -fa gain entirely. -->
+  <key>ProcessType</key><string>Interactive</string>
   <key>EnvironmentVariables</key>
   <dict><key>HOME</key><string>$HOME</string></dict>
   <key>StandardOutPath</key><string>$LOGS/$role.log</string>
@@ -74,7 +79,11 @@ PLIST
 
   # Replacing a running agent: bootout first, or bootstrap refuses it.
   launchctl bootout "gui/$UID/$label" 2>/dev/null || true
-  launchctl bootstrap "gui/$UID" "$AGENTS/$label.plist"
+  # bootout can return before launchd has finished unregistering the label.
+  if ! launchctl bootstrap "gui/$UID" "$AGENTS/$label.plist" 2>/dev/null; then
+    sleep 1
+    launchctl bootstrap "gui/$UID" "$AGENTS/$label.plist"
+  fi
   echo "  $label on :$port ($model)"
 }
 
