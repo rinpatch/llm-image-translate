@@ -17,10 +17,8 @@ interface Spot {
 // grounding format. Values outside the grid are clamped rather than used to
 // guess a different coordinate system.
 //
-// The axis order is not something a prompt can settle. Gemini answers
-// [ymin, xmin, ymax, xmax] however it is asked, and read the other way round its
-// boxes are nonsense rather than merely wrong, so it gets its own adapter and a
-// preset that pairs the two.
+// Gemini's native box order is [ymin, xmin, ymax, xmax], so its adapter
+// uses that order in both the prompt and parser.
 //
 // `translates` asks for the English alongside each line. A model strong enough
 // to do both at once saves a whole round trip, and it has the rest of the page
@@ -41,6 +39,9 @@ function jsonBoxesAdapter(
   },
 
   build(image: EncodedImage, target: string): ModelRequest {
+    const boxFormat = yFirst
+      ? '[y_min, x_min, y_max, x_max]'
+      : '[x_min, y_min, x_max, y_max]';
     return {
       kind: 'chat',
       body: {
@@ -54,12 +55,12 @@ function jsonBoxesAdapter(
                 + 'object per line of text, of the form '
                 + (translates
                   ? `{"text": "...", "translation": "...", `
-                    + `"bbox_2d": [x_min, y_min, x_max, y_max]}.\n`
+                    + `"bbox_2d": ${boxFormat}}.\n`
                     + `"translation" is that line rendered in ${target}, translated with the `
                     + 'whole page as context — the speaker, the tone, and the lines around it. '
                     + `Translate every line, and leave "translation" as "" only for a line that `
                     + `is already ${target} or is not words at all.\n`
-                  : '{"text": "...", "bbox_2d": [x_min, y_min, x_max, y_max]}.\n')
+                  : `{"text": "...", "bbox_2d": ${boxFormat}}.\n`)
                 + 'bbox_2d is a tight bounding box around only the visible glyphs of that '
                 + 'single text line. Coordinates are integers normalized independently to '
                 + '0-1000 over the full image: x is horizontal and y is vertical. Do not box '
