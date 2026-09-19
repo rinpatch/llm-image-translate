@@ -4,7 +4,7 @@ import { translateImage } from './pipeline/image.ts';
 import { forget, keyFor, once } from './pipeline/jobs.ts';
 import { type ImageResult, type Message, type PingResult } from './platform/messages.ts';
 import { clear, entries, record, report } from './platform/metrics.ts';
-import { forget as forgetTraces, headings, traced } from './platform/traces.ts';
+import { forget as forgetTraces } from './platform/traces.ts';
 import { fail, log, watchDebug } from './platform/log.ts';
 import { affectsResults, migrate, publicSettings, settings, toEndpoint }
   from './platform/settings.ts';
@@ -79,9 +79,6 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
         case 'metrics': sendResponse(await report()); break;
         case 'log': sendResponse(await entries()); break;
         case 'clearMetrics': await clear(); sendResponse(await report()); break;
-        case 'traces': sendResponse(await headings()); break;
-        case 'trace': sendResponse(await traced(msg.id)); break;
-        case 'clearTraces': await forgetTraces(); sendResponse(await headings()); break;
         default: sendResponse({ ok: false, error: `unknown message ${(msg as any).type}` });
       }
     } catch (e: any) {

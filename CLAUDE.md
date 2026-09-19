@@ -125,9 +125,11 @@ agent-browser open "chrome-extension://khbiipgidcclbakblacconmmpnacljae/debug.ht
 agent-browser eval 'chrome.runtime.sendMessage({type:"traces"}).then(JSON.stringify)'
 ```
 
-Storage is the limit: three traces at most, and the manga page alone is 4 MB, so
-two of those is all that fits. A trace that will not fit is kept without its
-image rather than dropped. Turning logging off throws them all away.
+They live in IndexedDB, not `chrome.storage.local` — that is a flat 10 MB for
+the whole extension and would take the image as base64, which is a third again
+on top of a file that was already most of the budget. The last ten are kept, the
+page reads the database itself rather than asking the worker to pass megabytes
+through a message, and turning logging off throws them all away.
 
 ## Against the live models
 

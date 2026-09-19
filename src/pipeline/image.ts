@@ -65,9 +65,11 @@ const encoded = (canvas: OffscreenCanvas, encode: 'png' | 'jpeg'): Promise<Blob>
 
 // The OpenAI image field takes a data: URL, so the copy the reader sees is
 // base64 whatever the browser can carry.
+const asDataUrl = async (blob: Blob, encode: 'png' | 'jpeg'): Promise<string> =>
+  `data:image/${encode};base64,${toBase64(new Uint8Array(await blob.arrayBuffer()))}`;
+
 async function toDataUrl(canvas: OffscreenCanvas, encode: 'png' | 'jpeg'): Promise<string> {
-  const blob = await encoded(canvas, encode);
-  return `data:image/${encode};base64,${toBase64(new Uint8Array(await blob.arrayBuffer()))}`;
+  return asDataUrl(await encoded(canvas, encode), encode);
 }
 
 // How far the ink has to stand off the background it will be painted on before
@@ -202,7 +204,8 @@ export async function translateImage(
   timings.decode_ms = raster.decode_ms;
   timings.scale_ms = raster.scale_ms;
   let started = Date.now();
-  const before = await toDataUrl(canvas, ocr.capabilities.encode);
+  const raw = await encoded(canvas, ocr.capabilities.encode);
+  const before = await asDataUrl(raw, ocr.capabilities.encode);
   timings.reader_encode_ms = Date.now() - started;
   const image: EncodedImage = { dataUrl: before, width, height };
 
@@ -332,8 +335,8 @@ export async function translateImage(
       'ms, whole image in', timings.total_ms, 'ms');
     if (config.debug) {
       await keep({
-        id: crypto.randomUUID(), at: Date.now(), url: src, image: before, width, height,
-        lines: spots.length, blocks: blocks.length, total_ms: timings.total_ms,
+        id: crypto.randomUUID(), at: Date.now(), url: src,
+        image: raw, width, height,
         spots: spots.map((line) => ({ text: line.text, box: line.box })),
         grouped: traced(blocks, spots, originals, translations, appearances, angles, layout),
         logged: since(logFrom),

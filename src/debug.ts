@@ -1,8 +1,6 @@
 import { type Box } from './core/geometry.ts';
-import { type Trace, type TraceHeading } from './platform/traces.ts';
+import { forget, headings, traced, type Trace, type TraceHeading } from './platform/traces.ts';
 import { $, clear, el, ms, plural } from './ui/dom.ts';
-
-const ask = <T>(message: object): Promise<T> => chrome.runtime.sendMessage(message);
 
 // Spread around the wheel rather than taken from a list, so that however many
 // blocks a page comes apart in, no two next to each other share a colour.
@@ -30,11 +28,14 @@ const shortly = (url: string) => {
 
 let shown: Trace | null = null;
 let lit: number | null = null;
+// Handed out by the browser and held until the next trace is drawn, because
+// nothing else is going to let go of the megabytes behind it.
+let showing: string | null = null;
 
 /** Lights the same block up on the image and in the list, from either side. */
 function light(at: number | null): void {
   lit = at;
-  for (const node of document.querySelectorAll<HTMLElement>('.mark, .block')) {
+  for (const node of document.querySelectorAll<HTMLElement>('.mark, .entry')) {
     node.classList.toggle('lit', at !== null && node.dataset.block === String(at));
   }
 }
@@ -50,14 +51,17 @@ function draw(): void {
   const trace = shown;
   const { width, height } = trace;
 
+  if (showing) URL.revokeObjectURL(showing);
+  showing = trace.image ? URL.createObjectURL(trace.image) : null;
+
   const save = $<HTMLAnchorElement>('save');
-  save.hidden = !trace.image;
-  if (trace.image) {
-    save.href = trace.image;
+  save.hidden = !showing;
+  if (showing) {
+    save.href = showing;
     save.download = `${shortly(trace.url).replace(/[^\w.-]+/g, '_')}.png`;
   }
 
-  if (trace.image) stage.append(el('img', { src: trace.image, width, height }));
+  if (showing) stage.append(el('img', { src: showing, width, height }));
   else {
     stage.append(el('p', { className: 'missing' },
       'The image did not fit in storage, so only the boxes were kept.'),
@@ -91,7 +95,7 @@ function draw(): void {
   });
 
   trace.grouped.forEach((block, at) => {
-    const row = el('div', { className: 'block' },
+    const row = el('div', { className: 'entry' },
       el('i', { style: { background: colourOf(at) } }),
       el('div', {},
         el('div', { className: 'what' },
@@ -130,7 +134,7 @@ function draw(): void {
 }
 
 async function show(id: string): Promise<void> {
-  shown = await ask<Trace | null>({ type: 'trace', id });
+  shown = await traced(id);
   lit = null;
   draw();
 }
@@ -152,6 +156,6 @@ $('pick').addEventListener('change', (e) => show((e.target as HTMLSelectElement)
 for (const id of ['show-spots', 'show-blocks', 'show-drawn']) {
   $(id).addEventListener('change', draw);
 }
-$('clear').addEventListener('click', async () => { list(await ask({ type: 'clearTraces' })); });
+$('clear').addEventListener('click', async () => { await forget(); list(await headings()); });
 
-ask<TraceHeading[]>({ type: 'traces' }).then(list);
+headings().then(list);

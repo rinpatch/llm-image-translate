@@ -1,7 +1,6 @@
 import { type Box } from '../core/geometry.ts';
 import { type PublicSettings } from './settings.ts';
 import { type Report, type Run } from './metrics.ts';
-import { type Trace, type TraceHeading } from './traces.ts';
 
 export interface TranslateImage {
   type: 'translateImage';
@@ -25,10 +24,7 @@ export type Message =
   | { type: 'ping' }
   | { type: 'metrics' }
   | { type: 'log' }
-  | { type: 'clearMetrics' }
-  | { type: 'traces' }
-  | { type: 'trace'; id: string }
-  | { type: 'clearTraces' };
+  | { type: 'clearMetrics' };
 
 export interface BlockReport {
   box: Box;
@@ -86,5 +82,4 @@ export interface PingResult {
   translator: string | null;
 }
 
-export type Response = ImageResult | PingResult | PublicSettings | Report | Run[]
-  | TraceHeading[] | Trace | null;
+export type Response = ImageResult | PingResult | PublicSettings | Report | Run[];

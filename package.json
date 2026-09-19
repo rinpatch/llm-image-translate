@@ -14,6 +14,7 @@
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.6.1",
     "esbuild": "^0.28.2",
+    "fake-indexeddb": "^6.2.5",
     "jsdom": "^27.0.0",
     "typescript": "^7.0.2"
   }
