@@ -4,6 +4,7 @@ import { translateImage } from './pipeline/image.ts';
 import { forget, keyFor, once } from './pipeline/jobs.ts';
 import { type ImageResult, type Message, type PingResult } from './platform/messages.ts';
 import { clear, entries, record, report } from './platform/metrics.ts';
+import { forget as forgetTraces, headings, traced } from './platform/traces.ts';
 import { fail, log, watchDebug } from './platform/log.ts';
 import { affectsResults, migrate, publicSettings, settings, toEndpoint }
   from './platform/settings.ts';
@@ -12,6 +13,9 @@ watchDebug();
 // Results made with the old endpoint are answers to a different question.
 chrome.storage.local.onChanged.addListener((changes) => {
   if (affectsResults(changes)) forget();
+  // A trace is most of a megabyte. Turning logging off is as good a way as any
+  // of saying they are no longer wanted.
+  if (changes.debug && !changes.debug.newValue) forgetTraces();
 });
 
 migrate().then((moved) => {
@@ -75,6 +79,9 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
         case 'metrics': sendResponse(await report()); break;
         case 'log': sendResponse(await entries()); break;
         case 'clearMetrics': await clear(); sendResponse(await report()); break;
+        case 'traces': sendResponse(await headings()); break;
+        case 'trace': sendResponse(await traced(msg.id)); break;
+        case 'clearTraces': await forgetTraces(); sendResponse(await headings()); break;
         default: sendResponse({ ok: false, error: `unknown message ${(msg as any).type}` });
       }
     } catch (e: any) {

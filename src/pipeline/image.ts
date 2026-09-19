@@ -1,5 +1,5 @@
 import { toBase64 } from '../core/base64.ts';
-import { type Box, type Block } from '../core/geometry.ts';
+import { type Box, type Block, type TextLine } from '../core/geometry.ts';
 import { group, join } from '../core/grouping.ts';
 import { dividerFor } from '../core/rules.ts';
 import { detectedSource, untranslated } from '../core/language.ts';
@@ -12,10 +12,11 @@ import { ocrAdapter, translateAdapter } from '../backends/registry.ts';
 import { type EncodedImage, type Endpoint, type ModelStats, type TranslateAdapter }
   from '../backends/types.ts';
 import { detect } from '../platform/detect.ts';
-import { log, fail } from '../platform/log.ts';
+import { log, fail, mark, since } from '../platform/log.ts';
 import { type Settings, toEndpoint } from '../platform/settings.ts';
 import { type BlockReport, type ImageResult, type Stage, type Timings,
   type TranslateImage } from '../platform/messages.ts';
+import { keep, type TracedBlock } from '../platform/traces.ts';
 
 interface Raster {
   canvas: OffscreenCanvas;
@@ -108,6 +109,8 @@ async function translateAll(
 ): Promise<string[]> {
   if (!texts.length) return [];
   const source = await detectedSource(texts, sourceSetting, detect);
+  log('translating', texts.length, 'block(s)', `${source} -> ${target}`,
+    adapter.capabilities.batch ? 'in one request' : 'one at a time');
   const ask = async (batch: string[], maxTokens?: number) => {
     const reply = await send(endpoint, adapter.build(batch, source, target, maxTokens),
       'the translator', signal);
@@ -147,6 +150,35 @@ function stageOf(ms: number, calls: ModelStats[]): Stage {
   return stage;
 }
 
+/**
+ * The blocks as the debug page shows them, each carrying the indexes of the
+ * lines it was made of. A merge is then something to look at rather than
+ * something to infer from two boxes that happen to nest.
+ */
+function traced(
+  blocks: Block[],
+  spots: TextLine[],
+  originals: string[],
+  translations: string[],
+  appearances: { skipped: string | null }[],
+  angles: number[],
+  layout: Box[],
+): TracedBlock[] {
+  const at = new Map(spots.map((line, i) => [line.box.join(','), i]));
+  return blocks.map((block, i) => ({
+    box: block.box,
+    lines: block.boxes.map((box) => at.get(box.join(',')) ?? -1),
+    vertical: block.vertical,
+    align: block.align,
+    pitch: block.pitch,
+    angle: angles[i],
+    src: originals[i],
+    translated: translations[i] || '',
+    skipped: appearances[i].skipped,
+    drawn: layout[i],
+  }));
+}
+
 export async function translateImage(
   { src, dataUrl, binary }: TranslateImage,
   config: Settings,
@@ -154,6 +186,7 @@ export async function translateImage(
 ): Promise<ImageResult> {
   const timings: Timings = {};
   const wholeRun = Date.now();
+  const logFrom = mark();
   const ocr = ocrAdapter(config.reader.adapter);
   const translator = translateAdapter(config.translator.adapter);
   let raster: Raster;
@@ -173,7 +206,8 @@ export async function translateImage(
   timings.reader_encode_ms = Date.now() - started;
   const image: EncodedImage = { dataUrl: before, width, height };
 
-  let blocks: Block[];
+  let blocks: Block[] = [];
+  let spots: TextLine[] = [];
   try {
     started = Date.now();
     const reply = await send(toEndpoint(config.reader), ocr.build(image, config.target),
@@ -189,9 +223,15 @@ export async function translateImage(
     // Grouping sees boxes, not pixels. A table's rows sit as close together as
     // a wrapped sentence's lines, so what separates two lines other than their
     // spacing has to be handed to it.
-    blocks = group(ocr.parse(reply.text, image), dividerFor(source, width, height));
+    spots = ocr.parse(reply.text, image);
+    blocks = group(spots, dividerFor(source, width, height));
     timings.blocks = blocks.length;
-    log('read', blocks.length, 'blocks in', timings.read.ms, 'ms');
+    log('read', spots.length, 'lines in', timings.read.ms, 'ms ->',
+      blocks.length, 'blocks');
+    for (const block of blocks) {
+      log(' ', block.box.join(','), block.vertical ? 'vertical' : block.align,
+        `${block.lines.length} line(s)`, JSON.stringify(join(block.lines)));
+    }
     if (!blocks.length) {
       timings.total_ms = Date.now() - wholeRun;
       return { ok: true, image: null, blocks: [], timings };
@@ -244,6 +284,10 @@ export async function translateImage(
     });
     const layout = negotiate(proposals);
     timings.layout_ms = Date.now() - started;
+    const moved = layout.filter((box, i) => box.some((v, k) => v !== proposals[i][0][k]));
+    log('laid out', blocks.length, 'blocks in', timings.layout_ms, 'ms;',
+      moved.length, 'grew or moved,',
+      appearances.filter((a) => a.skipped).length, 'skipped');
     started = Date.now();
 
     // Removing source glyphs is independent from finding room for the result.
@@ -284,6 +328,18 @@ export async function translateImage(
       : await toDataUrl(canvas, ocr.capabilities.encode);
     timings.encode_ms = Date.now() - started;
     timings.total_ms = Date.now() - wholeRun;
+    log('painted in', timings.paint_ms, 'ms, encoded in', timings.encode_ms,
+      'ms, whole image in', timings.total_ms, 'ms');
+    if (config.debug) {
+      await keep({
+        id: crypto.randomUUID(), at: Date.now(), url: src, image: before, width, height,
+        lines: spots.length, blocks: blocks.length, total_ms: timings.total_ms,
+        spots: spots.map((line) => ({ text: line.text, box: line.box })),
+        grouped: traced(blocks, spots, originals, translations, appearances, angles, layout),
+        logged: since(logFrom),
+        timings,
+      });
+    }
 
     return { ok: true, image: after, original: before, blocks: report, timings };
   } catch (e: any) {

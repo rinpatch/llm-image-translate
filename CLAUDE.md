@@ -109,6 +109,26 @@ it is the check for anything touching grouping, skew or layout, where a unit tes
 only says the rule fired and not whether the page came out right. Keep a run from
 before the change and compare.
 
+## Seeing what the reader saw
+
+With logging on (settings, or `chrome.storage.local.set({debug: true})`) the
+worker keeps the last few images: the scaled source, every line the reader
+spotted, which block each one was merged into, where the translation was drawn,
+and everything logged while that image ran. `chrome-extension://<id>/debug.html`
+draws the boxes over the image, one colour per block, so a merge is something to
+look at rather than something to infer.
+
+```bash
+agent-browser eval "chrome.storage.local.set({debug:true}).then(()=>'on')"
+# ... translate something ...
+agent-browser open "chrome-extension://khbiipgidcclbakblacconmmpnacljae/debug.html"
+agent-browser eval 'chrome.runtime.sendMessage({type:"traces"}).then(JSON.stringify)'
+```
+
+Storage is the limit: three traces at most, and the manga page alone is 4 MB, so
+two of those is all that fits. A trace that will not fit is kept without its
+image rather than dropped. Turning logging off throws them all away.
+
 ## Against the live models
 
 `./macos/install.sh` puts the reader on :8090 and the translator on :8091.
