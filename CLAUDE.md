@@ -70,6 +70,29 @@ Two calls with the same bytes is the check that `once()` still dedupes: the
 second comes back with timings identical to the first, and `metrics` reports one
 run rather than two.
 
+## Grouping, without the browser
+
+`test/fixtures/spots/` holds what the reader saw on each of those pages — the
+lines, the ink at each line and at its two ends, and which pairs the pixels
+divide. That is grouping's whole input, so `test/grouping.test.ts` runs the real
+`group()` over real pages in node, in milliseconds. Reach for it first when
+changing `core/grouping.ts`: it says how many pieces each page came apart in,
+which a unit test over three invented boxes cannot.
+
+```bash
+tools/dump-spots.sh                   # re-record every page
+tools/dump-spots.sh pages/tweets-thread manga-page
+```
+
+Re-record when the reader, its prompt, or `dividerFor` changes — never to make a
+failing count pass. The counts in `PIECES` were each judged against a render.
+
+`tools/ablate-grouping.mjs` deletes each of grouping's rules in turn and
+re-groups every page, which is how to tell whether a rule is still earning its
+place. Every rule currently breaks at least one page when removed; one that
+breaks none is either dead or has no fixture arguing for it, and both are worth
+knowing before adding the next one.
+
 ## The pages that broke something
 
 `test/fixtures/pages/` holds the images that have caught a real bug, each with a

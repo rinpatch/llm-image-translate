@@ -14,5 +14,5 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["chrome", "node"]
   },
-  "include": ["src", "test", "scripts"]
+  "include": ["src", "test", "scripts", "tools"]
 }

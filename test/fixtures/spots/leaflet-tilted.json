@@ -1,0 +1,330 @@
+{
+ "width": 1102,
+ "height": 934,
+ "lines": [
+  {
+   "text": "Welcome to Lannan",
+   "box": [
+    467,
+    202,
+    665,
+    246
+   ]
+  },
+  {
+   "text": "Thank you so much for choosing to visit us!",
+   "box": [
+    345,
+    248,
+    764,
+    317
+   ]
+  },
+  {
+   "text": "We kindly ask our customers to help us look after our",
+   "box": [
+    288,
+    304,
+    806,
+    383
+   ]
+  },
+  {
+   "text": "beautiful neighbourhood by disposing of all packaging",
+   "box": [
+    279,
+    333,
+    807,
+    414
+   ]
+  },
+  {
+   "text": "responsibly. We have created this informational map",
+   "box": [
+    287,
+    368,
+    795,
+    440
+   ]
+  },
+  {
+   "text": "showing green spaces, benches and bins for our customers",
+   "box": [
+    253,
+    396,
+    815,
+    467
+   ]
+  },
+  {
+   "text": "to use.",
+   "box": [
+    506,
+    453,
+    571,
+    474
+   ]
+  },
+  {
+   "text": "The steps and benches on Saxe Coburg Street, Saxe",
+   "box": [
+    279,
+    490,
+    776,
+    550
+   ]
+  },
+  {
+   "text": "Coburg Place, Clarence Street and around the bakery are",
+   "box": [
+    247,
+    519,
+    798,
+    580
+   ]
+  },
+  {
+   "text": "private property and customers are explicitly prohibited",
+   "box": [
+    251,
+    553,
+    787,
+    606
+   ]
+  },
+  {
+   "text": "from sitting on them to enjoy their pastries.",
+   "box": [
+    310,
+    585,
+    725,
+    630
+   ]
+  },
+  {
+   "text": "We really appreciate your cooperation and hope to see",
+   "box": [
+    248,
+    643,
+    774,
+    687
+   ]
+  },
+  {
+   "text": "you again soon!",
+   "box": [
+    445,
+    683,
+    592,
+    705
+   ]
+  }
+ ],
+ "inks": [
+  [
+   38,
+   28,
+   38
+  ],
+  [
+   48,
+   39,
+   49
+  ],
+  [
+   36,
+   26,
+   37
+  ],
+  [
+   33,
+   23,
+   34
+  ],
+  [
+   32,
+   21,
+   32
+  ],
+  [
+   37,
+   27,
+   38
+  ],
+  [
+   29,
+   19,
+   30
+  ],
+  [
+   35,
+   23,
+   35
+  ],
+  [
+   34,
+   22,
+   34
+  ],
+  [
+   35,
+   23,
+   35
+  ],
+  [
+   38,
+   26,
+   38
+  ],
+  [
+   47,
+   35,
+   48
+  ],
+  [
+   37,
+   25,
+   37
+  ]
+ ],
+ "heads": [
+  [
+   27,
+   16,
+   28
+  ],
+  [
+   37,
+   27,
+   38
+  ],
+  [
+   28,
+   16,
+   28
+  ],
+  [
+   29,
+   17,
+   29
+  ],
+  [
+   29,
+   17,
+   29
+  ],
+  [
+   37,
+   25,
+   37
+  ],
+  [
+   30,
+   17,
+   28
+  ],
+  [
+   30,
+   17,
+   29
+  ],
+  [
+   32,
+   18,
+   31
+  ],
+  [
+   32,
+   18,
+   31
+  ],
+  [
+   34,
+   20,
+   33
+  ],
+  [
+   42,
+   29,
+   42
+  ],
+  [
+   44,
+   32,
+   44
+  ]
+ ],
+ "tails": [
+  [
+   55,
+   47,
+   56
+  ],
+  [
+   63,
+   53,
+   64
+  ],
+  [
+   54,
+   45,
+   57
+  ],
+  [
+   48,
+   39,
+   50
+  ],
+  [
+   47,
+   38,
+   49
+  ],
+  [
+   49,
+   40,
+   50
+  ],
+  [
+   24,
+   15,
+   27
+  ],
+  [
+   56,
+   47,
+   59
+  ],
+  [
+   51,
+   42,
+   53
+  ],
+  [
+   50,
+   41,
+   53
+  ],
+  [
+   44,
+   34,
+   46
+  ],
+  [
+   67,
+   57,
+   69
+  ],
+  [
+   43,
+   30,
+   43
+  ]
+ ],
+ "divided": [
+  [
+   6,
+   12
+  ]
+ ]
+}
