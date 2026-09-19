@@ -5,7 +5,8 @@ import { ruledBetween } from '../core/rules.ts';
 import { detectedSource, untranslated } from '../core/language.ts';
 import { apart, dominant, inkFor, inkOf, type RGB, rgb } from '../core/color.ts';
 import { allowance, containerBox, negotiate } from '../core/layout.ts';
-import { drawBlock } from '../core/paint.ts';
+import { drawBlock, fillBox } from '../core/paint.ts';
+import { skewOf } from '../core/skew.ts';
 import { Cancelled, send } from '../backends/client.ts';
 import { ocrAdapter, translateAdapter } from '../backends/registry.ts';
 import { type EncodedImage, type Endpoint, type ModelStats, type TranslateAdapter }
@@ -178,12 +179,12 @@ export async function translateImage(
     const reply = await send(toEndpoint(config.reader), ocr.build(image, config.target),
       'the reader', signal);
     timings.read = stageOf(Date.now() - started, [reply.stats]);
+    // A table's rows sit as close together as a wrapped sentence's lines, so
+    // the spacing alone would run a price list into one block.
     // Grouping sees boxes, not pixels, so what separates two lines other than
-    // their spacing has to be handed to it. A table's rows sit as close
-    // together as a wrapped sentence's lines, and the spacing alone would run a
-    // price list into one block; a rule drawn between them settles it. So does
-    // the text changing colour: a caption in green on its own panel is not the
-    // next line of the headline in brown above it.
+    // their spacing has to be handed to it. A rule drawn between them does it,
+    // and so does the text changing colour: a caption in green on its own panel
+    // is not the next line of the headline in brown above it.
     const ink = new Map<string, RGB>();
     const inkAt = (box: Box) => {
       const key = box.join(',');
@@ -216,6 +217,10 @@ export async function translateImage(
     }
 
     started = Date.now();
+    // Off the pixels, not the boxes: an axis-aligned box around a leaning line
+    // knows how tall it had to be but not which way the page turned.
+    const angles = blocks.map((block) => (block.vertical
+      ? 0 : skewOf(source, width, height, block.box)));
     const appearances = blocks.map((block, i) => {
       const skipped = untranslated(originals[i], translations[i], config.target);
       if (skipped) return { skipped, fill: null, background: '', ink: '' };
@@ -243,20 +248,31 @@ export async function translateImage(
     // Removing source glyphs is independent from finding room for the result.
     // Clear only the OCR bounds; a container is merely a layout constraint.
     blocks.forEach((_, i) => {
-      const appearance = appearances[i];
-      if (appearance.skipped) return;
-      drawBlock(ctx, proposals[i][0], '', appearance.background, appearance.ink, null);
+      if (appearances[i].skipped) return;
+      fillBox(ctx, proposals[i][0], appearances[i].background);
     });
 
     const report: BlockReport[] = [];
-    blocks.forEach((_, i) => {
+    blocks.forEach((block, i) => {
       const appearance = appearances[i];
       if (appearance.skipped) {
         report.push({ box: layout[i], src: originals[i], en: translations[i] || '',
           skipped: appearance.skipped });
         return;
       }
-      drawBlock(ctx, layout[i], translations[i], null, appearance.ink, appearance.background);
+      // Laid out in a borrowed shape there is nothing left of the source's own
+      // margins, so the alignment and the spacing read off them stop describing
+      // anything and the text goes back to the middle. The lean stays either
+      // way: it is how the page was photographed, not a property of whichever
+      // box the words ended up in.
+      const grown = layout[i].some((v, k) => v !== proposals[i][0][k]);
+      drawBlock(ctx, layout[i], translations[i], {
+        ink: appearance.ink,
+        outline: appearance.background,
+        align: grown ? 'center' : block.align,
+        pitch: grown ? undefined : block.pitch,
+        angle: angles[i],
+      });
       report.push({ box: layout[i], src: originals[i], en: translations[i], skipped: null });
     });
     timings.paint_ms = Date.now() - started;
