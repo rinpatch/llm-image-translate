@@ -8,12 +8,24 @@ export interface TextLine {
   translation?: string;
 }
 
+/** Which edge the source lines were set against. */
+export type Align = 'left' | 'center' | 'right';
+
 export interface Block {
   box: Box;
   lines: string[];
+  /** One per entry in `lines`: where each sat before they were joined. */
+  boxes: Box[];
   /** One per entry in `lines`, or absent when the reader only read. */
   translations?: string[];
   vertical: boolean;
+  align: Align;
+  /**
+   * Centre-to-centre distance between the source's lines, where there were
+   * enough of them to measure. The one height on a tilted page that means what
+   * it says.
+   */
+  pitch?: number;
   /** Height of the last line joined, used to decide what else belongs here. */
   lineH?: number;
   /** Width of the last column joined, the vertical counterpart of lineH. */

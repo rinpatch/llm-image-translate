@@ -2,11 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 
 import { type Box } from '../src/core/geometry.ts';
-import { group, join } from '../src/core/grouping.ts';
+import { alignOf, group, join } from '../src/core/grouping.ts';
 import { detectedSource, sourceLanguage, untranslated, type Detection }
   from '../src/core/language.ts';
 import { allowance, containerBox, negotiate } from '../src/core/layout.ts';
-import { dominant } from '../src/core/color.ts';
+import { apart, dominant, inkOf } from '../src/core/color.ts';
 import { decodeLoop, encodeLoop, fromBase64, toBase64 } from '../src/core/base64.ts';
 
 test('wrapped horizontal lines join the block above them', () => {
@@ -17,6 +17,87 @@ test('wrapped horizontal lines join the block above them', () => {
   ]);
   assert.equal(rows.length, 2, 'heading stays separate from the caption');
   assert.deepEqual(rows[1].lines, ['Ceci est une image', 'avec du texte']);
+});
+
+test('a handle above a tweet is a heading, not the first line of the body', () => {
+  const rows = group([
+    { text: '@MTSlive\u00b74m', box: [138, 19, 256, 35] },
+    { text: 'SITUATION DETECTED: Anthropic has set up a wet lab in the San', box: [73, 43, 655, 62] },
+    { text: 'Francisco Bay Area for physical biology work.', box: [73, 66, 636, 85] },
+  ]);
+  assert.equal(rows.length, 2, 'the handle keeps its own size and place');
+  assert.equal(rows[1].lines.length, 2, 'the body is still one paragraph');
+});
+
+test('a bubble whose first line is its shortest is still one block', () => {
+  const rows = group([
+    { text: 'I told you', box: [180, 20, 260, 40] },
+    { text: 'not to go in there alone', box: [120, 44, 320, 64] },
+  ]);
+  assert.equal(rows.length, 1, 'centred text may widen as it goes');
+});
+
+test('a banner headline is not the first line of its tagline', () => {
+  // Both run the full width of the card, so neither the width nor the margins
+  // tell them apart; the headline is simply set twice as big.
+  const rows = group([
+    { text: '\u3061\u3087\u3063\u3068\u5b9f\u884c\u3001\u305a\u3063\u3068\u5065\u5eb7\u3002', box: [8, 38, 230, 60] },
+    { text: '\u91ce\u83dc\u3001\u3042\u30681\u76bf\uff01', box: [8, 63, 230, 100] },
+  ]);
+  assert.equal(rows.length, 2, '22px over 37px at one width is a change of size');
+
+  const wrapped = group([
+    { text: 'showing green spaces, benches and bins for our customers', box: [253, 396, 815, 467] },
+    { text: 'to use.', box: [506, 453, 571, 474] },
+  ]);
+  assert.equal(wrapped.length, 1,
+    'but a short last line on a leaning page keeps its shallow box');
+});
+
+test("a chat app's translation footer is not the next line of the message", () => {
+  // Grey 9pt under the bubble, closer to the message than a paragraph break
+  // would be, and two lines above it so the pitch has nothing to call unusual.
+  const rows = group([
+    { text: '550\u7f8e\u5143\uff0c\u6211\u4e0d\u80fd', box: [153, 867, 618, 902] },
+    { text: '300\u7f8e\u5143\u3002', box: [153, 909, 297, 942] },
+    { text: '\u7531\u5fae\u4fe1\u63d0\u4f9b\u7ffb\u8bd1\u652f\u6301', box: [184, 960, 377, 982] },
+  ]);
+  assert.equal(rows.length, 2, 'the footer lines up with neither edge nor the centre');
+  assert.equal(rows[0].lines.length, 2, 'the message itself stays whole');
+});
+
+test('a paragraph break survives the box a tilt draws around a line', () => {
+  // Off a photograph of a leaflet tilted about five degrees: the boxes are
+  // three times as tall as the text and overlap each other, so the gap between
+  // them puts every paragraph in one block.
+  const rows = group([
+    { text: 'We kindly ask our customers to help us look after our', box: [288, 304, 806, 383] },
+    { text: 'beautiful neighbourhood by disposing of all packaging', box: [279, 333, 807, 414] },
+    { text: 'responsibly. We have created this informational map', box: [287, 368, 795, 440] },
+    { text: 'showing green spaces, benches and bins for our customers', box: [253, 396, 815, 467] },
+    { text: 'to use.', box: [506, 453, 571, 474] },
+    { text: 'The steps and benches on Saxe Coburg Street, Saxe', box: [279, 489, 776, 550] },
+    { text: 'Coburg Place, Clarence Street and around the bakery are', box: [247, 519, 798, 580] },
+  ]);
+  assert.equal(rows.length, 2, 'the wide gap between centres is the paragraph break');
+  assert.equal(rows[0].lines.length, 5);
+  assert.deepEqual(rows[0].box, [253, 304, 815, 474], 'each part keeps only its own lines');
+});
+
+test('the edge the source lines agreed on is the edge the translation is set to', () => {
+  assert.equal(alignOf([[73, 43, 655, 62], [73, 66, 636, 85], [73, 112, 139, 127]]), 'left',
+    'a tight left margin against a ragged right');
+  assert.equal(alignOf([[180, 20, 260, 40], [120, 44, 320, 64]]), 'center');
+  assert.equal(alignOf([[300, 20, 420, 40], [180, 44, 420, 64]]), 'right');
+  assert.equal(alignOf([[73, 43, 655, 62]]), 'center', 'one line has no margins to compare');
+
+  const [paragraph] = group([
+    { text: 'SITUATION DETECTED: Anthropic has set up a wet lab in the San', box: [73, 43, 655, 62] },
+    { text: 'Francisco Bay Area for physical biology work.', box: [73, 66, 636, 85] },
+  ]);
+  assert.equal(paragraph.align, 'left', 'group() reads it off the lines it joined');
+  assert.equal(group([{ text: '\u5fdc\u8a72', box: [153, 191, 181, 424] }])[0].align, 'center',
+    'a vertical column has no horizontal margin worth reading');
 });
 
 test('vertical CJK columns join rightward, because that is the reading order', () => {
@@ -74,6 +155,37 @@ test('a reply in the wrong script means the model rewrote instead of translating
 
 test('growth is bought with text, so a one-glyph sound effect stays small', () => {
   assert.ok(allowance('P') < allowance('Send a message or hold to talk'));
+});
+
+test('glyph colour is read off the ink, whichever side of the paper it sits on', () => {
+  const W = 60;
+  const page = (paper: number) => {
+    const data = new Uint8ClampedArray(W * 40 * 4).fill(paper);
+    for (let i = 3; i < data.length; i += 4) data[i] = 255;
+    return data;
+  };
+  // The same green, painted over a third of one box and a fiftieth of the other.
+  const write = (data: Uint8ClampedArray, box: Box, every: number) => {
+    for (let y = box[1]; y < box[3]; y++) {
+      for (let x = box[0]; x < box[2]; x++) {
+        if ((y * W + x) % every) continue;
+        const i = (y * W + x) * 4;
+        data[i] = 0; data[i + 1] = 103; data[i + 2] = 51;
+      }
+    }
+  };
+  const dense: Box = [5, 5, 55, 15];
+  const sparse: Box = [5, 20, 55, 35];
+  const light = page(240);
+  write(light, dense, 3);
+  write(light, sparse, 50);
+  assert.ok(apart(inkOf(light, W, 40, dense), inkOf(light, W, 40, sparse)) < 20,
+    'how much of a box is glyph must not change the colour it reports');
+
+  const dark = page(20);
+  write(dark, dense, 3);
+  assert.ok(apart(inkOf(dark, W, 40, dense), [0, 103, 51]) < 20,
+    'light text on a dark panel is still the ink');
 });
 
 test('two containers claiming the same pixels back off until they do not overlap', () => {

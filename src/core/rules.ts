@@ -1,13 +1,11 @@
 import { type Box, offset } from './geometry.ts';
+import { luminance } from './color.ts';
 
 // How much darker than the paper a rule has to be, and how much of the width it
 // has to cross. A rule spans the cell; a descender or a speck does not.
 const MARGIN = 25;
 const COVERAGE = 0.6;
 const MIN_SPAN = 8;
-
-const luminance = (data: Uint8ClampedArray, i: number) =>
-  0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
 
 /**
  * Whether a horizontal rule crosses the gap between two boxes.
