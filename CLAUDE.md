@@ -70,6 +70,22 @@ Two calls with the same bytes is the check that `once()` still dedupes: the
 second comes back with timings identical to the first, and `metrics` reports one
 run rather than two.
 
+## The pages that broke something
+
+`test/fixtures/pages/` holds the images that have caught a real bug, each with a
+note in its README on what it catches — a leaning leaflet, a chat window's grey
+translation footers, a banner whose four runs of text sit a few pixels apart.
+
+```bash
+tools/render-fixtures.sh              # -> .renders/, one PNG and one block list each
+tools/render-fixtures.sh /tmp/before Russian
+```
+
+It drives the real extension over every one of them and takes about a minute, so
+it is the check for anything touching grouping, skew or layout, where a unit test
+only says the rule fired and not whether the page came out right. Keep a run from
+before the change and compare.
+
 ## Against the live models
 
 `./macos/install.sh` puts the reader on :8090 and the translator on :8091.

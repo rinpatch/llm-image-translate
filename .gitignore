@@ -9,3 +9,4 @@ poc/__pycache__/
 extension/dist/
 .openrouter-key
 extension/_metadata/
+.renders/
