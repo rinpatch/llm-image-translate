@@ -69,6 +69,12 @@ async function toDataUrl(canvas: OffscreenCanvas, encode: 'png' | 'jpeg'): Promi
   return `data:image/${encode};base64,${toBase64(new Uint8Array(await blob.arrayBuffer()))}`;
 }
 
+// How far the ink has to stand off the background it will be painted on before
+// it is taken for the colour of glyphs. Under this the sample found artwork
+// rather than writing, and black or white on the fill is the safer answer. The
+// faintest real text in the fixtures — a chat window's grey footer — is 236.
+const LEGIBLE = 150;
+
 // How far the glyph colour has to move between one line and the next before
 // they are taken for different runs of text. Well clear of what compression
 // noise moves it, and well under the gap between, say, brown on pink and green
@@ -185,11 +191,11 @@ export async function translateImage(
     // their spacing has to be handed to it. A rule drawn between them does it,
     // and so does the text changing colour: a caption in green on its own panel
     // is not the next line of the headline in brown above it.
-    const ink = new Map<string, RGB>();
+    const inks = new Map<string, RGB>();
     const inkAt = (box: Box) => {
       const key = box.join(',');
-      let found = ink.get(key);
-      if (!found) ink.set(key, found = inkOf(source, width, height, box));
+      let found = inks.get(key);
+      if (!found) inks.set(key, found = inkOf(source, width, height, box));
       return found;
     };
     blocks = group(ocr.parse(reply.text, image), (a, b) =>
@@ -225,7 +231,13 @@ export async function translateImage(
       const skipped = untranslated(originals[i], translations[i], config.target);
       if (skipped) return { skipped, fill: null, background: '', ink: '' };
       const fill = dominant(source, width, height, block.box);
-      return { skipped: null, fill, background: rgb(fill), ink: inkFor(fill) };
+      // The words keep the colour they had: a grey footer stays grey, a pink
+      // sound effect stays pink. It reads over the restored background for the
+      // same reason it read over the original, since that is the background it
+      // was measured against.
+      const written = inkAt(block.box);
+      const ink = apart(written, fill) >= LEGIBLE ? rgb(written) : inkFor(fill);
+      return { skipped: null, fill, background: rgb(fill), ink };
     });
     const proposals: [Box, Box | null][] = blocks.map((block, i) => {
       const [x0, y0, x1, y1] = block.box;
