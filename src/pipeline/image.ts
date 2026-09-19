@@ -1,7 +1,7 @@
 import { toBase64 } from '../core/base64.ts';
 import { type Box, type Block } from '../core/geometry.ts';
 import { group, join } from '../core/grouping.ts';
-import { ruledBetween } from '../core/rules.ts';
+import { dividerFor } from '../core/rules.ts';
 import { detectedSource, untranslated } from '../core/language.ts';
 import { apart, dominant, inkFor, inkOf, type RGB, rgb } from '../core/color.ts';
 import { allowance, containerBox, negotiate } from '../core/layout.ts';
@@ -74,12 +74,6 @@ async function toDataUrl(canvas: OffscreenCanvas, encode: 'png' | 'jpeg'): Promi
 // rather than writing, and black or white on the fill is the safer answer. The
 // faintest real text in the fixtures — a chat window's grey footer — is 236.
 const LEGIBLE = 150;
-
-// How far the glyph colour has to move between one line and the next before
-// they are taken for different runs of text. Well clear of what compression
-// noise moves it, and well under the gap between, say, brown on pink and green
-// on a yellow panel.
-const RECOLOURED = 90;
 
 // Retries go out a few at a time. Serially they are slow enough to time a page
 // out; all at once they are a burst at whatever rate limit the endpoint has.
@@ -185,12 +179,6 @@ export async function translateImage(
     const reply = await send(toEndpoint(config.reader), ocr.build(image, config.target),
       'the reader', signal);
     timings.read = stageOf(Date.now() - started, [reply.stats]);
-    // A table's rows sit as close together as a wrapped sentence's lines, so
-    // the spacing alone would run a price list into one block.
-    // Grouping sees boxes, not pixels, so what separates two lines other than
-    // their spacing has to be handed to it. A rule drawn between them does it,
-    // and so does the text changing colour: a caption in green on its own panel
-    // is not the next line of the headline in brown above it.
     const inks = new Map<string, RGB>();
     const inkAt = (box: Box) => {
       const key = box.join(',');
@@ -198,9 +186,10 @@ export async function translateImage(
       if (!found) inks.set(key, found = inkOf(source, width, height, box));
       return found;
     };
-    blocks = group(ocr.parse(reply.text, image), (a, b) =>
-      ruledBetween(source, width, height, a, b)
-      || apart(inkAt(a), inkAt(b)) > RECOLOURED);
+    // Grouping sees boxes, not pixels. A table's rows sit as close together as
+    // a wrapped sentence's lines, so what separates two lines other than their
+    // spacing has to be handed to it.
+    blocks = group(ocr.parse(reply.text, image), dividerFor(source, width, height));
     timings.blocks = blocks.length;
     log('read', blocks.length, 'blocks in', timings.read.ms, 'ms');
     if (!blocks.length) {

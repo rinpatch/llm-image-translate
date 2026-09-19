@@ -1,5 +1,6 @@
-import { type Box, offset } from './geometry.ts';
-import { luminance } from './color.ts';
+import { type Box, offset, seam } from './geometry.ts';
+import { apart, inkOf, luminance, type RGB } from './color.ts';
+import { type Divided } from './grouping.ts';
 
 // How much darker than the paper a rule has to be, and how much of the width it
 // has to cross. A rule spans the cell; a descender or a speck does not.
@@ -49,4 +50,48 @@ export function ruledBetween(
     if (dark / (x1 - x0) >= COVERAGE) return true;
   }
   return false;
+}
+
+// How far the glyph colour has to move between one line and the next before
+// they are taken for different runs of text. Well clear of what compression
+// noise moves it, and well under the gap between, say, brown on pink and green
+// on a yellow panel.
+const RECOLOURED = 90;
+
+// The same question asked of the ends alone, which is a smaller sample and so a
+// noisier one: a photographed leaflet moves its own black by 108 from one line
+// end to the next. A handle over a post moves by 257.
+const RESTARTED = 180;
+
+/**
+ * What divides one line from the line below it, off the pixels between and
+ * under them.
+ *
+ * Grouping sees boxes, not pixels, so anything that separates two lines other
+ * than their spacing has to be handed to it. A rule drawn between them does it;
+ * so does the text changing colour, since a caption in green on its own panel
+ * is not the next line of the headline in brown above it.
+ *
+ * Colour is read twice, because the two readings catch different things. Over
+ * the whole box it finds a run set in another colour throughout. Over the ends
+ * that meet across the break it finds a line that is two runs at once: a
+ * tweet's white name and grey handle sit in one box, and averaged over that box
+ * the grey disappears, but the end of the line is grey and the post beneath it
+ * starts white.
+ */
+export function dividerFor(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+): Divided {
+  const inks = new Map<string, RGB>();
+  const ink = (box: Box) => {
+    const key = box.join(',');
+    let found = inks.get(key);
+    if (!found) inks.set(key, found = inkOf(data, width, height, box));
+    return found;
+  };
+  return (above, below) => ruledBetween(data, width, height, above, below)
+    || apart(ink(above), ink(below)) > RECOLOURED
+    || apart(ink(seam(above, 'tail')), ink(seam(below, 'head'))) > RESTARTED;
 }
