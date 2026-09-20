@@ -1,0 +1,21 @@
+[
+  {
+    "name": "HunyuanOCR (local)",
+    "adapter": "hunyuan-spotting",
+    "baseUrl": "http://127.0.0.1:8090"
+  },
+  {
+    "name": "Gemini 3.1 Flash Lite",
+    "adapter": "json-boxes-yx",
+    "baseUrl": "https://openrouter.ai/api/v1",
+    "model": "google/gemini-3.1-flash-lite",
+    "keyEnv": "OPENROUTER_API_KEY"
+  },
+  {
+    "name": "Qwen3-VL 8B",
+    "adapter": "json-boxes",
+    "baseUrl": "https://openrouter.ai/api/v1",
+    "model": "qwen/qwen3-vl-8b-instruct",
+    "keyEnv": "OPENROUTER_API_KEY"
+  }
+]

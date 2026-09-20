@@ -93,6 +93,41 @@ place. Every rule currently breaks at least one page when removed; one that
 breaks none is either dead or has no fixture arguing for it, and both are worth
 knowing before adding the next one.
 
+## Scoring a reader
+
+`tools/bench-readers.ts` runs the real `OcrAdapter`s over pages whose true boxes
+are known and prints what each one located, read, and how close its boxes were.
+It is node and HTTP only — no browser, no extension — so it is the cheap way to
+answer whether a different model or a different kind of reader is better.
+
+```bash
+node tools/bench-readers.ts                       # every reader in tools/readers.json
+node tools/bench-readers.ts --reader local --runs 3
+node tools/bench-readers.ts --json /tmp/gold.json
+node tools/bench-readers.ts --compare /tmp/gold.json
+```
+
+A new model is a line in `tools/readers.json` — a name, an adapter id, a base
+URL, optionally a model and the environment variable holding its key. Nothing in
+the tool knows a prompt or a coordinate order, so what is measured is what the
+worker would do. A reader whose `keyEnv` is unset is skipped, not failed.
+
+The pages come from `tools/make-truth.py`, which draws them and writes the boxes
+it drew beside them — the truth is the generator's arithmetic, not somebody's
+tracing. They are drawn inside every adapter's `maxDim` so nothing is scaled and
+every reader is handed the same pixels; both a PNG and a JPEG are written, and
+the adapter's `encode` picks. Regenerate with:
+
+```bash
+poc/.venv/bin/python tools/make-truth.py
+```
+
+Two traps in there. Songti's face 0 is Songti SC **Black**, whose glyph set has
+holes — 聞, 語, 間 and a dozen more come out blank, which looks like a reader
+failure and is not. Face 1 is complete. And HunyuanOCR currently takes both
+pages 22/22, so the bench catches a regression but will not tell two good
+readers apart on counts alone; mean IoU is what separates them.
+
 ## The pages that broke something
 
 `test/fixtures/pages/` holds the images that have caught a real bug, each with a
