@@ -5,6 +5,12 @@
     "baseUrl": "http://127.0.0.1:8090"
   },
   {
+    "name": "PP-OCR",
+    "kind": "browser",
+    "adapter": "ppocr-browser",
+    "baseUrl": ""
+  },
+  {
     "name": "Gemini 3.1 Flash Lite",
     "adapter": "json-boxes-yx",
     "baseUrl": "https://openrouter.ai/api/v1",

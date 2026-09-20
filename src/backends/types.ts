@@ -10,10 +10,12 @@ export interface Endpoint {
 
 /**
  * What to post, minus everything about where. `completion` is llama.cpp's raw
- * prompt endpoint, which only a local server has; everything else is `chat`.
+ * prompt endpoint, which only a local server has; `offscreen` is a reader that
+ * is not a language model at all, running in this browser, where there is no
+ * endpoint to post to; everything else is `chat`.
  */
 export interface ModelRequest {
-  kind: 'chat' | 'completion';
+  kind: 'chat' | 'completion' | 'offscreen';
   body: Record<string, unknown>;
 }
 
@@ -58,6 +60,8 @@ export interface OcrAdapter {
      * and puts what it produced on each line's `translation`.
      */
     alsoTranslates: boolean;
+    /** Runs in this browser, so there is no endpoint to point at or test. */
+    inBrowser?: boolean;
   };
   build(image: EncodedImage, target: string): ModelRequest;
   parse(content: string, image: EncodedImage): TextLine[];

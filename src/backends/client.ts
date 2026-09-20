@@ -19,8 +19,18 @@ const serverRoot = (url: string) => url.replace(/\/+$/, '').replace(/\/v1$/, '')
 const apiRoot = (url: string) => `${serverRoot(url)}/v1`;
 
 // /completion is llama.cpp's own, outside the OpenAI-compatible surface.
-const pathFor = (url: string, kind: ModelRequest['kind']) =>
-  (kind === 'chat' ? `${apiRoot(url)}/chat/completions` : `${serverRoot(url)}/completion`);
+const PATHS: Record<Exclude<ModelRequest['kind'], 'offscreen'>, (url: string) => string> = {
+  chat: (url) => `${apiRoot(url)}/chat/completions`,
+  completion: (url) => `${serverRoot(url)}/completion`,
+};
+
+/**
+ * How to reach a reader that runs in this browser rather than over the network.
+ * Installed by the worker, because getting at it is `chrome.runtime` and this
+ * file is the one place that is allowed to know nothing about Chrome.
+ */
+let inBrowser: ((body: Record<string, unknown>) => Promise<any>) | null = null;
+export const readsInBrowser = (ask: typeof inBrowser): void => { inBrowser = ask; };
 
 function headersFor(endpoint: Endpoint): Record<string, string> {
   const headers: Record<string, string> = { ...endpoint.headers };
@@ -81,7 +91,15 @@ export async function send(
 ): Promise<Reply> {
   const body = endpoint.model ? { ...request.body, model: endpoint.model } : request.body;
   const started = Date.now();
-  const out = await post(endpoint, pathFor(endpoint.baseUrl, request.kind), body, what, signal);
+  if (request.kind === 'offscreen') {
+    if (!inBrowser) throw new Error(`${what} cannot run here`);
+    const answer = await inBrowser(request.body);
+    return {
+      text: JSON.stringify(answer.lines ?? []),
+      stats: { wall_ms: Date.now() - started },
+    };
+  }
+  const out = await post(endpoint, PATHS[request.kind](endpoint.baseUrl), body, what, signal);
   // A model that answers with nothing at all — a refusal, or a reasoning model
   // that spent its budget thinking — still has to come back as a string.
   const content = request.kind === 'chat'

@@ -7,6 +7,7 @@ const watch = process.argv.includes('--watch');
 const ctx = await context({
   entryPoints: {
     worker: 'src/worker.ts',
+    offscreen: 'src/offscreen.ts',
     content: 'src/content.ts',
     popup: 'src/popup.ts',
     options: 'src/options.ts',

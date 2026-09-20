@@ -63,6 +63,14 @@ export const SHIPPED: Profile[] = [
     translator: endpoint('http://127.0.0.1:8091', 'gemma-raw'),
   },
   {
+    id: 'ppocr-browser',
+    name: 'PP-OCR in the browser',
+    // Nothing to install and nothing to start: the reader is two ONNX graphs
+    // held open in an offscreen document. Only the translator is a server.
+    reader: endpoint('', 'ppocr-browser'),
+    translator: endpoint('http://127.0.0.1:8091', 'hunyuan-mt'),
+  },
+  {
     id: 'openrouter',
     name: 'OpenRouter — Gemini',
     reader: endpoint(OPENROUTER, 'json-boxes-yx', 'google/gemini-3.1-flash-lite'),

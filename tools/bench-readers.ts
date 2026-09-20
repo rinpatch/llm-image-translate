@@ -3,7 +3,9 @@
 //
 // It drives the same adapters the worker does — tools/readers.json says which
 // endpoint and model, and nothing here knows a prompt or a coordinate order.
-// So a new model is a line of JSON, and what is measured is what ships.
+// So a new model is a line of JSON, and what is measured is what ships. A
+// reader that runs inside Chrome rather than behind a URL is `"kind":
+// "browser"`, and is driven through agent-browser instead of fetch.
 //
 //     node tools/bench-readers.ts                       # every configured reader
 //     node tools/bench-readers.ts --reader local --runs 3
@@ -17,6 +19,7 @@
 // adapter's maxDim — so the boxes that come back are in the same pixels the
 // truth is written in, and no reader is handed a differently scaled image from
 // the next one. tools/make-truth.py draws them.
+import { execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +35,12 @@ const PAGES = join(ROOT, 'test/fixtures/truth');
 
 export interface ReaderConfig {
   name: string;
+  /**
+   * `http` posts to an endpoint. `browser` drives the extension's own reader
+   * through agent-browser, which is the only way to score something that runs
+   * inside Chrome — it needs `npm run build` to have happened first.
+   */
+  kind?: 'http' | 'browser';
   /** An id in OCR_ADAPTERS — the same string the settings page stores. */
   adapter: string;
   baseUrl: string;
@@ -68,6 +77,71 @@ function httpReader(config: ReaderConfig): Reader {
       // scoring one of those still only looks at what it located and read.
       const reply = await send(endpoint, adapter.build(image, 'English'), config.name);
       return { lines: adapter.parse(reply.text, image), stats: reply.stats };
+    },
+  };
+}
+
+const EXTENSION_ID = 'khbiipgidcclbakblacconmmpnacljae';
+
+const browser = (script: string): string =>
+  execFileSync('agent-browser', ['eval', '--stdin'], { input: script, encoding: 'utf8' });
+
+// Closing a browser and starting another in the same breath loses the race with
+// the old one letting go of its profile, and the launch fails rather than waits.
+function launch(): void {
+  try {
+    execFileSync('agent-browser', ['close', '--all'], { stdio: 'ignore' });
+  } catch { /* nothing was running */ }
+  for (let attempt = 0; ; attempt++) {
+    try {
+      execFileSync('agent-browser', ['--extension', join(ROOT, 'extension'),
+        'open', `chrome-extension://${EXTENSION_ID}/options.html`], { stdio: 'ignore' });
+      return;
+    } catch (e) {
+      if (attempt >= 3) throw e;
+      execFileSync('sleep', ['2']);
+    }
+  }
+}
+
+/**
+ * The extension's own reader. One browser is started for the run and the
+ * offscreen document with it, so the models are loaded once and what is timed
+ * afterwards is a page rather than a cold start.
+ */
+function browserReader(config: ReaderConfig): Reader {
+  const adapter = OCR_ADAPTERS[config.adapter];
+  if (!adapter) throw new Error(`${config.name}: no adapter "${config.adapter}"`);
+  let started = false;
+  return {
+    name: config.name,
+    what: `${config.adapter} in Chrome`,
+    encode: adapter.capabilities.encode,
+    maxDim: adapter.capabilities.maxDim,
+    async read(image) {
+      if (!started) {
+        launch();
+        browser(`(async () => { await chrome.offscreen.closeDocument().catch(()=>{});
+          await chrome.offscreen.createDocument({url:'offscreen.html',
+            reasons:['WORKERS'], justification:'ocr'});
+          return chrome.runtime.sendMessage({target:'offscreen', type:'ocrReady'});
+        })()`);
+        started = true;
+      }
+      const at = Date.now();
+      // The data URL goes in the script itself — there is no server here, and
+      // agent-browser takes a script on stdin however long it is.
+      const out = browser(`(async () => {
+        const r = await chrome.runtime.sendMessage({target:'offscreen', type:'ocr',
+          image: ${JSON.stringify(image.dataUrl)}});
+        if (!r.ok) throw new Error(r.error);
+        return JSON.stringify(r);
+      })()`);
+      const reply = JSON.parse(JSON.parse(out.trim()));
+      return {
+        lines: adapter.parse(JSON.stringify(reply.lines), image),
+        stats: { wall_ms: reply.timings?.wall_ms ?? Date.now() - at },
+      };
     },
   };
 }
@@ -213,11 +287,11 @@ async function main(): Promise<void> {
   const saved: Saved = { when: new Date().toISOString(), readers: [] };
   for (const config of configs) {
     if (wanted && !config.name.toLowerCase().includes(wanted.toLowerCase())) continue;
-    if (config.keyEnv && !process.env[config.keyEnv]) {
+    if (config.kind !== 'browser' && config.keyEnv && !process.env[config.keyEnv]) {
       console.log(`\n${config.name}: skipped, ${config.keyEnv} is not set`);
       continue;
     }
-    const reader = httpReader(config);
+    const reader = config.kind === 'browser' ? browserReader(config) : httpReader(config);
     console.log(`\n${reader.name}  ·  ${reader.what}`);
     const results: Result[] = [];
     for (const page of found) results.push(await run(reader, page, runs, minIou));

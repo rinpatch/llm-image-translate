@@ -1,0 +1,45 @@
+// Reaching the document that holds the OCR models.
+//
+// The worker is the only context Chrome will start on an event, and the only
+// one that can create an offscreen document — but it is also the one that keeps
+// being evicted, so "is there a document" has to be asked every time rather
+// than remembered in a variable that will not survive.
+import { log } from './log.ts';
+
+// An extension may have one offscreen document, so two images arriving together
+// must not both try to create it — the second would fail rather than wait.
+let creating: Promise<void> | null = null;
+
+async function ensure(): Promise<void> {
+  if (await chrome.offscreen.hasDocument()) return;
+  if (!creating) {
+    const at = Date.now();
+    creating = chrome.offscreen
+      .createDocument({
+        url: 'offscreen.html',
+        reasons: [chrome.offscreen.Reason.WORKERS],
+        justification: 'runs the text detection and recognition models',
+      })
+      .then(() => log('offscreen document up in', Date.now() - at, 'ms'))
+      .finally(() => { creating = null; });
+  }
+  await creating;
+}
+
+/** Puts one question to the reader in the offscreen document. */
+export async function askOffscreen(body: Record<string, unknown>): Promise<any> {
+  await ensure();
+  const reply = await chrome.runtime.sendMessage({ target: 'offscreen', type: 'ocr', ...body });
+  if (!reply?.ok) throw new Error(reply?.error || 'the reader in this browser said nothing');
+  return reply;
+}
+
+/**
+ * Loads the models without asking anything of them. Worth doing when the reader
+ * is first selected rather than on the first image, because the sessions and
+ * their shaders are most of a second and it only happens once.
+ */
+export async function warmOffscreen(): Promise<void> {
+  await ensure();
+  await chrome.runtime.sendMessage({ target: 'offscreen', type: 'ocrReady' });
+}

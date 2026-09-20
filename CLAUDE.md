@@ -128,6 +128,62 @@ failure and is not. Face 1 is complete. And HunyuanOCR currently takes both
 pages 22/22, so the bench catches a regression but will not tell two good
 readers apart on counts alone; mean IoU is what separates them.
 
+## The reader that runs in the browser
+
+The same two models as the server, in the extension: `ppocr-browser`, the
+**PP-OCR in the browser** profile. Nothing to start.
+
+```bash
+npm install
+tools/fetch-ocr-models.sh    # weights + wasm -> extension/vendor/ocr/, gitignored
+npm run build
+```
+
+The weights are downloaded, pinned to a RapidOCR release. `charset.txt` is built
+there too: the published dictionary is the 18708 characters, the model has 18710
+outputs, and the missing two are CTC's blank at the front and a space at the
+back — which is why the script checks the count and why `engine.ts` splits the
+file on `\n` alone. Trimming it would lose exactly that space.
+
+It lives in an offscreen document (`src/offscreen.ts`), not the worker, because
+a service worker is evicted after thirty seconds idle and has no `Worker`. The
+worker creates the document on demand (`src/platform/offscreen.ts`) and reaches
+it by message; `backends/client.ts` calls that through a seam installed by the
+worker, so `backends/` still touches no `chrome.*`.
+
+Everything the Python package gets from OpenCV is in
+`src/backends/ocr/ppocr/` — `db.ts` turns the probability map into quads,
+`ctc.ts` reads the recogniser's slices back into text, and `engine.ts` does the
+resizing and the crops through a canvas. The first two are pure and
+`test/ppocr.test.ts` runs them in node.
+
+Two things to know before changing it:
+
+**Sessions are built one at a time.** The WebGPU backend refuses to create a
+second session while one is being created, and doing it in a `Promise.all`
+fails with `another WebGPU EP inference session is being created`.
+
+**ONNX Runtime has to be told where its WebAssembly is.** The bundle is one
+file, so there is no script URL for it to work its own location out from;
+`ort.env.wasm.wasmPaths` is set in `engine.ts` and the symptom of forgetting is
+`cannot determine the script source URL`.
+
+To drive it by hand, an extension page can create the document and ask directly:
+
+```bash
+agent-browser eval "(async () => {
+  await chrome.offscreen.createDocument({url:'offscreen.html',
+    reasons:['WORKERS'], justification:'ocr'}).catch(()=>{});
+  const r = await chrome.runtime.sendMessage({target:'offscreen', type:'ocr', image: dataUrl});
+  return JSON.stringify(r.timings);
+})()"
+```
+
+`node tools/bench-readers.ts --reader pp-ocr` scores it against the same pages
+as everything else — that reader is `"kind": "browser"` in `tools/readers.json`
+and drives a real Chrome, so it needs `npm run build` and
+`tools/fetch-ocr-models.sh` first, and takes a browser launch to get going.
+
 ## The pages that broke something
 
 `test/fixtures/pages/` holds the images that have caught a real bug, each with a

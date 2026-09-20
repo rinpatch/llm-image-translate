@@ -1,0 +1,7 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Image Translate — reader</title>
+<!-- No UI. This document exists because a service worker cannot hold an ONNX
+     session: it is evicted after thirty seconds idle and has no Worker to run
+     threaded WebAssembly in. See src/offscreen.ts. -->
+<script src="dist/offscreen.js"></script>

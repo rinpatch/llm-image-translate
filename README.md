@@ -150,6 +150,9 @@ src/platform/   settings, messages, logging: the chrome.* surface
 src/content/    the badge layer, the image swap, the page-side result cache
 ```
 
+`src/offscreen.ts` is the odd one out: a document with no UI, holding the ONNX
+sessions for the in-browser reader because the service worker cannot.
+
 `core/` is where the work that has nothing to do with a particular model lives,
 so it can be imported and tested directly. Anything a specific model needs said
 to it — the spotting prompt, the coordinate format, TranslateGemma's raw chat
@@ -172,6 +175,7 @@ There are four:
 | adapter | for |
 | --- | --- |
 | `hunyuan-spotting` | HunyuanOCR's own spotting task |
+| `ppocr-browser` | PP-OCR, which is not a language model and runs in the extension |
 | `json-boxes` | a vision model that answers `[x0, y0, x1, y1]` |
 | `json-boxes-yx` | one that answers `[y0, x0, y1, x1]` — Gemini does |
 | `gemma-raw` | TranslateGemma's fixed prompt, local only |
@@ -179,8 +183,9 @@ There are four:
 | `hunyuan-mt` | Hy-MT2, which answers to one fixed instruction |
 
 `kind` picks the path: `chat` is `/v1/chat/completions`, which anything
-OpenAI-compatible serves, and `completion` is llama.cpp's raw prompt endpoint,
-which only a local server has. TranslateGemma needs the raw one, so it is marked
+OpenAI-compatible serves, `completion` is llama.cpp's raw prompt endpoint, which
+only a local server has, and `offscreen` is no path at all — the reader is in
+this browser, and the request is a message rather than a socket. TranslateGemma needs the raw one, so it is marked
 `localOnly` and the settings page says so if you pair it with a hosted service.
 The base URL is written either way round — `http://127.0.0.1:8090` or
 `https://openrouter.ai/api/v1` — and the version segment is taken off and put
@@ -205,8 +210,9 @@ a guess, and a profile pairs the two.
 A **profile** is a named pair of endpoints — a reader and a translator, each
 with its adapter, model and key — and the popup switches between them, so a page
 the local models struggle with can go to a hosted one without retyping anything.
-Four ship: local llama.cpp, the same with TranslateGemma, Gemini 3.1 Flash Lite
-with Hunyuan MT2, and Qwen3-VL with Hunyuan MT2. They are ordinary profiles once
+Five ship: local llama.cpp, the same with TranslateGemma, PP-OCR in the browser
+with Hunyuan MT2, Gemini 3.1 Flash Lite with Hunyuan MT2, and Qwen3-VL with
+Hunyuan MT2. They are ordinary profiles once
 installed — rename, edit or delete them, and duplicate one to start your own.
 
 Readers were scored against two generated pages whose true boxes are known,
@@ -241,6 +247,51 @@ adapter. Asked for JSON it translates the instructions along with the text and
 answers in prose — the task done, in the wrong shape. Given the one instruction
 Tencent documents, with the lines numbered inside the text being translated, it
 answers in order every time.
+
+### Reading without a language model
+
+PP-OCRv6 is not a VLM, and nothing about it needs a server. A segmentation net
+finds the ink and returns the quad around it; a CTC head reads each crop and
+says how sure it is. So it cannot invent a box where nothing is written, every
+line arrives with a confidence, and all of it fits in the extension: the two
+graphs run on ONNX Runtime's WebGPU backend, and everything the reference
+implementation gets from OpenCV — the resizing, the crops, the contours, the
+decode — is `src/backends/ocr/ppocr/`. Pick **PP-OCR in the browser** and there
+is nothing to install and nothing to start; only the translator is a server.
+
+Scored against the same pages, with the local VLM for comparison:
+
+| reader | located | read | mean IoU | read in | weights |
+| --- | --- | --- | --- | --- | --- |
+| HunyuanOCR 1B | 22/22 | 22/22 | 0.91 | 1.9s | 1.31 GB |
+| PP-OCRv6 small | 21/22 | 21/22 | 0.91 | 0.3s | 30 MB |
+
+Six times faster off a fortieth of the weights, placing lines as well. What it
+loses is the line at the edge of visible — grey on grey a shade apart, which no
+threshold recovers, because the detector's probability map has nothing there to
+threshold. That is the shape of the trade generally: a detector is better than a
+VLM at ordinary print and worse at anything stylised, faint or hand-drawn, which
+is why both ship rather than one replacing the other.
+
+Its boxes are grown outward from the ink by `unclipRatio`, whose upstream
+default of 1.6 puts about four pixels of background on every side — most of the
+box on 15px small print, and mean IoU 0.78 rather than 0.91. It is set to 1.2 in
+`src/backends/ocr/ppocr/db.ts`.
+
+It runs in an offscreen document rather than in the service worker, which is
+forced rather than chosen. A service worker is evicted after thirty seconds
+idle, so every click would reload 30 MB of weights and recompile the shaders,
+and it has no `Worker`, so WebAssembly cannot be threaded there. A document has
+neither problem. What it does not have is any extension API but `chrome.runtime`
+— no storage, no tabs — and nothing can wake one, so the worker stays the brain
+and the document only ever answers the one question.
+
+WebGPU is what makes it worth doing: the detector is about 50ms there against
+555ms for the same graph on the CPU provider, which is kept only as a fallback
+for machines without it.
+
+`tools/fetch-ocr-models.sh` downloads the weights into `extension/vendor/ocr/`,
+pinned to the RapidOCR release they were exported from. They are not committed.
 
 Avoid reasoning models at both jobs. They spend the budget thinking about a
 mechanical task — one returned 2048 tokens of reasoning and no answer at all.

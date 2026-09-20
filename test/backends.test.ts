@@ -4,6 +4,8 @@ import assert from 'node:assert';
 import { send } from '../src/backends/client.ts';
 import { hunyuanSpotting } from '../src/backends/ocr/hunyuan.ts';
 import { jsonBoxes, jsonBoxesTranslating } from '../src/backends/ocr/json-boxes.ts';
+import { ppOcrBrowser } from '../src/backends/ocr/ppocr/adapter.ts';
+import { readsInBrowser } from '../src/backends/client.ts';
 import { chatLines } from '../src/backends/translate/chat-lines.ts';
 import { hunyuanMt } from '../src/backends/translate/hunyuan-mt.ts';
 import { translateGemma } from '../src/backends/translate/gemma.ts';
@@ -207,4 +209,38 @@ test('numbered lines come back by number, and a gap stays a gap', () => {
   assert.deepEqual(hunyuanMt.parse('Limited-time discount', 1), ['Limited-time discount'],
     'one line in, an unnumbered answer is still the answer');
   assert.equal(hunyuanMt.parse('I cannot do that', 3), null);
+});
+
+test('a reader in this browser is asked without a socket, and answers with lines', async () => {
+  const asked: any[] = [];
+  globalThis.fetch = (async () => { throw new Error('nothing should go out'); }) as typeof fetch;
+  readsInBrowser(async (body) => {
+    asked.push(body);
+    return {
+      lines: [
+        { text: ' 全场包邮 ', score: 0.97, quad: [[10, 8], [90, 5], [91, 30], [11, 33]] },
+        { text: 'blur', score: 0.2, quad: [[0, 0], [9, 0], [9, 9], [0, 9]] },
+      ],
+      timings: { wall_ms: 40, det_ms: 12, rec_ms: 25 },
+    };
+  });
+
+  const reply = await send({ baseUrl: '' }, ppOcrBrowser.build(image, 'English'), 'the reader');
+  assert.equal(asked[0].image, image.dataUrl, 'the image is handed over, not posted');
+
+  assert.deepEqual(ppOcrBrowser.parse(reply.text, image),
+    [{ text: '全场包邮', box: [10, 5, 91, 33] }],
+    'the quad becomes the box that holds it, and a guess below MIN_SCORE is dropped');
+});
+
+test('a reader that cannot run here says so rather than posting somewhere', async () => {
+  readsInBrowser(null);
+  await assert.rejects(send({ baseUrl: '' }, ppOcrBrowser.build(image, 'English'), 'the reader'),
+    /the reader cannot run here/);
+});
+
+test('a reader that answers nothing usable is no lines rather than a throw', () => {
+  assert.deepEqual(ppOcrBrowser.parse('not json at all', image), []);
+  assert.deepEqual(ppOcrBrowser.parse('[{"text":"x","score":0.9,"quad":[[0,0],[1,1]]}]', image), [],
+    'a quad that is not four corners is not a box');
 });

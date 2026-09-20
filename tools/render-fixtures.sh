@@ -7,6 +7,13 @@
 #
 #     tools/render-fixtures.sh [out-dir] [target-language]
 #
+# READER_ADAPTER swaps the reader for the run, which is how two readers are
+# compared by eye rather than by the counts tools/bench-readers.ts gives.
+# READER_URL comes with it for a reader that has an endpoint; one that runs in
+# the browser has none:
+#
+#     READER_ADAPTER=ppocr-browser tools/render-fixtures.sh /tmp/ppocr
+#
 # The extension IDs its cached results by URL, and the profile goes with the
 # browser at the end, so every run starts cold.
 set -euo pipefail
@@ -30,6 +37,10 @@ sleep 1
 agent-browser close --all >/dev/null 2>&1 || true
 agent-browser --extension "$root/extension" open "chrome-extension://$id/options.html" >/dev/null
 agent-browser eval "chrome.storage.sync.set({target:'$target'}).then(()=>'ok')" >/dev/null
+if [ -n "${READER_ADAPTER:-}" ]; then
+  agent-browser eval "chrome.storage.local.set({reader:{baseUrl:'${READER_URL:-}',apiKey:'',
+    model:'${READER_MODEL:-}',adapter:'$READER_ADAPTER'}}).then(()=>'ok')" >/dev/null
+fi
 
 for page in test/fixtures/pages/*.png; do
   name=$(basename "$page" .png)

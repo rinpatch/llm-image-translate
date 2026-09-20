@@ -1,6 +1,7 @@
 import { hunyuanSpotting } from './ocr/hunyuan.ts';
 import { jsonBoxes, jsonBoxesTranslating, jsonBoxesYx, jsonBoxesYxTranslating }
   from './ocr/json-boxes.ts';
+import { ppOcrBrowser } from './ocr/ppocr/adapter.ts';
 import { chatLines } from './translate/chat-lines.ts';
 import { hunyuanMt } from './translate/hunyuan-mt.ts';
 import { translateGemma } from './translate/gemma.ts';
@@ -12,6 +13,7 @@ export const OCR_ADAPTERS: Record<string, OcrAdapter> = {
   [jsonBoxesYx.id]: jsonBoxesYx,
   [jsonBoxesTranslating.id]: jsonBoxesTranslating,
   [jsonBoxesYxTranslating.id]: jsonBoxesYxTranslating,
+  [ppOcrBrowser.id]: ppOcrBrowser,
 };
 
 export const TRANSLATE_ADAPTERS: Record<string, TranslateAdapter> = {
