@@ -1,6 +1,22 @@
+import { existsSync } from 'node:fs';
 import { context } from 'esbuild';
 
 const watch = process.argv.includes('--watch');
+
+// Without these the build still succeeds and the in-browser reader only fails
+// once someone picks it, which looks like an engine bug.
+const vendor = 'extension/vendor/ocr';
+const missing = [
+  'PP-OCRv6_det_small.onnx',
+  'PP-OCRv6_rec_small.onnx',
+  'charset.txt',
+  'ort-wasm-simd-threaded.asyncify.mjs',
+  'ort-wasm-simd-threaded.asyncify.wasm',
+].filter((file) => !existsSync(`${vendor}/${file}`));
+if (missing.length) {
+  console.error(`${vendor}/ is missing ${missing.join(', ')} — run tools/fetch-ocr-models.sh`);
+  process.exit(1);
+}
 
 // iife rather than esm: a content script cannot be a module, and one format for
 // all three entry points means the manifest does not have to care which is which.
