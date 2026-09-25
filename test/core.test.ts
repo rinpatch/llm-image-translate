@@ -5,7 +5,6 @@ import { type Box } from '../src/core/geometry.ts';
 import { alignOf, group, join } from '../src/core/grouping.ts';
 import { detectedSource, sourceLanguage, untranslated, type Detection }
   from '../src/core/language.ts';
-import { allowance, containerBox, negotiate } from '../src/core/layout.ts';
 import { apart, dominant, inkOf } from '../src/core/color.ts';
 import { decodeLoop, encodeLoop, fromBase64, toBase64 } from '../src/core/base64.ts';
 
@@ -153,10 +152,6 @@ test('a reply in the wrong script means the model rewrote instead of translating
   assert.equal(untranslated('已停止', 'Stopped', 'English'), null);
 });
 
-test('growth is bought with text, so a one-glyph sound effect stays small', () => {
-  assert.ok(allowance('P') < allowance('Send a message or hold to talk'));
-});
-
 test('glyph colour is read off the ink, whichever side of the paper it sits on', () => {
   const W = 60;
   const page = (paper: number) => {
@@ -186,44 +181,6 @@ test('glyph colour is read off the ink, whichever side of the paper it sits on',
   write(dark, dense, 3);
   assert.ok(apart(inkOf(dark, W, 40, dense), [0, 103, 51]) < 20,
     'light text on a dark panel is still the ink');
-});
-
-test('two containers claiming the same pixels back off until they do not overlap', () => {
-  const settled = negotiate([
-    [[10, 10, 20, 20], [0, 0, 60, 60]],
-    [[80, 10, 90, 20], [50, 0, 140, 60]],
-  ]);
-  const clash = settled[0][0] < settled[1][2] && settled[1][0] < settled[0][2]
-             && settled[0][1] < settled[1][3] && settled[1][1] < settled[0][3];
-  assert.ok(!clash, 'negotiated boxes do not intersect');
-  assert.ok(settled[0][2] - settled[0][0] >= 10, 'never shrinks past the text itself');
-});
-
-// An irregular container's outer bounds include its tail. Text must use the
-// rectangular body that is actually inside the shape.
-test('a narrow tail is excluded from the safe text rectangle', () => {
-  const width = 30;
-  const height = 20;
-  const pixels = new Uint8ClampedArray(width * height * 4);
-  for (let y = 2; y < 18; y++) {
-    const left = y === 9 || y === 10 ? 2 : 8;
-    for (let x = left; x < 26; x++) {
-      const offset = (y * width + x) * 4;
-      pixels[offset] = pixels[offset + 1] = pixels[offset + 2] = pixels[offset + 3] = 255;
-    }
-  }
-  const box: Box = [12, 6, 20, 14];
-  assert.deepEqual(containerBox(pixels, width, height, box, [255, 255, 255]), [8, 2, 26, 18]);
-
-  const leaking = pixels.slice();
-  for (let y = 9; y <= 10; y++) {
-    for (let x = 0; x < 8; x++) {
-      const offset = (y * width + x) * 4;
-      leaking[offset] = leaking[offset + 1] = leaking[offset + 2] = leaking[offset + 3] = 255;
-    }
-  }
-  assert.equal(containerBox(leaking, width, height, box, [255, 255, 255]), null,
-    'a region reaching the search edge is not treated as an enclosure');
 });
 
 test('the background colour is the one that is there, not the bucket it fell in', () => {

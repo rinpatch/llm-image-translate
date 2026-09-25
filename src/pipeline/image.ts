@@ -4,7 +4,6 @@ import { group, join } from '../core/grouping.ts';
 import { dividerFor } from '../core/rules.ts';
 import { detectedSource, untranslated } from '../core/language.ts';
 import { apart, dominant, inkFor, inkOf, type RGB, rgb } from '../core/color.ts';
-import { allowance, containerBox, negotiate } from '../core/layout.ts';
 import { drawBlock, fillBox } from '../core/paint.ts';
 import { skewOf } from '../core/skew.ts';
 import { Cancelled, send } from '../backends/client.ts';
@@ -164,7 +163,7 @@ function traced(
   translations: string[],
   appearances: { skipped: string | null }[],
   angles: number[],
-  layout: Box[],
+  drawn: Box[],
 ): TracedBlock[] {
   const at = new Map(spots.map((line, i) => [line.box.join(','), i]));
   return blocks.map((block, i) => ({
@@ -177,7 +176,7 @@ function traced(
     src: originals[i],
     translated: translations[i] || '',
     skipped: appearances[i].skipped,
-    drawn: layout[i],
+    drawn: drawn[i],
   }));
 }
 
@@ -261,7 +260,7 @@ export async function translateImage(
       ? 0 : skewOf(source, width, height, block.box)));
     const appearances = blocks.map((block, i) => {
       const skipped = untranslated(originals[i], translations[i], config.target);
-      if (skipped) return { skipped, fill: null, background: '', ink: '' };
+      if (skipped) return { skipped, background: '', ink: '' };
       const fill = dominant(source, width, height, block.box);
       // The words keep the colour they had: a grey footer stays grey, a pink
       // sound effect stays pink. It reads over the restored background for the
@@ -269,59 +268,36 @@ export async function translateImage(
       // was measured against.
       const written = inkAt(block.box);
       const ink = apart(written, fill) >= LEGIBLE ? rgb(written) : inkFor(fill);
-      return { skipped: null, fill, background: rgb(fill), ink };
+      return { skipped: null, background: rgb(fill), ink };
     });
-    const proposals: [Box, Box | null][] = blocks.map((block, i) => {
-      const [x0, y0, x1, y1] = block.box;
-      const padded: Box = [Math.max(0, x0 - 2), Math.max(0, y0 - 2),
-                           Math.min(width, x1 + 2), Math.min(height, y1 + 2)];
-      const translated = translations[i];
-      if (!translated || appearances[i].skipped) return [padded, null];
-      // With growth off the translation stays in the box the reader drew, which
-      // is what a page without bubbles to grow into wants.
-      if (!config.expand) return [padded, null];
-      const fill = appearances[i].fill!;
-      const found = containerBox(source, width, height, block.box, fill);
-      const wide = found && (found[2] - found[0]) <= (x1 - x0) * allowance(translated);
-      return [padded, wide ? found : null];
-    });
-    const layout = negotiate(proposals);
+    const boxes: Box[] = blocks.map(({ box: [x0, y0, x1, y1] }) => [
+      Math.max(0, x0 - 2), Math.max(0, y0 - 2), Math.min(width, x1 + 2), Math.min(height, y1 + 2)]);
     timings.layout_ms = Date.now() - started;
-    const moved = layout.filter((box, i) => box.some((v, k) => v !== proposals[i][0][k]));
     log('laid out', blocks.length, 'blocks in', timings.layout_ms, 'ms;',
-      moved.length, 'grew or moved,',
       appearances.filter((a) => a.skipped).length, 'skipped');
     started = Date.now();
 
-    // Removing source glyphs is independent from finding room for the result.
-    // Clear only the OCR bounds; a container is merely a layout constraint.
     blocks.forEach((_, i) => {
       if (appearances[i].skipped) return;
-      fillBox(ctx, proposals[i][0], appearances[i].background);
+      fillBox(ctx, boxes[i], appearances[i].background);
     });
 
     const report: BlockReport[] = [];
     blocks.forEach((block, i) => {
       const appearance = appearances[i];
       if (appearance.skipped) {
-        report.push({ box: layout[i], src: originals[i], en: translations[i] || '',
+        report.push({ box: boxes[i], src: originals[i], en: translations[i] || '',
           skipped: appearance.skipped });
         return;
       }
-      // Laid out in a borrowed shape there is nothing left of the source's own
-      // margins, so the alignment and the spacing read off them stop describing
-      // anything and the text goes back to the middle. The lean stays either
-      // way: it is how the page was photographed, not a property of whichever
-      // box the words ended up in.
-      const grown = layout[i].some((v, k) => v !== proposals[i][0][k]);
-      drawBlock(ctx, layout[i], translations[i], {
+      drawBlock(ctx, boxes[i], translations[i], {
         ink: appearance.ink,
         outline: appearance.background,
-        align: grown ? 'center' : block.align,
-        pitch: grown ? undefined : block.pitch,
+        align: block.align,
+        pitch: block.pitch,
         angle: angles[i],
       });
-      report.push({ box: layout[i], src: originals[i], en: translations[i], skipped: null });
+      report.push({ box: boxes[i], src: originals[i], en: translations[i], skipped: null });
     });
     timings.paint_ms = Date.now() - started;
 
@@ -338,7 +314,7 @@ export async function translateImage(
         id: crypto.randomUUID(), at: Date.now(), url: src,
         image: raw, width, height,
         spots: spots.map((line) => ({ text: line.text, box: line.box })),
-        grouped: traced(blocks, spots, originals, translations, appearances, angles, layout),
+        grouped: traced(blocks, spots, originals, translations, appearances, angles, boxes),
         logged: since(logFrom),
         timings,
       });

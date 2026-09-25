@@ -23,8 +23,6 @@ export interface PrivateSettings {
   profile: string;
   /** The active profile's name, which is how the history tells runs apart. */
   profileName: string;
-  /** Whether a block may grow into the shape around it. */
-  expand: boolean;
   debug: boolean;
 }
 
@@ -40,21 +38,19 @@ export const PRIVATE_DEFAULTS: PrivateSettings = {
   ...DEFAULT_ENDPOINTS,
   profile: SHIPPED[0].id,
   profileName: SHIPPED[0].name,
-  expand: true,
   debug: false,
 };
 
 /** The local booleans, which are stored under their own keys rather than on a profile. */
-const FLAGS = { expand: PRIVATE_DEFAULTS.expand, debug: PRIVATE_DEFAULTS.debug };
+const FLAGS = { debug: PRIVATE_DEFAULTS.debug };
 
 /**
  * Whether a storage change makes already-translated images stale. The endpoints
- * and the layout do — metrics are written after every image, and a debug toggle
- * says nothing about what the models would answer.
+ * do — metrics are written after every image, and a debug toggle says nothing
+ * about what the models would answer.
  */
 export const affectsResults = (changes: Record<string, unknown>) =>
-  'profiles' in changes || 'profile' in changes || 'expand' in changes
-  || 'cachePurge' in changes;
+  'profiles' in changes || 'profile' in changes || 'cachePurge' in changes;
 
 /** A storage event reaches the worker and every open page's process-local cache. */
 export const purgeResults = (): Promise<void> =>
@@ -106,7 +102,6 @@ export async function settings(): Promise<Settings> {
   ]);
   return {
     ...pub,
-    expand: Boolean(priv.expand),
     debug: Boolean(priv.debug),
     profile: active.id,
     profileName: active.name,

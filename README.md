@@ -113,16 +113,6 @@ wrong number of lines. Obvious scripts are identified directly; Latin text uses
 Chrome's language detector and can be overridden with **Translate from**. The
 source is named in the prompt — without it, `晴山空` comes back as "Qing Shan Kuo".
 
-**Fits** text to the shape it sits in rather than the box the glyphs occupied. A
-flood fill outward finds the speech balloon; growth is capped by how much text
-there is, so a one-glyph sound effect cannot claim a whole bubble, and
-neighbouring boxes are negotiated so none paints over another. The shape being
-grown into is a comic's, so **Let a translation grow into the shape around it**
-on the settings page turns the whole step off for pages that have none — the
-flood fill goes with it, which is most of the layout time. Runs with it off are
-recorded under `<profile> (no growth)`, so the two sets of timings do not land in
-the same medians.
-
 **Leaves blocks alone** when the translation still looks like the source — a
 half-translated line drawn over the original is worse than the original.
 
@@ -370,5 +360,5 @@ npm install && npm test
 
 Type-checks, then runs the geometry and language logic against strings the
 reader actually returned — spot parsing, row and column grouping, CJK joining,
-script detection, the untranslated check, container negotiation — and the
+script detection, the untranslated check — and the
 page-side pieces under jsdom.

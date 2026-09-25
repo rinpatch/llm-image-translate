@@ -35,7 +35,6 @@ function blocksOf(name: string) {
 const PIECES: Record<string, number> = {
   'banner-large': 6,
   'banner-small': 4,
-  'bubble-tilted': 1,
   'leaflet-story': 3,
   'leaflet-tilted': 5,
   'manga-page': 24,

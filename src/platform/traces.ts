@@ -33,7 +33,7 @@ export interface TracedBlock {
   translated: string;
   /** Why nothing was drawn, where nothing was. */
   skipped: string | null;
-  /** Where it was finally drawn, which layout may have moved or grown. */
+  /** Where it was drawn: the block's box, padded. */
   drawn: Box;
 }
 

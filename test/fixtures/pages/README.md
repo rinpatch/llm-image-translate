@@ -16,7 +16,6 @@ looked at. Run them all with `tools/render-fixtures.sh`.
 | `tweets-thread.png` | X thread, dark, three posts and a quoted one | The handle line sits at the body's pitch, in the body's size, on the body's left margin — nothing about the boxes says it is not the first line of the post. What says it is the grey of `·1h` meeting the white of the first word below. |
 | `picnic-bullets.png` | Japanese infographic, two panels and four bullet lists | Bullets are evenly spaced, one line each, set exactly like a wrapped paragraph. Only the `・` tells them apart, so this is the page that says grouping cannot be blind to the text. |
 | `leaflet-story.png` | our own Russian render of the leaflet, as posted | A screenshot of translated output, so it reads back as an ordinary page. |
-| `bubble-tilted.png` | synthetic: one tilted line in a flat white bubble | The only case that reaches `grown` **and** a real lean at once, which is the path where alignment and pitch are dropped but the angle is kept. Deliberately flat and wordy: `containerBox` refuses a shape over 2.5x the line's box height, and `allowance()` only grants 8x once the translation passes 12 characters. Regenerate with `tools/make-bubble.py`. |
 
 ## reported/
 

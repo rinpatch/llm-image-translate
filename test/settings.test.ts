@@ -49,13 +49,7 @@ test('the page is told what it needs and nothing about the endpoints', async () 
   assert.equal(everything.translator.baseUrl, 'http://127.0.0.1:8091');
 });
 
-test('growth is on until it is turned off, and turning it off is a stale result', async () => {
-  stubStorage();
-  assert.equal((await settings()).expand, true);
-  stubStorage({}, { expand: false });
-  assert.equal((await settings()).expand, false);
-  assert.equal(affectsResults({ expand: {} }), true,
-    'images laid out the other way are answers to a different question');
+test('purging the cache is a stale result, and a debug toggle is not', () => {
   assert.equal(affectsResults({ cachePurge: {} }), true,
     'purging reaches both the worker and page-side caches');
   assert.equal(affectsResults({ debug: {} }), false);

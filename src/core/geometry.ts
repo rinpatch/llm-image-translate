@@ -52,8 +52,5 @@ export const seam = ([x0, y0, x1, y1]: Box, end: 'head' | 'tail'): Box => {
     : [Math.max(x0, x1 - take), y0, x1, y1];
 };
 
-export const intersects = (a: Box, b: Box): boolean =>
-  a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
-
 /** Index of a pixel's red channel in ImageData. */
 export const offset = (width: number, x: number, y: number): number => (y * width + x) * 4;

@@ -45,9 +45,7 @@ async function run(request: Extract<Message, { type: 'translateImage' }>): Promi
       if (result.ok || result.code !== 'cancelled') {
         await record({
           url: request.src,
-          // Growth off is a different layout, and its numbers would otherwise
-          // land in the same medians as the runs that had it on.
-          profile: config.expand ? config.profileName : `${config.profileName} (no growth)`,
+          profile: config.profileName,
           ok: result.ok,
           ...(result.ok ? { timings: result.timings } : { error: result.error, code: result.code }),
         });

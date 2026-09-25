@@ -133,7 +133,7 @@ function checkPairing(): void {
     + 'service does not have. Use chat-lines there.', 'bad');
 }
 
-function toggle(id: 'images' | 'expand' | 'debug'): void {
+function toggle(id: 'images' | 'debug'): void {
   $<HTMLInputElement>(id).addEventListener('change', (e) => {
     save(id, (e.target as HTMLInputElement).checked);
   });
@@ -168,7 +168,6 @@ wireProfile();
 wire('reader');
 wire('translator');
 toggle('images');
-toggle('expand');
 toggle('debug');
 $('test').addEventListener('click', test);
 $('purge-cache').addEventListener('click', purgeCache);
@@ -178,7 +177,6 @@ $('purge-cache').addEventListener('click', purgeCache);
   show();
   const stored = await settings();
   $<HTMLInputElement>('images').checked = stored.images;
-  $<HTMLInputElement>('expand').checked = stored.expand;
   $<HTMLInputElement>('debug').checked = stored.debug;
   checkPairing();
 })();
