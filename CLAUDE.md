@@ -184,6 +184,55 @@ as everything else — that reader is `"kind": "browser"` in `tools/readers.json
 and drives a real Chrome, so it needs `npm run build` and
 `tools/fetch-ocr-models.sh` first, and takes a browser launch to get going.
 
+## Chrome's own translator
+
+`chrome-translator` hands the lines to Chrome's Translator API, in the offscreen
+document beside the reader, because the service worker does not have the API.
+A language pair has to be downloaded once, and only on a click on a visible
+page. The offscreen document can never get a click, so the settings page has a
+Download button for it. After that the document needs no click. Chrome asks
+again for every origin, even when it already holds the pack: on the extension's
+origin a pack fetched for another site still says `downloadable`, and
+"downloading" it takes ~100 ms.
+
+Chrome for Testing cannot test this. Its language packs never finish
+downloading, headless or headed. Stable Chrome fetches one in ~10 s, but it will
+not take `--load-extension` (see above). What works is puppeteer-core's
+`enableExtensions`, which loads the unpacked extension over the pipe with CDP's
+`Extensions.loadUnpacked`:
+
+```js
+// npm i puppeteer-core in the scratchpad, not here
+puppeteer.launch({
+  executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  headless: false, pipe: true, userDataDir: '<fresh dir>',
+  enableExtensions: ['/Users/rin/sw/image-translate/extension'],
+  ignoreDefaultArgs: true,
+  args: ['--remote-debugging-pipe', '--enable-unsafe-extension-debugging',
+    '--remote-debugging-port=9333', '--no-first-run'],
+});
+```
+
+Keep the node process alive afterwards (`setInterval`). An unsettled top-level
+`await` lets node exit, and Chrome goes with it.
+
+Three traps:
+
+- **`ignoreDefaultArgs: true` is required.** Puppeteer's defaults include
+  `--disable-component-update` and `--disable-background-networking`, and with
+  either one a download sits at "Downloading…" with no progress and no error.
+- **Use a fresh `userDataDir` after every rebuild.** A reused profile keeps
+  running the service worker it registered first, so the new build's options
+  page talks to the old worker. `chrome.runtime.reload()` from a page unloads
+  the extension for good.
+- **Click through puppeteer** (`page.click`), not `agent-browser --cdp 9333
+  click`. The latter reports success and the click never arrives, so there is
+  no user gesture.
+
+`agent-browser --cdp 9333 eval` and `get text` still work for reading pages.
+Close the extra tabs first, because puppeteer and agent-browser each open their
+own copy of the settings page.
+
 ## The pages that broke something
 
 `test/fixtures/pages/` holds the images that have caught a real bug, each with a

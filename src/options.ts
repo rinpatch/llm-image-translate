@@ -1,4 +1,5 @@
 import { type ListedModel, listModels } from './backends/client.ts';
+import { LANGUAGES, code } from './core/language.ts';
 import { OCR_ADAPTERS, TRANSLATE_ADAPTERS, ocrAdapter } from './backends/registry.ts';
 import { stagesOf } from './platform/metrics.ts';
 import { type ImageResult, type PingResult } from './platform/messages.ts';
@@ -40,7 +41,7 @@ function fillSelects(): void {
     const select = part<HTMLSelectElement>(role, 'provider');
     // In-browser reading is the method picker's, not one more place to run a model.
     for (const p of providersFor(role)) {
-      if (p.id !== 'browser') select.append(new Option(p.label, p.id));
+      if (role === 'translator' || p.id !== 'browser') select.append(new Option(p.label, p.id));
     }
   }
   // One pass is the checkbox, so the reader's list is only the plain adapters.
@@ -71,7 +72,8 @@ function showRole(role: Role): void {
   known.forEach((k, i) => models.append(new Option(k.name, String(i))));
   models.append(new Option('Another model…', OTHER));
   models.value = match ? String(known.indexOf(match)) : OTHER;
-  part(role, 'known-row').hidden = !known.length;
+  // The browser has the one translator, so there is nothing to pick.
+  part(role, 'known-row').hidden = !known.length || p.id === 'browser';
   part(role, 'model-row').hidden = Boolean(match);
   part(role, 'model-label').textContent = known.length ? 'Model id' : 'Model';
   part<HTMLInputElement>(role, 'model').value = endpoint.model;
@@ -116,6 +118,8 @@ function show(): void {
   $<HTMLInputElement>('reader-onepass').checked = translates;
   $('translator-section').hidden = translates;
   $('test').textContent = translates ? 'Test the endpoint' : 'Test both endpoints';
+  $('translator-pack-row').hidden = active.translator.adapter !== 'chrome-translator';
+  if (active.translator.adapter === 'chrome-translator') showPack();
 }
 
 /** Every edit on this page ends here: keep the list, keep the fields honest. */
@@ -382,6 +386,65 @@ async function adopt(role: Role): Promise<void> {
   });
 }
 
+// Chrome's translator downloads a language pack only on a click, and only
+// counts the click for the page it happened on — the offscreen document that
+// translates can never have one. Once this origin has a pair, the document
+// gets it with no click at all. A pack Chrome already holds for another site
+// still says "downloadable" here, and "downloading" it takes a fraction of a
+// second.
+const translatorApi = (globalThis as any).Translator;
+let target = 'English';
+
+const packPair = () => ({
+  sourceLanguage: code($<HTMLSelectElement>('translator-pack').value),
+  targetLanguage: code(target),
+});
+
+function packSay(text: string, kind = ''): void {
+  const status = $('translator-pack-status');
+  status.textContent = text;
+  status.className = `status ${kind}`;
+}
+
+async function showPack(): Promise<void> {
+  const select = $<HTMLSelectElement>('translator-pack');
+  const chosen = select.value;
+  clear(select);
+  for (const name of LANGUAGES) if (name !== target) select.append(new Option(name, name));
+  select.value = chosen && chosen !== target ? chosen : 'Japanese';
+  const get = $<HTMLButtonElement>('translator-pack-get');
+  get.hidden = true;
+  if (!translatorApi) return packSay('This browser has no built-in translator.', 'bad');
+  const state = await translatorApi.availability(packPair());
+  if (state === 'available') return packSay(`Ready to translate into ${target}.`, 'ok');
+  if (state === 'unavailable') {
+    return packSay(`Chrome cannot translate ${select.value} into ${target}.`, 'bad');
+  }
+  get.hidden = false;
+  packSay(`Not downloaded for ${target} yet.`);
+}
+
+function wirePack(): void {
+  $('translator-pack').addEventListener('change', showPack);
+  const get = $<HTMLButtonElement>('translator-pack-get');
+  get.addEventListener('click', async () => {
+    get.disabled = true;
+    packSay('Downloading…');
+    try {
+      await translatorApi.create({
+        ...packPair(),
+        monitor: (m: EventTarget) => m.addEventListener('downloadprogress', (e: any) =>
+          packSay(`Downloading… ${Math.round(e.loaded * 100)}%`)),
+      });
+      await showPack();
+    } catch (e: any) {
+      packSay(String(e?.message || e), 'bad');
+    } finally {
+      get.disabled = false;
+    }
+  });
+}
+
 function toggle(id: 'images' | 'debug'): void {
   $<HTMLInputElement>(id).addEventListener('change', (e) => {
     save(id, (e.target as HTMLInputElement).checked);
@@ -548,7 +611,10 @@ function wireTrial(): void {
     trialFile(file);
   });
   chrome.storage.sync.onChanged.addListener((changes) => {
-    if (changes.target) $('try-target').textContent = String(changes.target.newValue);
+    if (!changes.target) return;
+    target = String(changes.target.newValue);
+    $('try-target').textContent = target;
+    if (active.translator.adapter === 'chrome-translator') showPack();
   });
 }
 
@@ -559,15 +625,19 @@ wire('translator');
 wireMethod();
 wireOnePass();
 wireTrial();
+wirePack();
 toggle('images');
 toggle('debug');
 $('test').addEventListener('click', test);
 $('purge-cache').addEventListener('click', purgeCache);
 
 (async () => {
+  const stored = await settings();
+  target = stored.target;
+  if (stored.source !== 'Auto') $<HTMLSelectElement>('translator-pack').append(
+    new Option(stored.source, stored.source, true, true));
   [{ list, active }, keyring] = await Promise.all([profiles(), keys()]);
   show();
-  const stored = await settings();
   $<HTMLInputElement>('images').checked = stored.images;
   $<HTMLInputElement>('debug').checked = stored.debug;
   $('try-target').textContent = stored.target;

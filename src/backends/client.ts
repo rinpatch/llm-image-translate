@@ -25,7 +25,8 @@ const PATHS: Record<Exclude<ModelRequest['kind'], 'offscreen'>, (url: string) =>
 };
 
 /**
- * How to reach a reader that runs in this browser rather than over the network.
+ * How to reach a reader or translator that runs in this browser rather than
+ * over the network.
  * Installed by the worker, because getting at it is `chrome.runtime` and
  * backends/ stays free of `chrome.*` so node can import it.
  */

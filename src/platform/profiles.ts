@@ -62,6 +62,14 @@ export const SHIPPED: Profile[] = [
     reader: endpoint('browser', '', 'ppocr-browser'),
     translator: endpoint('server', 'http://127.0.0.1:8091', 'gemma-raw'),
   },
+  // Nothing to start at all. Chrome's translator is far quicker than Hy-MT2 and
+  // more literal: names come out read character by character.
+  {
+    id: 'browser-only',
+    name: 'Local — Chrome\'s translator',
+    reader: endpoint('browser', '', 'ppocr-browser'),
+    translator: endpoint('browser', '', 'chrome-translator'),
+  },
   {
     id: 'openrouter',
     name: 'OpenRouter — Gemini',

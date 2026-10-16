@@ -7,6 +7,7 @@ import { jsonBoxes, jsonBoxesTranslating } from '../src/backends/ocr/json-boxes.
 import { ppOcrBrowser } from '../src/backends/ocr/ppocr/adapter.ts';
 import { readsInBrowser } from '../src/backends/client.ts';
 import { chatLines } from '../src/backends/translate/chat-lines.ts';
+import { chromeTranslator } from '../src/backends/translate/chrome.ts';
 import { hunyuanMt } from '../src/backends/translate/hunyuan-mt.ts';
 import { translateGemma } from '../src/backends/translate/gemma.ts';
 import { type EncodedImage } from '../src/backends/types.ts';
@@ -243,4 +244,20 @@ test('a reader that answers nothing usable is no lines rather than a throw', () 
   assert.deepEqual(ppOcrBrowser.parse('not json at all', image), []);
   assert.deepEqual(ppOcrBrowser.parse('[{"text":"x","score":0.9,"quad":[[0,0],[1,1]]}]', image), [],
     'a quad that is not four corners is not a box');
+});
+
+test('Chrome\'s translator is handed language codes and the lines, in this browser', async () => {
+  const asked: any[] = [];
+  readsInBrowser(async (body) => {
+    asked.push(body);
+    return { lines: ['Free shipping', null] };
+  });
+  const request = chromeTranslator.build(['全场包邮', '？'], 'Chinese', 'English');
+  const reply = await send({ baseUrl: '' }, request, 'the translator');
+  assert.deepEqual(asked[0], { type: 'translate', texts: ['全场包邮', '？'], from: 'zh',
+    to: 'en' });
+  assert.deepEqual(chromeTranslator.parse(reply.text, 2), ['Free shipping', null],
+    'a line it could not translate is asked for again, not left blank');
+  assert.equal(chromeTranslator.parse('["one"]', 2), null, 'a count that does not match is no answer');
+  readsInBrowser(null);
 });

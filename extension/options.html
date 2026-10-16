@@ -80,6 +80,13 @@
     id="translator-model" list="translator-models" autocomplete="off" spellcheck="false"></label>
   <datalist id="translator-models"></datalist>
   <div class="status" id="translator-served"></div>
+  <div id="translator-pack-row">
+    <label><span>Language pack</span><select id="translator-pack"></select></label>
+    <div class="buttons"><button type="button" id="translator-pack-get">Download</button></div>
+    <div class="status" id="translator-pack-status"></div>
+    <p class="blurb">Chrome translates on this machine, one pair of languages at a
+    time. Each pair is downloaded once, from here.</p>
+  </div>
   <label id="translator-key-row"><span>API key</span><input type="password" id="translator-apiKey"
     autocomplete="off"></label>
   <p class="blurb" id="translator-key-note"></p>

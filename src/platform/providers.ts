@@ -74,11 +74,14 @@ export const PROVIDERS: Provider[] = [
   {
     id: 'browser',
     label: 'This browser',
-    baseUrl: { reader: '' },
+    baseUrl: { reader: '', translator: '' },
     editUrl: false,
     key: 'none',
     lists: false,
-    models: { reader: [{ name: 'PP-OCR', model: '', adapter: 'ppocr-browser' }] },
+    models: {
+      reader: [{ name: 'PP-OCR', model: '', adapter: 'ppocr-browser' }],
+      translator: [{ name: 'Chrome\'s translator', model: '', adapter: 'chrome-translator' }],
+    },
   },
 ];
 
@@ -92,7 +95,9 @@ export const providersFor = (role: Role): Provider[] =>
 export function providerOf(endpoint: Omit<EndpointSettings, 'provider'> & { provider?: string }):
   string {
   if (endpoint.provider) return endpoint.provider;
-  if (endpoint.adapter === 'ppocr-browser') return 'browser';
+  if (endpoint.adapter === 'ppocr-browser' || endpoint.adapter === 'chrome-translator') {
+    return 'browser';
+  }
   if (endpoint.baseUrl.startsWith('https://openrouter.ai/')) return 'openrouter';
   return 'server';
 }
