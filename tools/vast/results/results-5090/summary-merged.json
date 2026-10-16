@@ -1,0 +1,82 @@
+{
+  "q8-mac": {
+    "requests": 18,
+    "errors": 0,
+    "truncated": 0,
+    "empty": 0,
+    "median_wall_s": 1.3033973230049014,
+    "median_ttft_s": 0.41347955726087093,
+    "median_end_to_end_tps": 551.8323213786183,
+    "median_server_decode_tps": 807.0830605350918
+  },
+  "f16": {
+    "requests": 18,
+    "errors": 0,
+    "truncated": 0,
+    "empty": 0,
+    "median_wall_s": 1.4767056638374925,
+    "median_ttft_s": 0.4222304141148925,
+    "median_end_to_end_tps": 492.62492752394894,
+    "median_server_decode_tps": 682.6959729334171
+  },
+  "q8": {
+    "requests": 18,
+    "errors": 0,
+    "truncated": 0,
+    "empty": 0,
+    "median_wall_s": 1.3231244888156652,
+    "median_ttft_s": 0.4268362885341048,
+    "median_end_to_end_tps": 552.9943744867305,
+    "median_server_decode_tps": 805.3036780377274
+  },
+  "q5": {
+    "requests": 18,
+    "errors": 0,
+    "truncated": 0,
+    "empty": 0,
+    "median_wall_s": 1.3552782526239753,
+    "median_ttft_s": 0.4281461928039789,
+    "median_end_to_end_tps": 520.9125126380309,
+    "median_server_decode_tps": 760.2055860457369
+  },
+  "q4": {
+    "requests": 18,
+    "errors": 0,
+    "truncated": 0,
+    "empty": 0,
+    "median_wall_s": 1.3769466392695904,
+    "median_ttft_s": 0.43001965060830116,
+    "median_end_to_end_tps": 524.4620431631677,
+    "median_server_decode_tps": 761.1821846408009
+  },
+  "vllm": {
+    "requests": 18,
+    "errors": 0,
+    "truncated": 0,
+    "empty": 0,
+    "median_wall_s": 1.2021277071908116,
+    "median_ttft_s": 0.1530283447355032,
+    "median_end_to_end_tps": 578.6807984629911,
+    "median_server_decode_tps": null
+  },
+  "dflash": {
+    "requests": 18,
+    "errors": 0,
+    "truncated": 0,
+    "empty": 0,
+    "median_wall_s": 3.0269532734528184,
+    "median_ttft_s": 0.16445592790842056,
+    "median_end_to_end_tps": 236.57172324676282,
+    "median_server_decode_tps": null
+  },
+  "dflash-llama": {
+    "requests": 18,
+    "errors": 0,
+    "truncated": 0,
+    "empty": 0,
+    "median_wall_s": 2.5185917485505342,
+    "median_ttft_s": 0.43713310174643993,
+    "median_end_to_end_tps": 281.02132284237774,
+    "median_server_decode_tps": 336.08966107037827
+  }
+}

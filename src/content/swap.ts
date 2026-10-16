@@ -35,7 +35,7 @@ function backgroundsFor(img: HTMLImageElement): Background[] {
 
 // A srcset wins over src, so setting src alone does nothing on any site that
 // ships responsive images. Both it and sizes have to go, and come back.
-export function show(img: HTMLImageElement, dataUrl: string): void {
+export function show(img: HTMLImageElement, url: string): void {
   let state = states.get(img);
   if (!state) {
     state = {
@@ -47,11 +47,11 @@ export function show(img: HTMLImageElement, dataUrl: string): void {
     states.set(img, state);
   }
   for (const { node } of state.backgrounds) {
-    node.style.setProperty('background-image', `url("${dataUrl}")`);
+    node.style.setProperty('background-image', `url("${url}")`);
   }
   img.removeAttribute('srcset');
   img.removeAttribute('sizes');
-  img.src = dataUrl;
+  img.src = url;
 }
 
 export function restore(img: HTMLImageElement): void {

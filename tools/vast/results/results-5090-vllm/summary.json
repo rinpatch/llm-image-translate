@@ -1,0 +1,22 @@
+{
+  "vllm": {
+    "requests": 18,
+    "errors": 0,
+    "truncated": 0,
+    "empty": 0,
+    "median_wall_s": 1.2021277071908116,
+    "median_ttft_s": 0.1530283447355032,
+    "median_end_to_end_tps": 578.6807984629911,
+    "median_server_decode_tps": null
+  },
+  "dflash": {
+    "requests": 18,
+    "errors": 0,
+    "truncated": 0,
+    "empty": 0,
+    "median_wall_s": 3.0269532734528184,
+    "median_ttft_s": 0.16445592790842056,
+    "median_end_to_end_tps": 236.57172324676282,
+    "median_server_decode_tps": null
+  }
+}

@@ -26,8 +26,8 @@ const PATHS: Record<Exclude<ModelRequest['kind'], 'offscreen'>, (url: string) =>
 
 /**
  * How to reach a reader that runs in this browser rather than over the network.
- * Installed by the worker, because getting at it is `chrome.runtime` and this
- * file is the one place that is allowed to know nothing about Chrome.
+ * Installed by the worker, because getting at it is `chrome.runtime` and
+ * backends/ stays free of `chrome.*` so node can import it.
  */
 let inBrowser: ((body: Record<string, unknown>) => Promise<any>) | null = null;
 export const readsInBrowser = (ask: typeof inBrowser): void => { inBrowser = ask; };
@@ -120,5 +120,45 @@ export async function health(endpoint: Endpoint, what: string): Promise<string |
     return r.ok ? null : `${what} answered ${r.status} at ${url}`;
   } catch {
     return `cannot reach ${what} at ${url}`;
+  }
+}
+
+export interface ListedModel {
+  id: string;
+  name?: string;
+  /** Whether it takes images, where the server says. OpenRouter and llama.cpp do. */
+  vision?: boolean;
+  /** Served by llama.cpp, so /completion is there beside the OpenAI routes. */
+  llamacpp?: boolean;
+}
+
+/** What the server says it serves, or null when it would not say. */
+export async function listModels(endpoint: Endpoint, signal?: AbortSignal):
+  Promise<ListedModel[] | null> {
+  try {
+    const r = await fetch(`${apiRoot(endpoint.baseUrl)}/models`,
+      { headers: headersFor(endpoint), signal });
+    if (!r.ok) return null;
+    const out = await r.json();
+    if (!Array.isArray(out?.data)) return null;
+    // llama.cpp answers in Ollama's shape as well, and only that half says what
+    // a model can take.
+    const ollama = new Map<string, unknown>((Array.isArray(out.models) ? out.models : [])
+      .map((m: any) => [m?.model ?? m?.name, m?.capabilities]));
+    return out.data.filter((m: any) => typeof m?.id === 'string').map((m: any) => {
+      const modalities = m.architecture?.input_modalities;
+      const capabilities = ollama.get(m.id);
+      const vision = Array.isArray(modalities) ? modalities.includes('image')
+        : Array.isArray(capabilities) ? capabilities.includes('multimodal')
+          : undefined;
+      return {
+        id: m.id,
+        ...(typeof m.name === 'string' ? { name: m.name } : {}),
+        ...(vision === undefined ? {} : { vision }),
+        ...(m.owned_by === 'llamacpp' ? { llamacpp: true } : {}),
+      };
+    });
+  } catch {
+    return null;
   }
 }

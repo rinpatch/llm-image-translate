@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 
 import { SHIPPED } from '../src/platform/profiles.ts';
-import { affectsResults, migrate, profiles, publicSettings, save, saveProfiles, settings,
-  toEndpoint } from '../src/platform/settings.ts';
+import { affectsResults, keys, profiles, publicSettings, save, saveKey, saveProfiles,
+  settings, toEndpoint } from '../src/platform/settings.ts';
 
 /** Enough of chrome.storage to tell the two areas apart. */
 function stubStorage(sync: Record<string, unknown> = {}, local: Record<string, unknown> = {}) {
@@ -24,7 +24,7 @@ function stubStorage(sync: Record<string, unknown> = {}, local: Record<string, u
 }
 
 const endpoint = (baseUrl: string, extra = {}) =>
-  ({ baseUrl, apiKey: '', model: '', adapter: 'hunyuan-spotting', ...extra });
+  ({ provider: 'server', baseUrl, apiKey: '', model: '', adapter: 'hunyuan-spotting', ...extra });
 
 const profile = (id: string, extra = {}) => ({
   id,
@@ -73,7 +73,7 @@ test('half an endpoint keeps the rest of the default, adapter included', async (
   assert.equal(stored.translator.adapter, 'hunyuan-mt',
     'a lost adapter would quietly send some other model its prompt');
   assert.equal(stored.translator.model, '');
-  assert.equal(stored.reader.baseUrl, 'http://127.0.0.1:8090', 'the other role is all default');
+  assert.deepEqual(stored.reader, SHIPPED[0].reader, 'the other role is all default');
 });
 
 test('an active id naming nothing falls back rather than leaving no endpoints', async () => {
@@ -99,40 +99,46 @@ test('a preference syncs and a profile stays on the machine', async () => {
   assert.deepEqual(Object.keys(areas.local.store).sort(), ['debug', 'profile', 'profiles']);
 });
 
-test('a bare URL in synced storage becomes a profile of its own', async () => {
-  const areas = stubStorage({
-    target: 'Korean',
-    reader: 'http://127.0.0.1:9000',
-    translator: 'http://127.0.0.1:9001',
-    translateAdapter: 'gemma-raw',
-    debug: true,
-  });
-  const done = await migrate();
-  assert.equal(done.length, 5, 'four keys out of sync, then the profile');
-
-  assert.deepEqual(areas.sync.store, { target: 'Korean' }, 'the preference stays synced');
-  const { list, active } = await profiles();
-  assert.equal(active.name, 'My endpoints');
-  assert.deepEqual(active.reader, endpoint('http://127.0.0.1:9000'));
-  assert.deepEqual(active.translator,
-    { baseUrl: 'http://127.0.0.1:9001', apiKey: '', model: '', adapter: 'gemma-raw' },
-    'the adapter stored beside the URL moves onto the record');
-  assert.deepEqual(list.slice(1).map((p) => p.id), SHIPPED.map((p) => p.id),
-    'the shipped pairings are there to switch to');
-  assert.equal(areas.local.store.debug, true);
-  assert.ok(!('reader' in areas.local.store), 'the loose endpoints are gone');
-
-  assert.deepEqual(await migrate(), [], 'nothing left to move on the next run');
-});
-
-test('endpoints matching a shipped pairing keep its name and take the key with them', async () => {
+test('an endpoint written without a provider gets the one its URL implies', async () => {
+  const bare = (baseUrl: string, extra = {}) =>
+    ({ baseUrl, apiKey: '', model: '', adapter: 'json-boxes', ...extra });
   stubStorage({}, {
-    reader: { ...SHIPPED[2].reader, apiKey: 'sk-x' },
-    translator: { ...SHIPPED[2].translator, apiKey: 'sk-x' },
+    profiles: [
+      { id: 'a', name: 'a', reader: bare('https://openrouter.ai/api/v1'),
+        translator: bare('http://127.0.0.1:8091', { adapter: 'hunyuan-mt' }) },
+      { id: 'b', name: 'b', reader: bare('', { adapter: 'ppocr-browser' }),
+        translator: bare('http://127.0.0.1:8091', { apiKey: 'sk-own' }) },
+    ],
   });
-  await migrate();
-  const { list, active } = await profiles();
-  assert.equal(active.id, SHIPPED[2].id, 'no near-duplicate of a profile that ships');
-  assert.equal(active.reader.apiKey, 'sk-x');
-  assert.equal(list.length, SHIPPED.length);
+  const { list: [a, b] } = await profiles();
+  assert.equal(a.reader.provider, 'openrouter', 'not the default role\'s server');
+  assert.equal(a.translator.provider, 'server');
+  assert.equal(b.reader.provider, 'browser');
+  assert.equal(b.translator.provider, 'server');
 });
+
+test('one key per server, shared by every profile on it', async () => {
+  stubStorage({}, {
+    profiles: [
+      profile('one', { reader: endpoint('https://openrouter.ai/api/v1') }),
+      profile('two', { translator: endpoint('https://openrouter.ai/api/v1/') }),
+    ],
+  });
+  await saveKey('https://openrouter.ai/api/v1', 'sk-1');
+  assert.deepEqual(await keys(), { 'https://openrouter.ai/api': 'sk-1' });
+
+  const { list: [one, two] } = await profiles();
+  assert.equal(one.reader.apiKey, 'sk-1');
+  assert.equal(two.translator.apiKey, 'sk-1', 'both spellings of the URL are one server');
+  assert.equal(one.translator.apiKey, '', 'a local server is not handed it');
+
+  await saveKey('https://openrouter.ai/api/v1', '');
+  assert.deepEqual(await keys(), {}, 'clearing the field forgets the key');
+});
+
+test('saving a profile never writes its key into it', async () => {
+  const areas = stubStorage();
+  await saveProfiles([profile('mine', { reader: endpoint('https://x', { apiKey: 'sk-x' }) })]);
+  assert.ok(!('apiKey' in (areas.local.store.profiles as any[])[0].reader));
+});
+

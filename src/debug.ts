@@ -43,9 +43,12 @@ function light(at: number | null): void {
 function draw(): void {
   const stage = clear($('stage'));
   const list = clear($('blocks'));
+  // With nothing to draw, the toggles and the button have nothing to act on.
+  $('toggles').hidden = !shown;
+  $('clear').hidden = !shown;
   if (!shown) {
     stage.append(el('p', { className: 'missing' },
-      'Nothing recorded yet. Turn on logging in the settings, then translate an image.'));
+      'Nothing recorded yet. Turn on debug mode in the settings, then translate an image.'));
     return;
   }
   const trace = shown;
@@ -58,7 +61,8 @@ function draw(): void {
   save.hidden = !showing;
   if (showing) {
     save.href = showing;
-    save.download = `${shortly(trace.url).replace(/[^\w.-]+/g, '_')}.png`;
+    const ext = trace.image?.type === 'image/jpeg' ? 'jpg' : 'png';
+    save.download = `${shortly(trace.url).replace(/[^\w.-]+/g, '_')}.${ext}`;
   }
 
   if (showing) stage.append(el('img', { src: showing, width, height }));
@@ -148,8 +152,13 @@ function list(found: TraceHeading[]): void {
       `${when(trace.at)} · ${shortly(trace.url)} · ${trace.lines} lines`
       + ` → ${trace.blocks} blocks${trace.total_ms ? ` · ${ms(trace.total_ms)}` : ''}`));
   }
-  if (found.length) show(found[0].id);
-  else { shown = null; draw(); }
+  // The timings page links a run here by its trace's id.
+  const asked = decodeURIComponent(location.hash.slice(1));
+  const first = found.find((trace) => trace.id === asked) ?? found[0];
+  if (first) {
+    pick.value = first.id;
+    show(first.id);
+  } else { shown = null; draw(); }
 }
 
 $('pick').addEventListener('change', (e) => show((e.target as HTMLSelectElement).value));

@@ -1,43 +1,12 @@
 import {
-  type ProfileReport, type Report, type Run, type StageRow,
-  NO_PROFILE, stagesOf,
+  type ProfileReport, type Report, type Run, stagesOf,
 } from './platform/metrics.ts';
+import { kept } from './platform/traces.ts';
 import { $, clear, el, ms, plural } from './ui/dom.ts';
+import { bar, legend } from './ui/stages.ts';
 
 const ask = <T>(type: 'metrics' | 'log' | 'clearMetrics'): Promise<T> =>
   chrome.runtime.sendMessage({ type });
-
-/**
- * One bar, split by stage. `scale` is what a full-width bar stands for: the
- * median's own total for the summary, and the slowest run in the window for the
- * history, so a cold image there is visibly longer than the ones around it.
- */
-function bar(stages: StageRow[], scale: number, tall = false): HTMLElement {
-  const width = (n: number) => `${Math.min(100, (n / Math.max(1, scale)) * 100)}%`;
-  return el('div', { className: tall ? 'bar tall' : 'bar' },
-    ...stages.filter((stage) => stage.ms > 0).map((stage) =>
-      el('i', { className: `seg-${stage.key}`, title: `${stage.label} ${ms(stage.ms)}`,
-                style: { width: width(stage.ms) } })));
-}
-
-// Same filter as the bar: a one-pass profile has no translate stage at all, and
-// a legend entry for it would be a line that never runs.
-function legend(stages: StageRow[]): HTMLElement {
-  return el('div', { className: 'legend' },
-    ...stages.filter((stage) => stage.ms > 0).flatMap((stage) => {
-      const parent = [
-        el('i', { className: `seg-${stage.key}` }),
-        el('span', {}, stage.label),
-        el('span', { className: 'num' }, ms(stage.ms)),
-      ];
-      const parts = (stage.parts || []).filter((part) => part.ms > 0).flatMap((part) => [
-        el('i', { className: `seg-${stage.key} substage` }),
-        el('span', { className: 'substage-label' }, part.label),
-        el('span', { className: 'num substage-value' }, ms(part.ms)),
-      ]);
-      return [...parent, ...parts];
-    }));
-}
 
 const stat = (value: string, caption: string) =>
   el('div', { className: 'stat' }, el('b', {}, value), el('span', {}, caption));
@@ -71,11 +40,19 @@ function showReport(report: ProfileReport | undefined): void {
 const time = (at: number) => new Date(at).toLocaleTimeString([],
   { hour: '2-digit', minute: '2-digit' });
 
+// Only runs whose trace is still kept: the debug page holds ten images to this
+// page's two hundred, and none at all once debug mode is off.
+let traces = new Set<string>();
+
 function detail(run: Run): HTMLTableRowElement {
   const row = el('tr', { className: 'detail', hidden: true });
   const cell = el('td', { colSpan: 6 });
   if (run.ok) cell.append(legend(stagesOf(run)));
   if (run.error) cell.append(el('div', { className: 'why' }, run.error));
+  if (run.trace && traces.has(run.trace)) {
+    cell.append(el('a', { className: 'regions', href: `debug.html#${run.trace}` },
+      'Show regions →'));
+  }
   row.append(cell);
   return row;
 }
@@ -108,7 +85,7 @@ function historyRow(run: Run, scale: number): HTMLTableRowElement[] {
 function showHistory(runs: Run[]): void {
   const host = clear($('history'));
   const only = $<HTMLInputElement>('failures-only').checked;
-  const mine = runs.filter((run) => (run.profile || NO_PROFILE) === chosen);
+  const mine = runs.filter((run) => run.profile === chosen);
   const shown = only ? mine.filter((run) => !run.ok) : mine;
   if (!shown.length) {
     host.append(el('p', { className: 'blurb' },
@@ -155,7 +132,8 @@ function showPicker(): void {
 }
 
 async function load(): Promise<void> {
-  [report, history] = await Promise.all([ask<Report>('metrics'), ask<Run[]>('log')]);
+  [report, history, traces] = await Promise.all([
+    ask<Report>('metrics'), ask<Run[]>('log'), kept().catch(() => new Set<string>())]);
   showPicker();
   draw();
 }

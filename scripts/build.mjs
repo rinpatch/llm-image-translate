@@ -19,7 +19,7 @@ if (missing.length) {
 }
 
 // iife rather than esm: a content script cannot be a module, and one format for
-// all three entry points means the manifest does not have to care which is which.
+// every entry point means the manifest and the pages need no type="module".
 const ctx = await context({
   entryPoints: {
     worker: 'src/worker.ts',

@@ -1,8 +1,12 @@
 import { type Endpoint } from '../backends/types.ts';
+import { OPENROUTER } from './providers.ts';
 
 /** An OpenAI-compatible server and the adapter that knows how to talk to it. */
 export interface EndpointSettings {
+  /** An id from PROVIDERS: where the model runs, which decides what else is asked. */
+  provider: string;
   baseUrl: string;
+  /** Stored per server under `keys`, not on the profile. Filled in on the way out. */
   apiKey: string;
   /** Empty for a server that serves one model and does not ask which. */
   model: string;
@@ -18,12 +22,6 @@ export const toEndpoint = ({ baseUrl, apiKey, model }: EndpointSettings): Endpoi
   ...(model ? { model } : {}),
 });
 
-/** What an endpoint missing a field falls back to, role by role. */
-export const DEFAULT_ENDPOINTS: Record<Role, EndpointSettings> = {
-  reader: { baseUrl: 'http://127.0.0.1:8090', apiKey: '', model: '', adapter: 'hunyuan-spotting' },
-  translator: { baseUrl: 'http://127.0.0.1:8091', apiKey: '', model: '', adapter: 'hunyuan-mt' },
-};
-
 /**
  * A named pair of endpoints. Switching one in the popup is how you move between
  * the machine's own models and a hosted service without retyping four fields.
@@ -35,11 +33,13 @@ export interface Profile {
   translator: EndpointSettings;
 }
 
-const OPENROUTER = 'https://openrouter.ai/api/v1';
+const endpoint = (
+  provider: string, baseUrl: string, adapter: string, model = '',
+): EndpointSettings => ({ provider, baseUrl, apiKey: '', model, adapter });
 
-const endpoint = (baseUrl: string, adapter: string, model = ''): EndpointSettings =>
-  ({ baseUrl, apiKey: '', model, adapter });
-
+// Local reads in the browser: two ONNX graphs held open in an offscreen
+// document, so the only thing to start is the translator.
+//
 // Scored against two generated pages whose true boxes are known — a clean comic
 // page and a noisy one with tilted, low-contrast and small text. Gemini 3.1
 // Flash Lite placed and read every line on both. Hy-MT2 is a translation model
@@ -53,44 +53,43 @@ export const SHIPPED: Profile[] = [
   {
     id: 'llamacpp',
     name: 'Local',
-    reader: endpoint('http://127.0.0.1:8090', 'hunyuan-spotting'),
-    translator: endpoint('http://127.0.0.1:8091', 'hunyuan-mt'),
+    reader: endpoint('browser', '', 'ppocr-browser'),
+    translator: endpoint('server', 'http://127.0.0.1:8091', 'hunyuan-mt'),
   },
   {
     id: 'llamacpp-gemma',
     name: 'Local + TranslateGemma',
-    reader: endpoint('http://127.0.0.1:8090', 'hunyuan-spotting'),
-    translator: endpoint('http://127.0.0.1:8091', 'gemma-raw'),
-  },
-  {
-    id: 'ppocr-browser',
-    name: 'PP-OCR in the browser',
-    // Nothing to install and nothing to start: the reader is two ONNX graphs
-    // held open in an offscreen document. Only the translator is a server.
-    reader: endpoint('', 'ppocr-browser'),
-    translator: endpoint('http://127.0.0.1:8091', 'hunyuan-mt'),
+    reader: endpoint('browser', '', 'ppocr-browser'),
+    translator: endpoint('server', 'http://127.0.0.1:8091', 'gemma-raw'),
   },
   {
     id: 'openrouter',
     name: 'OpenRouter — Gemini',
-    reader: endpoint(OPENROUTER, 'json-boxes-yx', 'google/gemini-3.1-flash-lite'),
-    translator: endpoint(OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
+    reader: endpoint('openrouter', OPENROUTER, 'json-boxes-yx', 'google/gemini-3.1-flash-lite'),
+    translator: endpoint('openrouter', OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
   },
   {
     id: 'openrouter-one-pass',
     name: 'OpenRouter — Gemini, one pass',
-    reader: endpoint(OPENROUTER, 'json-boxes-yx-translate', 'google/gemini-3.1-flash-lite'),
+    reader: endpoint('openrouter', OPENROUTER, 'json-boxes-yx-translate',
+      'google/gemini-3.1-flash-lite'),
     // Unused while the reader translates, and there so that switching the reader
     // adapter on this profile leaves something that works.
-    translator: endpoint(OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
+    translator: endpoint('openrouter', OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
   },
   {
     id: 'openrouter-open',
     name: 'OpenRouter — Qwen3-VL',
-    reader: endpoint(OPENROUTER, 'json-boxes', 'qwen/qwen3-vl-8b-instruct'),
-    translator: endpoint(OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
+    reader: endpoint('openrouter', OPENROUTER, 'json-boxes', 'qwen/qwen3-vl-8b-instruct'),
+    translator: endpoint('openrouter', OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
   },
 ];
+
+/** What an endpoint missing a field falls back to: the profile a fresh install opens on. */
+export const DEFAULT_ENDPOINTS: Record<Role, EndpointSettings> = {
+  reader: SHIPPED[0].reader,
+  translator: SHIPPED[0].translator,
+};
 
 /** Ids are only ever compared, never parsed. */
 export const newId = (): string =>
@@ -106,7 +105,7 @@ export function uniqueName(list: Profile[], name: string): string {
   for (let n = 2; ; n++) if (!taken.has(`${name} (${n})`)) return `${name} (${n})`;
 }
 
-/** A copy of `from`, keys included — a duplicate is a starting point to edit. */
+/** A copy of `from` — a duplicate is a starting point to edit. */
 export function copyOf(list: Profile[], from: Profile, name = from.name): Profile {
   return {
     id: newId(),

@@ -33,13 +33,3 @@ export async function askOffscreen(body: Record<string, unknown>): Promise<any> 
   if (!reply?.ok) throw new Error(reply?.error || 'the reader in this browser said nothing');
   return reply;
 }
-
-/**
- * Loads the models without asking anything of them. Worth doing when the reader
- * is first selected rather than on the first image, because the sessions and
- * their shaders are most of a second and it only happens once.
- */
-export async function warmOffscreen(): Promise<void> {
-  await ensure();
-  await chrome.runtime.sendMessage({ target: 'offscreen', type: 'ocrReady' });
-}

@@ -2,6 +2,7 @@ import {
   DEFAULT_ENDPOINTS, type EndpointSettings, type Profile, type Role, ROLES, SHIPPED,
   find, newId, toEndpoint,
 } from './profiles.ts';
+import { keyScope, providerOf } from './providers.ts';
 
 export { type EndpointSettings, type Role, ROLES, toEndpoint };
 
@@ -45,9 +46,8 @@ export const PRIVATE_DEFAULTS: PrivateSettings = {
 const FLAGS = { debug: PRIVATE_DEFAULTS.debug };
 
 /**
- * Whether a storage change makes already-translated images stale. The endpoints
- * do — metrics are written after every image, and a debug toggle says nothing
- * about what the models would answer.
+ * Whether a storage change makes already-translated images stale. A profile
+ * change does; metrics, written after every image, and the debug toggle do not.
  */
 export const affectsResults = (changes: Record<string, unknown>) =>
   'profiles' in changes || 'profile' in changes || 'cachePurge' in changes;
@@ -65,11 +65,15 @@ export async function publicSettings(): Promise<PublicSettings> {
   return { ...PUBLIC_DEFAULTS, ...(await chrome.storage.sync.get(PUBLIC_DEFAULTS)) };
 }
 
-// A stored endpoint missing a field — written by an older version, or by hand —
-// would otherwise leave that field undefined, and a missing adapter silently
-// becomes some other model's prompt.
-const whole = (role: Role, stored: unknown): EndpointSettings =>
-  ({ ...DEFAULT_ENDPOINTS[role], ...(stored as object) });
+// A profile written by hand, as tools/render-fixtures.sh does, can leave fields
+// out. A missing adapter would silently become some other model's prompt, so
+// each gets the default. The provider is worked out rather than defaulted:
+// defaulting would call an OpenRouter endpoint local.
+function whole(role: Role, stored: unknown): EndpointSettings {
+  const { provider: _, ...rest } = DEFAULT_ENDPOINTS[role];
+  const merged = { ...rest, ...(stored as Partial<EndpointSettings>) };
+  return { ...merged, provider: providerOf(merged) };
+}
 
 const wholeProfile = (stored: Partial<Profile>): Profile => ({
   id: stored.id || newId(),
@@ -78,20 +82,49 @@ const wholeProfile = (stored: Partial<Profile>): Profile => ({
   translator: whole('translator', stored.translator),
 });
 
-/** The stored profiles, and which one is in use. Both pages and the worker read this. */
+export type Keys = Record<string, string>;
+
+/** API keys by server, from `keyScope`. */
+export async function keys(): Promise<Keys> {
+  const { keys: stored } = await chrome.storage.local.get({ keys: {} });
+  return { ...(stored as Keys) };
+}
+
+export async function saveKey(baseUrl: string, key: string): Promise<void> {
+  const all = await keys();
+  if (key) all[keyScope(baseUrl)] = key;
+  else delete all[keyScope(baseUrl)];
+  await chrome.storage.local.set({ keys: all });
+}
+
+/**
+ * The stored profiles, and which one is in use, keys filled in. Both pages and
+ * the worker read this.
+ */
 export async function profiles(): Promise<{ list: Profile[]; active: Profile }> {
-  const stored = await chrome.storage.local.get({ profiles: null, profile: '' });
+  const stored = await chrome.storage.local.get({ profiles: null, profile: '', keys: {} });
   const raw = Array.isArray(stored.profiles) && stored.profiles.length
     ? (stored.profiles as Partial<Profile>[])
     : SHIPPED;
   const list = raw.map(wholeProfile);
+  for (const profile of list) {
+    for (const role of ROLES) {
+      const endpoint = profile[role];
+      endpoint.apiKey = (stored.keys as Keys)[keyScope(endpoint.baseUrl)] || '';
+    }
+  }
   // An id pointing at a deleted profile falls back rather than leaving the
   // extension with no endpoints at all.
   return { list, active: find(list, String(stored.profile)) || list[0] };
 }
 
+const withoutKey = ({ apiKey: _, ...rest }: EndpointSettings) => rest;
+
+/** Keys stay out: they are saved by server, with `saveKey`. */
 export const saveProfiles = (list: Profile[]): Promise<void> =>
-  chrome.storage.local.set({ profiles: list });
+  chrome.storage.local.set({ profiles: list.map((p) => ({
+    ...p, reader: withoutKey(p.reader), translator: withoutKey(p.translator),
+  })) });
 
 /** Worker and popup only — never answer this to a content script. */
 export async function settings(): Promise<Settings> {
@@ -117,58 +150,4 @@ type Stored = Exclude<keyof Settings, 'reader' | 'translator' | 'profileName'>;
 
 export function save<K extends Stored>(key: K, value: Settings[K]): Promise<void> {
   return areaFor(key).set({ [key]: value });
-}
-
-// Endpoints used to live in sync, where they did not belong, and were a bare URL
-// with the adapter stored beside them. Later they were one record per role,
-// before profiles made room for more than one pairing at a time.
-const LEGACY_ADAPTER_KEYS = { reader: 'ocrAdapter', translator: 'translateAdapter' } as const;
-
-const sameEndpoint = (a: EndpointSettings, b: EndpointSettings) =>
-  a.baseUrl === b.baseUrl && a.model === b.model && a.adapter === b.adapter;
-
-/** The profile the loose endpoints turn into, and the one to switch to. */
-function adopt(reader: EndpointSettings, translator: EndpointSettings): Profile[] {
-  const list = SHIPPED.map((p) => wholeProfile(p));
-  const match = list.find((p) =>
-    sameEndpoint(p.reader, reader) && sameEndpoint(p.translator, translator));
-  // Keys are the user's, not the pairing's, so they come along either way.
-  if (match) {
-    match.reader.apiKey = reader.apiKey;
-    match.translator.apiKey = translator.apiKey;
-    return [match, ...list.filter((p) => p !== match)];
-  }
-  return [{ id: newId(), name: 'My endpoints', reader, translator }, ...list];
-}
-
-export async function migrate(): Promise<string[]> {
-  const done: string[] = [];
-
-  const loose = [...ROLES, ...Object.values(LEGACY_ADAPTER_KEYS)];
-  const stale = await chrome.storage.sync.get(
-    [...Object.keys(PRIVATE_DEFAULTS), 'profiles', ...loose]);
-  if (Object.keys(stale).length) {
-    await chrome.storage.local.set(stale);
-    await chrome.storage.sync.remove(Object.keys(stale));
-    done.push(...Object.keys(stale).map((k) => `${k} out of synced storage`));
-  }
-
-  const local = await chrome.storage.local.get([...loose, 'profiles']);
-  if (!Array.isArray(local.profiles)) {
-    const endpoints = Object.fromEntries(ROLES.map((role) => [role, whole(role, {
-      ...(typeof local[role] === 'string'
-        // A bare URL, from before the record: the adapter sat beside it.
-        ? { baseUrl: local[role], ...(local[LEGACY_ADAPTER_KEYS[role]]
-          ? { adapter: String(local[LEGACY_ADAPTER_KEYS[role]]) } : {}) }
-        : (local[role] as object)),
-    })])) as Record<Role, EndpointSettings>;
-
-    const list = adopt(endpoints.reader, endpoints.translator);
-    await chrome.storage.local.set({ profiles: list, profile: list[0].id });
-    done.push(`endpoints into the "${list[0].name}" profile`);
-  }
-  const left = loose.filter((k) => k in local);
-  if (left.length) await chrome.storage.local.remove(left);
-
-  return done;
 }

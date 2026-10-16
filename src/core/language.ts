@@ -10,7 +10,7 @@ const SCRIPTS: [string, RegExp][] = [
   ['Chinese', /[㐀-䶿一-鿿]/],
 ];
 
-export const CODES: Record<string, string> = {
+const CODES: Record<string, string> = {
   english: 'en', chinese: 'zh', japanese: 'ja', korean: 'ko', russian: 'ru',
   ukrainian: 'uk', spanish: 'es', french: 'fr', german: 'de', portuguese: 'pt',
   italian: 'it', dutch: 'nl', polish: 'pl', turkish: 'tr', arabic: 'ar',

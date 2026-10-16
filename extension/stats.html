@@ -8,26 +8,6 @@
   .stat b { display: block; font-size: 21px; font-weight: 500; font-variant-numeric: tabular-nums; }
   .stat span { color: var(--muted); font-size: 12px; }
 
-  .bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden;
-         background: var(--sunken); }
-  .bar i { display: block; min-width: 1px; }
-  .bar.tall { height: 16px; border-radius: var(--radius); margin: 4px 0 14px; }
-
-  .seg-fetch { background: var(--seg-fetch); }
-  .seg-read { background: var(--seg-read); }
-  .seg-translate { background: var(--seg-translate); }
-  .seg-layout { background: var(--seg-layout); }
-  .seg-paint { background: var(--seg-paint); }
-  .seg-encode { background: var(--seg-encode); }
-
-  .legend { display: grid; grid-template-columns: auto 1fr auto; gap: 3px 10px;
-            align-items: center; font-size: 12px; max-width: 320px; }
-  .legend i { width: 9px; height: 9px; border-radius: 2px; }
-  .legend .num { color: var(--muted); }
-  .legend i.substage { width: 5px; height: 5px; margin-left: 2px; opacity: .55; }
-  .legend .substage-label { padding-left: 4px; color: var(--muted); }
-  .legend .substage-value { opacity: .8; }
-
   .scope { max-width: 280px; margin-top: 16px; }
 
   table.history { width: 100%; table-layout: fixed; border-collapse: collapse;
@@ -48,6 +28,7 @@
   tr.detail td { padding: 2px 0 12px 16px; color: var(--muted); }
   tr.detail .legend { max-width: 300px; }
   tr.detail .why { color: var(--bad); padding-top: 6px; }
+  tr.detail .regions { display: inline-block; margin-top: 6px; }
 </style>
 
 <h1>Timings</h1>

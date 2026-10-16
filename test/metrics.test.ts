@@ -155,6 +155,16 @@ test('the history holds a URL, never the image it stands for', async () => {
   assert.ok(long.url.length < 260, 'a URL long enough to be a payload is cut short');
 });
 
+test('a run in debug mode can be found again on the debug page', async () => {
+  stubStorage();
+  await record({ url: 'http://pics/a.png', profile: 'Local', ok: true,
+    timings: run(300), trace: 'abc' });
+  await done(300);
+  const [plain, traced] = await entries();
+  assert.equal(traced.trace, 'abc');
+  assert.equal('trace' in plain, false, 'nothing to link to outside debug mode');
+});
+
 test('two profiles are two sets of numbers, newest first', async () => {
   stubStorage();
   for (const total of [4000, 4200]) await done(total, {}, 'Local');
@@ -167,22 +177,6 @@ test('two profiles are two sets of numbers, newest first', async () => {
   assert.deepEqual(out.profiles.map((p) => p.total_ms), [1000, 4100],
     'one median over both would describe neither');
   assert.deepEqual(out.profiles.map((p) => p.runs), [2, 2]);
-});
-
-test('runs from before profiles are grouped rather than dropped', async () => {
-  stubStorage();
-  await record({ url: 'http://pics/a.png', profile: '', ok: true, timings: run(300) });
-  const out = await only();
-  assert.equal(out.profile, '(unknown)');
-  assert.equal(out.runs, 1);
-});
-
-test('runs from the old timing schema are discarded', async () => {
-  const old = { at: 1, url: 'http://pics/old.png', profile: 'Local', ok: true,
-                total_ms: 300, fetch_ms: 200 };
-  stubStorage({ metrics: [old] });
-  assert.deepEqual(await report(), { runs: 0, failed: 0, profiles: [] });
-  assert.deepEqual(await entries(), []);
 });
 
 test('a profile that has only ever failed still says so', async () => {

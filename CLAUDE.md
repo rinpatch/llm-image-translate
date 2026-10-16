@@ -26,7 +26,7 @@ npm run build     # the manifest points at extension/dist/, not src/
 agent-browser --extension "$PWD/extension" \
   open chrome-extension://khbiipgidcclbakblacconmmpnacljae/options.html
 
-agent-browser get text "#history"   # on stats.html — the timings live there now
+agent-browser get text "#history"   # on stats.html
 agent-browser screenshot /tmp/options.png
 agent-browser errors            # page errors, empty is the pass
 agent-browser close --all
@@ -131,7 +131,7 @@ readers apart on counts alone; mean IoU is what separates them.
 ## The reader that runs in the browser
 
 The same two models as the server, in the extension: `ppocr-browser`, the
-**PP-OCR in the browser** profile. Nothing to start.
+reader the shipped **Local** profiles use. Nothing to start.
 
 ```bash
 npm install
@@ -202,7 +202,7 @@ before the change and compare.
 
 ## Seeing what the reader saw
 
-With logging on (settings, or `chrome.storage.local.set({debug: true})`) the
+With debug mode on (settings, or `chrome.storage.local.set({debug: true})`) the
 worker keeps the last few images: the scaled source, every line the reader
 spotted, which block each one was merged into, where the translation was drawn,
 and everything logged while that image ran. `chrome-extension://<id>/debug.html`
@@ -220,7 +220,7 @@ They live in IndexedDB, not `chrome.storage.local` — that is a flat 10 MB for
 the whole extension and would take the image as base64, which is a third again
 on top of a file that was already most of the budget. The last ten are kept, the
 page reads the database itself rather than asking the worker to pass megabytes
-through a message, and turning logging off throws them all away.
+through a message, and turning debug mode off throws them all away.
 
 ## Against the live models
 

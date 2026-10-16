@@ -48,6 +48,10 @@
   }
 }
 
+/* Any display rule below would otherwise beat the attribute, and a hidden field
+   would show. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -115,5 +119,26 @@ a { color: var(--accent); }
         gap: calc(var(--step) * 3); }
 
 .num { font-variant-numeric: tabular-nums; }
+
+/* Stage bars and their legend, on the stats page and the settings page's trial run. */
+.bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden;
+       background: var(--sunken); }
+.bar i { display: block; min-width: 1px; }
+.bar.tall { height: 16px; border-radius: var(--radius); margin: 4px 0 14px; }
+
+.seg-fetch { background: var(--seg-fetch); }
+.seg-read { background: var(--seg-read); }
+.seg-translate { background: var(--seg-translate); }
+.seg-layout { background: var(--seg-layout); }
+.seg-paint { background: var(--seg-paint); }
+.seg-encode { background: var(--seg-encode); }
+
+.legend { display: grid; grid-template-columns: auto 1fr auto; gap: 3px 10px;
+          align-items: center; font-size: 12px; max-width: 320px; }
+.legend i { width: 9px; height: 9px; border-radius: 2px; }
+.legend .num { color: var(--muted); }
+.legend i.substage { width: 5px; height: 5px; margin-left: 2px; opacity: .55; }
+.legend .substage-label { padding-left: 4px; color: var(--muted); }
+.legend .substage-value { opacity: .8; }
 
 footer { margin-top: calc(var(--step) * 7); font-size: 12px; }

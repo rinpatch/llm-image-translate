@@ -114,13 +114,13 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
   const { read, translate, total_ms } = res.timings;
   console.log(`[translate] ${res.blocks.length} block(s) in ${total_ms}ms — `
     + `read ${read?.ms}ms, translate ${translate?.ms}ms`);
-  console.table(res.blocks.map((b) => ({ original: b.src, translated: b.en, skipped: b.skipped })));
+  console.table(res.blocks.map((b) => ({ original: b.src, translated: b.translation, skipped: b.skipped })));
   state.translated = res.image;
-  // A page that re-renders will put its own src back; noticing is better than
-  // silently showing the original and calling it done.
+  // A strict content security policy blocks blob: images, and the badge would
+  // otherwise say "shown" over a broken image.
   img.addEventListener('error', () => {
     console.error('[translate] the page refused the translated image — '
-      + 'its content security policy may block data: URLs');
+      + 'its content security policy may block blob: URLs');
   }, { once: true });
   show(img, res.image!);
   setStatus(img, 'shown');
@@ -158,9 +158,9 @@ send<PublicSettings>({ type: 'settings' }).then((loaded) => {
   if (config.images !== false) layer.start();
 });
 
-// A changed endpoint or adapter means everything translated so far was made by
-// something else. The values are none of this page's business; that one changed
-// is enough to know the results are stale.
+// A changed profile means everything translated so far was made by something
+// else. Only the key names are looked at: the values are none of this page's
+// business.
 chrome.storage.local.onChanged.addListener((changes) => {
   if (affectsResults(changes)) invalidate();
 });
@@ -171,7 +171,6 @@ addEventListener('pagehide', () => {
   for (const img of states.keys()) cancel(img);
 });
 
-// Only the synced area: the worker's endpoints are none of this page's business.
 chrome.storage.sync.onChanged.addListener((changes) => {
   if (changes.source) config.source = String(changes.source.newValue);
   if (changes.target) config.target = String(changes.target.newValue);

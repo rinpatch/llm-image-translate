@@ -10,8 +10,9 @@ reader worth trying should get. `noisy` is the thirteen that separate them — a
 lean, grey on a grey gradient, small print in two languages, a vertical
 column, and a line at the edge of visible.
 
-Both stay under 1600 on the long side so no reader has to scale them down,
-which keeps the boxes in the same pixels the truth is written in.
+Both stay under 1280 on the long side, the smallest `maxDim` of any adapter,
+so no reader has to scale them down and the boxes stay in the pixels the truth
+is written in.
 
     poc/.venv/bin/python tools/make-truth.py
 """

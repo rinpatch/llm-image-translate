@@ -7,7 +7,7 @@
 // re-fitting a rectangle to the result is just a wider rectangle — no polygon
 // clipper needed. And it only ever wants that rectangle, never the contour, so
 // the pixels of each blob can go straight to a convex hull without walking a
-// border. Holes are the one deliberate difference: OpenCV returns the inside of
+// border. Holes are the one difference in output: OpenCV returns the inside of
 // an `o` as a contour of its own and this does not, which is fewer boxes over
 // the same writing.
 

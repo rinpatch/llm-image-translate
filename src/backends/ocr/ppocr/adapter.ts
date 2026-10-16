@@ -1,17 +1,14 @@
 // What the reader in the offscreen document answers, and how it is read back.
 //
-// Deliberately does not import ./engine.ts: the registry reaches this file from
-// the service worker, and engine.ts pulls in ONNX Runtime — which belongs in
-// the offscreen bundle and nowhere near the worker's.
+// Must not import ./engine.ts: the registry reaches this file from the service
+// worker, and engine.ts would pull ONNX Runtime into the worker's bundle.
 import { type Box, type TextLine } from '../../../core/geometry.ts';
 import { type EncodedImage, type ModelRequest, type OcrAdapter } from '../../types.ts';
-
 
 // PP-OCR's detector answers with a quadrilateral, because it segments the ink
 // rather than guessing a rectangle. Grouping and layout work in axis-aligned
 // boxes, and the lean is read off the pixels later, so the quad is reduced to
-// the box that holds it here — where what this reader means is its adapter's
-// business and nobody else's.
+// the box that holds it here.
 interface Spot {
   text: string;
   /** CTC's own confidence in the reading, 0-1. */
@@ -43,15 +40,13 @@ function parseSpots(content: string): TextLine[] {
     .map((spot) => ({ text: spot.text.trim(), box: boxOf(spot.quad) }));
 }
 
-// Its own detector resizes to a shorter side of its own, so the cost of a
-// larger page is the crops it recognises, not the detection. PNG because the
-// bytes never leave the browser.
-const capabilities = { maxDim: 1600, encode: 'png', alsoTranslates: false } as const;
-
 export const ppOcrBrowser: OcrAdapter = {
   id: 'ppocr-browser',
   label: 'PP-OCR (in this browser)',
-  capabilities: { ...capabilities, inBrowser: true },
+  // The detector resizes to a shorter side of its own, so the cost of a larger
+  // page is the crops it recognises, not the detection. PNG because the bytes
+  // never leave the browser.
+  capabilities: { maxDim: 1600, encode: 'png', alsoTranslates: false, inBrowser: true },
   build: (image: EncodedImage): ModelRequest => ({
     kind: 'offscreen', body: { image: image.dataUrl },
   }),

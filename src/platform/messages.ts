@@ -15,6 +15,11 @@ export interface TranslateImage {
    * carry bytes and the answer has to go back base64.
    */
   binary?: Blob;
+  /**
+   * Skip the cache. The settings page's trial run is asking how this profile
+   * does now, which an answer from a minute ago does not tell it.
+   */
+  fresh?: boolean;
 }
 
 export type Message =
@@ -29,7 +34,7 @@ export type Message =
 export interface BlockReport {
   box: Box;
   src: string;
-  en: string;
+  translation: string;
   skipped: string | null;
 }
 
@@ -55,7 +60,7 @@ export interface Timings {
   reader_encode_ms?: number;
   read?: Stage;
   translate?: Stage;
-  /** Finding room for the translations without letting two of them overlap. */
+  /** Measuring each block's lean and colours, and whether to draw it at all. */
   layout_ms?: number;
   /** Clearing the source glyphs and drawing the translations over them. */
   paint_ms?: number;
@@ -72,7 +77,7 @@ export type ImageBytes = string | Blob;
 
 export type ImageResult =
   | { ok: true; image: ImageBytes | null; original?: string; blocks: BlockReport[];
-      timings: Timings }
+      timings: Timings; /** The id it was kept under, in debug mode. */ trace?: string }
   | Failure;
 
 export interface PingResult {

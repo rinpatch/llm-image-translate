@@ -1,0 +1,23 @@
+{
+  "images": [
+    "/workspace/wechat-chat.png",
+    "/workspace/tweets-thread.png",
+    "/workspace/leaflet-story.png",
+    "/workspace/manga-page.png",
+    "/workspace/1.png",
+    "/workspace/15.png"
+  ],
+  "configs": [
+    "vllm",
+    "dflash"
+  ],
+  "endpoint": null,
+  "backend": "llama",
+  "model": "hyocr",
+  "label": "local-q8",
+  "out": "/workspace/results-5090-vllm",
+  "runs": 3,
+  "max_dim": 1600,
+  "max_tokens": 2048,
+  "startup_timeout": 900
+}

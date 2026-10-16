@@ -4,9 +4,9 @@
 <style>
   body { max-width: 1100px; margin: 0 auto; padding: 32px 24px 64px; }
 
-  .bar { display: flex; align-items: center; gap: calc(var(--step) * 4);
-         flex-wrap: wrap; margin-bottom: calc(var(--step) * 3); }
-  .bar label { margin: 0; }
+  .tools { display: flex; align-items: center; gap: calc(var(--step) * 4);
+           flex-wrap: wrap; margin-bottom: calc(var(--step) * 3); }
+  .tools label { margin: 0; }
 
   /* The image sets the size and the boxes are placed on it in per cent, so the
      whole thing scales with the window and the coordinates still land. */
@@ -50,13 +50,13 @@
 
 <h1>Regions</h1>
 <p class="blurb">What the reader spotted, and what grouping made of it. Kept for the
-last few images while logging is on.</p>
+last few images while debug mode is on.</p>
 
-<div class="bar">
-  <label id="pick-wrap"><select id="pick"></select></label>
+<div class="tools" id="pick-wrap">
+  <label><select id="pick"></select></label>
 </div>
 
-<div class="bar">
+<div class="tools" id="toggles">
   <label class="check"><input type="checkbox" id="show-spots" checked>
     <span>Lines the reader found</span></label>
   <label class="check"><input type="checkbox" id="show-blocks" checked>
@@ -79,8 +79,11 @@ last few images while logging is on.</p>
 
 <footer>
   <div class="rule">
-    <a href="options.html">← Settings</a>
-    <button type="button" id="clear">Forget these</button>
+    <div class="buttons">
+      <a href="options.html">← Settings</a>
+      <a href="stats.html">Timings</a>
+    </div>
+    <button type="button" id="clear" hidden>Forget these</button>
   </div>
 </footer>
 <script src="dist/debug.js"></script>

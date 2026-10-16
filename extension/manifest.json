@@ -2,14 +2,13 @@
   "manifest_version": 3,
   "name": "Image Translate",
   "version": "0.1.0",
-  "description": "Translate the text inside images, using a llama.cpp server you run yourself.",
+  "description": "Translate the text inside images, with models on your own machine or a hosted service.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApDG1AOEIjXx+zZn/a5E/Xwg5iYy5LUDKmUbMd4pR0G8rfArcX8zFWYWvGV568Pluxe69T4JGvt2LjLC+HeKvk9wqiclTqXSs6gWT8CCU4UagJb2G1gSuD3vTewpV4zgW4lsCSu3Bkwo+1BzOSW/lA9ImvUW0n8zMWRDIsfsFSRUP/9AjHjvJ3dqI9cHxEP9NoYIRw9B4HUWiL+s2zCzFTuZdhK6s9gAasB5C15YbWv/vzL0rd68ugO/DAo3GVXAkiloSKutSmwaGqVapdKYyRXFtn7iJT9du3tX2T0dw/uaFpFLSoimuJGrG4GF2N0hpBkJv3KdYLXJsmb6gJgnYYwIDAQAB",
   "minimum_chrome_version": "116",
   "message_serialization": "structured_clone",
   "permissions": [
     "storage",
     "offscreen",
-    "activeTab",
     "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
@@ -48,7 +47,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "In-Place Translate"
+    "default_title": "Image Translate"
   },
   "icons": {
     "16": "icons/16.png",

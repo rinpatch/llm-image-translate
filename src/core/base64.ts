@@ -1,6 +1,6 @@
 // Chrome 133 grew a native base64 codec, and it is not a small win: 3ms against
 // 123ms to encode an 8.7 MB page, 2ms against 281ms to decode it. The manifest
-// still admits Chrome 116, so the hand-rolled path stays behind it.
+// admits Chrome 116, so the hand-rolled path stays as the fallback.
 declare global {
   interface Uint8Array {
     toBase64?(): string;

@@ -119,6 +119,11 @@ export async function headings(): Promise<TraceHeading[]> {
   return all.sort((a, b) => b.at - a.at).map(headingOf);
 }
 
+/** Which traces are still kept, without reading their images. */
+export async function kept(): Promise<Set<string>> {
+  return new Set(await one<IDBValidKey[]>('readonly', (store) => store.getAllKeys()) as string[]);
+}
+
 export async function traced(id: string): Promise<Trace | null> {
   return (await one<Trace | undefined>('readonly', (store) => store.get(id))) ?? null;
 }

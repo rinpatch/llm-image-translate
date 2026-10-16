@@ -1,14 +1,15 @@
 # Image Translate
 
 A Chrome extension that translates the text inside images, and a proof of
-concept that does the same from the command line. Both run entirely on your own
-machine, against a [llama.cpp](https://github.com/ggml-org/llama.cpp) server you
-start yourself.
+concept that does the same from the command line. By default the text is read
+in the browser and translated by a
+[llama.cpp](https://github.com/ggml-org/llama.cpp) server on your own machine;
+either half can be pointed at a hosted service instead.
 
 ```
-<img> ─→ worker ─→ HunyuanOCR ─→ boxes + text ─→ group ─→ TranslateGemma
-          fetch,                                              │
-        rasterise  ←────────── paint onto a canvas ←──────────┘
+<img> ─→ worker ─→ reader ─→ boxes + text ─→ group ─→ translator
+          fetch,                                         │
+        rasterise  ←─────── paint onto a canvas ←────────┘
 ```
 
 The worker replaces the image rather than drawing boxes over it, so nothing has
@@ -52,13 +53,14 @@ Then load `extension/` from `chrome://extensions` with developer mode on.
 `npm run watch` rebuilds on save; the extension still has to be reloaded there
 for the worker to pick the new bundle up.
 
-The popup is the two language pickers and nothing else. Everything else — the
-endpoints, their adapters, and a button that checks whether they answer — is on
-the settings page behind **Settings…**.
+The popup picks the profile and the two languages. Everything else — where
+each model runs, which model, its key, and a button that checks whether they
+answer — is on the settings page behind **Settings…**, which can also run the
+profile on a sample image.
 
-Nothing about that is specific to llama.cpp. Point both endpoints at any
-OpenAI-compatible service, give them a key and a model, and pick the matching
-adapters — **Start from** has tested pairings for both.
+Nothing about that is specific to llama.cpp. Either role can run on any
+OpenAI-compatible server or on OpenRouter; picking a known model picks its
+adapter, and an unknown one gets a guess from its name that can be overridden.
 
 `poc/` also has a browser demo of the same pipeline at `http://127.0.0.1:8000`,
 which is easier to iterate on. See `poc/README.md`.
@@ -88,13 +90,14 @@ why it still has a profile of its own:
 
 ```bash
 MT_MODEL=bullerwins/translategemma-4b-it-GGUF:Q4_K_M MT_STYLE=gemma \
-MT_ARGS=--no-jinja ./start.sh
+MT_ARGS=--no-jinja poc/start.sh
 ```
 
 ## What it does
 
-**Reads** with the `spotting_hunyuan` task, whose output is `TEXT(x0,y0),(x1,y1)`
-run together and normalised to 0-1000.
+**Reads** with PP-OCR in the browser, or with a vision model: HunyuanOCR's
+spotting task, whose output is `TEXT(x0,y0),(x1,y1)` run together and
+normalised to 0-1000, or a general model asked for JSON boxes.
 
 **Groups** lines into blocks. A rule drawn between two lines keeps them apart
 whatever their spacing says: on a price list the wrap inside one cell and the gap
@@ -133,11 +136,12 @@ behind a flag.
 ## Layout
 
 ```
-src/core/       geometry, grouping, colour, layout, painting — no chrome, no fetch
+src/core/       geometry, grouping, rules, skew, colour, painting — no chrome, no fetch
 src/backends/   what each model wants said to it and how its reply is read
 src/pipeline/   rasterise → read → group → translate → lay out → paint
-src/platform/   settings, messages, logging: the chrome.* surface
+src/platform/   settings, profiles, messages, logging: the chrome.* surface
 src/content/    the badge layer, the image swap, the page-side result cache
+src/ui/         what the settings, timings and debug pages share
 ```
 
 `src/offscreen.ts` is the odd one out: a document with no UI, holding the ONNX
@@ -160,7 +164,7 @@ build(texts, source, target)  → { kind, body }
 parse(content, expected)      → (string | null)[] | null
 ```
 
-There are four:
+The adapters:
 
 | adapter | for |
 | --- | --- |
@@ -168,6 +172,7 @@ There are four:
 | `ppocr-browser` | PP-OCR, which is not a language model and runs in the extension |
 | `json-boxes` | a vision model that answers `[x0, y0, x1, y1]` |
 | `json-boxes-yx` | one that answers `[y0, x0, y1, x1]` — Gemini does |
+| `json-boxes-translate`, `json-boxes-yx-translate` | the same, translating in the one request |
 | `gemma-raw` | TranslateGemma's fixed prompt, local only |
 | `chat-lines` | any instruct model, numbered lines in and out |
 | `hunyuan-mt` | Hy-MT2, which answers to one fixed instruction |
@@ -175,8 +180,9 @@ There are four:
 `kind` picks the path: `chat` is `/v1/chat/completions`, which anything
 OpenAI-compatible serves, `completion` is llama.cpp's raw prompt endpoint, which
 only a local server has, and `offscreen` is no path at all — the reader is in
-this browser, and the request is a message rather than a socket. TranslateGemma needs the raw one, so it is marked
-`localOnly` and the settings page says so if you pair it with a hosted service.
+this browser, and the request is a message rather than a socket. TranslateGemma
+needs the raw one, so it is marked `localOnly`, and the settings page says so if
+the server is not llama.cpp.
 The base URL is written either way round — `http://127.0.0.1:8090` or
 `https://openrouter.ai/api/v1` — and the version segment is taken off and put
 back rather than trusted.
@@ -187,8 +193,8 @@ the geometry anisotropic: `isVertical` compares a box's height against its
 width, and on a 400x1600 page that comparison flips.
 
 `json-boxes` asks for that same 0-1000 grid, because Qwen3-VL answers on it even
-when the prompt spells out the pixel size of the image. A reply that exceeds
-1000 anywhere is taken as pixels instead, since the grid cannot.
+when the prompt spells out the pixel size of the image. Anything outside the
+grid is clamped to it.
 
 The axis order is not something a prompt settles. Gemini answers
 `[ymin, xmin, ymax, xmax]` however it is asked, and read the other way round its
@@ -200,14 +206,15 @@ a guess, and a profile pairs the two.
 A **profile** is a named pair of endpoints — a reader and a translator, each
 with its adapter, model and key — and the popup switches between them, so a page
 the local models struggle with can go to a hosted one without retyping anything.
-Five ship: local llama.cpp, the same with TranslateGemma, PP-OCR in the browser
-with Hunyuan MT2, Gemini 3.1 Flash Lite with Hunyuan MT2, and Qwen3-VL with
-Hunyuan MT2. They are ordinary profiles once
-installed — rename, edit or delete them, and duplicate one to start your own.
+Five ship: **Local** (PP-OCR in the browser, Hy-MT2 on llama.cpp), the same
+with TranslateGemma, and three on OpenRouter — Gemini 3.1 Flash Lite with the
+30B Hy-MT2, the same Gemini translating in one pass, and Qwen3-VL with Hy-MT2.
+They are ordinary profiles once installed — rename, edit or delete them, and
+duplicate one to start your own.
 
 Readers were scored against two generated pages whose true boxes are known,
 because the pages are drawn rather than found: a clean comic page of nine lines,
-and a noisy one of twelve — tilted text, grey on a grey gradient, dense small
+and a noisy one of thirteen — tilted text, grey on a grey gradient, dense small
 print in two languages, a vertical column, and a line that is barely visible at
 all. *Located* counts lines matched at IoU > 0.3, *read* counts exact text.
 
@@ -268,13 +275,12 @@ default of 1.6 puts about four pixels of background on every side — most of th
 box on 15px small print, and mean IoU 0.78 rather than 0.91. It is set to 1.2 in
 `src/backends/ocr/ppocr/db.ts`.
 
-It runs in an offscreen document rather than in the service worker, which is
-forced rather than chosen. A service worker is evicted after thirty seconds
-idle, so every click would reload 30 MB of weights and recompile the shaders,
-and it has no `Worker`, so WebAssembly cannot be threaded there. A document has
-neither problem. What it does not have is any extension API but `chrome.runtime`
-— no storage, no tabs — and nothing can wake one, so the worker stays the brain
-and the document only ever answers the one question.
+It runs in an offscreen document rather than in the service worker, because a
+service worker is evicted after thirty seconds idle and every click would
+reload 30 MB of weights and recompile the shaders. A document has no extension
+API but `chrome.runtime` — no storage, no tabs — and nothing can wake one, so
+the worker makes every decision and the document only ever answers the one
+question.
 
 WebGPU is what makes it worth doing: the detector is about 50ms there against
 555ms for the same graph on the CPU provider, which is kept only as a fallback
@@ -313,9 +319,11 @@ prefer one that does not.
 
 ## Settings
 
-An endpoint is a base URL, an optional key, an optional model name, and the
-adapter to drive it with. There are two of them, one per role, and they can name
-the same server.
+An endpoint is where the model runs — a server, OpenRouter, or this browser —
+with a base URL, an optional key, an optional model name, and the adapter to
+drive it with. There are two of them, one per role, and they can name the same
+server. A key is stored per server rather than per profile, so every profile on
+OpenRouter shares one.
 
 **Test both endpoints** asks each for `/v1/models` rather than llama.cpp's
 `/health`, which a hosted service does not serve — and a key that is wrong fails
@@ -323,19 +331,21 @@ there the same way it would fail in earnest.
 
 **Timings** is a page of its own, linked from the settings footer and the popup.
 It holds the median of the last 200 images, stage by stage, with the time to
-the first token and the tokens per second each model managed. Every run records
-the profile that ran it and the page reports one profile at a time, picked at the
-top: a local reader and a hosted one are seconds apart, so a median over both
+the first token and the tokens per second each model managed. Those two come
+from the `timings` block llama.cpp puts beside its answer; a hosted
+OpenAI-compatible server reports token counts at best, so the rate there
+includes the network and there is no prefill figure at all. Medians rather than
+means, because the first request after the models have handed their weights
+back costs seconds and would otherwise colour the whole window. The slowest run
+is shown beside the total so that cost stays visible instead of being smoothed
+away.
+
+Every run records the profile that ran it, and the page reports one profile at
+a time: a local reader and a hosted one are seconds apart, so a median over both
 describes neither. The picker appears once a second profile has translated
 something, and opens on whichever ran last. A profile renamed after the fact
-keeps its old runs under the old name — the history says what was used, not what
-it is called now. Those two come from
-the `timings` block llama.cpp puts beside its answer; a hosted OpenAI-compatible
-server reports token counts at best, so the rate there includes the network and
-there is no prefill figure at all. Medians rather than means, because the first
-request after the models have handed their weights back costs seconds and would
-otherwise colour the whole window. The slowest run is shown beside the total so
-that cost stays visible instead of being smoothed away.
+keeps its old runs under the old name — the history says what was used, not
+what it is called now.
 
 Timings are recorded where the work happens rather than at the badge, so a second
 click on the same image — answered from the worker's cache — is not counted.
@@ -360,5 +370,6 @@ npm install && npm test
 
 Type-checks, then runs the geometry and language logic against strings the
 reader actually returned — spot parsing, row and column grouping, CJK joining,
-script detection, the untranslated check — and the
-page-side pieces under jsdom.
+script detection, the untranslated check — and the page-side pieces under
+jsdom. `CLAUDE.md` covers the heavier checks: the real extension over the
+fixture pages, and the reader bench.

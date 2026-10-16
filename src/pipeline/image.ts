@@ -3,7 +3,7 @@ import { type Box, type Block, type TextLine } from '../core/geometry.ts';
 import { group, join } from '../core/grouping.ts';
 import { dividerFor } from '../core/rules.ts';
 import { detectedSource, untranslated } from '../core/language.ts';
-import { apart, dominant, inkFor, inkOf, type RGB, rgb } from '../core/color.ts';
+import { apart, dominant, inkFor, inkOf, rgb } from '../core/color.ts';
 import { drawBlock, fillBox } from '../core/paint.ts';
 import { skewOf } from '../core/skew.ts';
 import { Cancelled, send } from '../backends/client.ts';
@@ -67,10 +67,6 @@ const encoded = (canvas: OffscreenCanvas, encode: 'png' | 'jpeg'): Promise<Blob>
 const asDataUrl = async (blob: Blob, encode: 'png' | 'jpeg'): Promise<string> =>
   `data:image/${encode};base64,${toBase64(new Uint8Array(await blob.arrayBuffer()))}`;
 
-async function toDataUrl(canvas: OffscreenCanvas, encode: 'png' | 'jpeg'): Promise<string> {
-  return asDataUrl(await encoded(canvas, encode), encode);
-}
-
 // How far the ink has to stand off the background it will be painted on before
 // it is taken for the colour of glyphs. Under this the sample found artwork
 // rather than writing, and black or white on the fill is the safer answer. The
@@ -83,7 +79,7 @@ const RETRY_CONCURRENCY = 3;
 
 const cancelled = (): ImageResult => ({ ok: false, code: 'cancelled', error: 'cancelled' });
 
-async function fill<T>(
+async function pool<T>(
   indices: number[],
   limit: number,
   work: (index: number) => Promise<T>,
@@ -129,7 +125,7 @@ async function translateAll(
   const missing = out.map((line, i) => (line === null ? i : -1)).filter((i) => i >= 0);
   if (missing.length) {
     log(`asking again for ${missing.length} of ${texts.length} line(s)`);
-    await fill(missing, RETRY_CONCURRENCY,
+    await pool(missing, RETRY_CONCURRENCY,
       async (at) => (await ask([texts[at]], 256))?.[0] ?? '', out as string[]);
   }
   return out.map((line) => line ?? '');
@@ -215,16 +211,6 @@ export async function translateImage(
     const reply = await send(toEndpoint(config.reader), ocr.build(image, config.target),
       'the reader', signal);
     timings.read = stageOf(Date.now() - started, [reply.stats]);
-    const inks = new Map<string, RGB>();
-    const inkAt = (box: Box) => {
-      const key = box.join(',');
-      let found = inks.get(key);
-      if (!found) inks.set(key, found = inkOf(source, width, height, box));
-      return found;
-    };
-    // Grouping sees boxes, not pixels. A table's rows sit as close together as
-    // a wrapped sentence's lines, so what separates two lines other than their
-    // spacing has to be handed to it.
     spots = ocr.parse(reply.text, image);
     blocks = group(spots, dividerFor(source, width, height));
     timings.blocks = blocks.length;
@@ -266,7 +252,7 @@ export async function translateImage(
       // sound effect stays pink. It reads over the restored background for the
       // same reason it read over the original, since that is the background it
       // was measured against.
-      const written = inkAt(block.box);
+      const written = inkOf(source, width, height, block.box);
       const ink = apart(written, fill) >= LEGIBLE ? rgb(written) : inkFor(fill);
       return { skipped: null, background: rgb(fill), ink };
     });
@@ -286,7 +272,7 @@ export async function translateImage(
     blocks.forEach((block, i) => {
       const appearance = appearances[i];
       if (appearance.skipped) {
-        report.push({ box: boxes[i], src: originals[i], en: translations[i] || '',
+        report.push({ box: boxes[i], src: originals[i], translation: translations[i] || '',
           skipped: appearance.skipped });
         return;
       }
@@ -297,21 +283,23 @@ export async function translateImage(
         pitch: block.pitch,
         angle: angles[i],
       });
-      report.push({ box: boxes[i], src: originals[i], en: translations[i], skipped: null });
+      report.push({ box: boxes[i], src: originals[i], translation: translations[i],
+        skipped: null });
     });
     timings.paint_ms = Date.now() - started;
 
     started = Date.now();
+    const painted = await encoded(canvas, ocr.capabilities.encode);
     const after = binary instanceof Blob
-      ? await encoded(canvas, ocr.capabilities.encode)
-      : await toDataUrl(canvas, ocr.capabilities.encode);
+      ? painted : await asDataUrl(painted, ocr.capabilities.encode);
     timings.encode_ms = Date.now() - started;
     timings.total_ms = Date.now() - wholeRun;
     log('painted in', timings.paint_ms, 'ms, encoded in', timings.encode_ms,
       'ms, whole image in', timings.total_ms, 'ms');
-    if (config.debug) {
+    const trace = config.debug ? crypto.randomUUID() : undefined;
+    if (trace) {
       await keep({
-        id: crypto.randomUUID(), at: Date.now(), url: src,
+        id: trace, at: Date.now(), url: src,
         image: raw, width, height,
         spots: spots.map((line) => ({ text: line.text, box: line.box })),
         grouped: traced(blocks, spots, originals, translations, appearances, angles, boxes),
@@ -320,7 +308,7 @@ export async function translateImage(
       });
     }
 
-    return { ok: true, image: after, original: before, blocks: report, timings };
+    return { ok: true, image: after, original: before, blocks: report, timings, trace };
   } catch (e: any) {
     if (e instanceof Cancelled || signal.aborted) return cancelled();
     fail('pipeline failed', e);

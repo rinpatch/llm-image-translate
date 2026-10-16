@@ -14,8 +14,7 @@ const MIN_SPAN = 8;
  * Lines are grouped into a block by how close they sit, which cannot tell a
  * wrapped sentence from the next row of a table — on a price list the two gaps
  * were 3px and 19px against a 21px threshold. A ruled line between them settles
- * it, and where nothing is ruled the answer is no and the spacing decides as
- * before.
+ * it; where nothing is ruled the spacing decides.
  */
 export function ruledBetween(
   data: Uint8ClampedArray,

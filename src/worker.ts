@@ -5,10 +5,9 @@ import { forget, keyFor, once } from './pipeline/jobs.ts';
 import { type ImageResult, type Message, type PingResult } from './platform/messages.ts';
 import { clear, entries, record, report } from './platform/metrics.ts';
 import { forget as forgetTraces } from './platform/traces.ts';
-import { fail, log, watchDebug } from './platform/log.ts';
+import { fail, watchDebug } from './platform/log.ts';
 import { askOffscreen } from './platform/offscreen.ts';
-import { affectsResults, migrate, publicSettings, settings, toEndpoint }
-  from './platform/settings.ts';
+import { affectsResults, publicSettings, settings, toEndpoint } from './platform/settings.ts';
 
 watchDebug();
 // How backends/ reaches a reader that runs here instead of over a socket.
@@ -16,17 +15,11 @@ readsInBrowser(askOffscreen);
 // Results made with the old endpoint are answers to a different question.
 chrome.storage.local.onChanged.addListener((changes) => {
   if (affectsResults(changes)) forget();
-  // A trace is most of a megabyte. Turning logging off is as good a way as any
+  // A trace is most of a megabyte. Turning debug mode off is as good a way as any
   // of saying they are no longer wanted.
   if (changes.debug && !changes.debug.newValue) forgetTraces();
 });
 
-migrate().then((moved) => {
-  if (moved.length) log('migrated:', moved.join('; '));
-});
-
-// Reported per endpoint rather than as one verdict: the settings page puts each
-// answer beside the field it belongs to.
 // One controller per request the page made, so a page that gives up can say
 // which request it is giving up on.
 const jobs = new Map<string, AbortController>();
@@ -38,7 +31,7 @@ async function run(request: Extract<Message, { type: 'translateImage' }>): Promi
   try {
     // Timed inside the work rather than around it: a second click on the same
     // image is answered from the cache and never went near a model.
-    return await once(keyFor(request, config), controller.signal, async (signal) => {
+    const work = async (signal: AbortSignal) => {
       const result = await translateImage(request, config, signal);
       // A cancelled image is the page changing its mind, not an outcome worth
       // keeping; everything else goes in the history, failures most of all.
@@ -47,16 +40,23 @@ async function run(request: Extract<Message, { type: 'translateImage' }>): Promi
           url: request.src,
           profile: config.profileName,
           ok: result.ok,
-          ...(result.ok ? { timings: result.timings } : { error: result.error, code: result.code }),
+          ...(result.ok
+            ? { timings: result.timings, trace: result.trace }
+            : { error: result.error, code: result.code }),
         });
       }
       return result;
-    });
+    };
+    return await (request.fresh
+      ? work(controller.signal)
+      : once(keyFor(request, config), controller.signal, work));
   } finally {
     jobs.delete(request.jobId);
   }
 }
 
+// Reported per endpoint rather than as one verdict: the settings page puts each
+// answer beside the field it belongs to.
 async function ping(): Promise<PingResult> {
   const config = await settings();
   // A reader that translates in the same pass never touches the other endpoint,

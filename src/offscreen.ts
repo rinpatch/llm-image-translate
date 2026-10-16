@@ -1,17 +1,14 @@
 // The reader, run here rather than against a server.
 //
-// This is a document rather than part of the service worker for two reasons the
-// worker cannot get around: it is evicted after thirty seconds idle, which
-// would mean reloading 30 MB of weights and recompiling shaders on the click
-// that matters, and it has no `Worker`, so WebAssembly cannot be threaded
-// there. A document has neither problem. What it does not have is any extension
-// API but `chrome.runtime` — no storage, no tabs — so the worker stays the
-// brain and this only ever answers the one question.
+// A document rather than part of the service worker, because the worker is
+// evicted after thirty seconds idle, which would mean reloading 30 MB of
+// weights and recompiling shaders on the click that matters. A document has no
+// extension API but `chrome.runtime` — no storage, no tabs — so the worker
+// decides everything and this only ever answers the one question.
 import { Reader } from './backends/ocr/ppocr/engine.ts';
 
-// WebGPU first: on the detector it is fifteen times the wasm provider, which is
-// the difference between reading a page and waiting for one. The fallback is
-// there for machines without it rather than as a second choice.
+// WebGPU first: the detector takes about 50ms there against 555ms on wasm,
+// which is only for machines without WebGPU.
 const reader = new Reader({
   base: chrome.runtime.getURL('vendor/ocr/'),
   providers: ['webgpu', 'wasm'],
@@ -38,8 +35,8 @@ chrome.runtime.onMessage.addListener((msg: any, _sender, sendResponse) => {
           sendResponse({ ok: true, lines: spots, timings });
           break;
         }
-        // Standing the sessions up before anything is asked of them, so the
-        // first page does not pay for the shaders.
+        // Loads the sessions without reading anything, so tools/bench-readers.ts
+        // can time the load apart from the first page.
         case 'ocrReady': {
           const at = Date.now();
           await reader.ready();

@@ -36,9 +36,8 @@ const midY = ([, y0, , y1]: Box) => (y0 + y1) / 2;
  * Whether the lower line is the next line of the upper one's paragraph.
  *
  * Every test is a ratio against the smaller of the two line heights, so the
- * same rule reads a 12px caption and a 60px headline. Being a pairwise question
- * it cannot see the block either line ended up in, which is the point: the
- * answer does not depend on which line the sweep happened to reach first.
+ * same rule reads a 12px caption and a 60px headline. It is pairwise so that
+ * the answer does not depend on which line the sweep reached first.
  */
 function joinsRow(above: Box, below: Box): boolean {
   const [ax0, ay0, ax1, ay1] = above;
@@ -46,9 +45,8 @@ function joinsRow(above: Box, below: Box): boolean {
   const size = Math.min(ay1 - ay0, by1 - by0);
   const gap = by0 - ay1;
   if (gap <= -size || gap > size * LINE_GAP) return false;
-  // Overlapping at all is the whole of it. How much they overlap was a rule
-  // here once, at three tenths of the narrower line; no page in the fixtures
-  // can tell the two apart, so the cheaper question is the one asked.
+  // Any sideways overlap will do. Requiring a fraction of the narrower line
+  // changes no page in the fixtures.
   if (Math.min(ax1, bx1) <= Math.max(ax0, bx0)) return false;
 
   // A wrapped paragraph can end narrow but never starts narrow and then jumps
@@ -64,10 +62,6 @@ function joinsRow(above: Box, below: Box): boolean {
   if (Math.abs((by1 - by0) - (ay1 - ay0))
       > Math.abs((bx1 - bx0) - (ax1 - ax0)) * LEAN + SIZE_SLACK * size) return false;
 
-  // Nothing here asks the two lines to overlap sideways. Two lines a page apart
-  // can pass every test above and be joined; what separates them is the gap
-  // `split` then measures across the reading direction, which is the same
-  // measurement and only has to be made once.
   return true;
 }
 
@@ -114,9 +108,9 @@ class Sets {
  * The cluster is spanned by a minimum spanning tree, whose edges are the gaps
  * holding it together, and every edge wider than the usual one is cut: a
  * paragraph break is wide against the leading around it, wherever that leading
- * happens to sit. For a single column of lines those edges are its pitches and
- * this is the spacing rule it always was — but a tree also has an answer for
- * two columns side by side, or for a list whose items sit in an L.
+ * happens to sit. For a single column of lines those edges are its pitches; a
+ * tree also has an answer for two columns side by side, or for a list whose
+ * items sit in an L.
  *
  * Distance is measured down the reading direction, between centres, plus
  * whatever daylight is left across it. Centres because rotating a line does not

@@ -14,7 +14,7 @@ test('every shipped profile names adapters that exist', () => {
 
 test('a hosted profile never pairs a local-only adapter with a hosted endpoint', () => {
   for (const profile of SHIPPED) {
-    if (profile.reader.baseUrl.includes('127.0.0.1')) continue;
+    if (profile.translator.baseUrl.includes('127.0.0.1')) continue;
     assert.equal(TRANSLATE_ADAPTERS[profile.translator.adapter].capabilities.localOnly, false,
       `${profile.id} would never work`);
   }
@@ -26,17 +26,15 @@ test('ids are unique, since switching profiles goes by id', () => {
 
 test('the first shipped profile is the one a fresh install opens on', () => {
   assert.equal(PRIVATE_DEFAULTS.profile, SHIPPED[0].id);
-  assert.deepEqual(PRIVATE_DEFAULTS.reader, SHIPPED[0].reader);
-  assert.deepEqual(PRIVATE_DEFAULTS.translator, SHIPPED[0].translator);
+  assert.equal(SHIPPED[0].reader.adapter, 'ppocr-browser', 'nothing to start but a translator');
 });
 
-test('a duplicate is a separate profile with the key and a name of its own', () => {
-  const from = { ...SHIPPED[2], reader: { ...SHIPPED[2].reader, apiKey: 'sk-x' } };
+test('a duplicate is a separate profile with a name of its own', () => {
+  const from = { ...SHIPPED[2], reader: { ...SHIPPED[2].reader } };
   const list = [from];
   const copy = copyOf(list, from);
   assert.notEqual(copy.id, from.id);
   assert.equal(copy.name, `${from.name} (2)`);
-  assert.equal(copy.reader.apiKey, 'sk-x', 'the key comes along, or the copy cannot run');
 
   copy.reader.baseUrl = 'http://elsewhere';
   assert.notEqual(from.reader.baseUrl, 'http://elsewhere', 'editing one leaves the other alone');
