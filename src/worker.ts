@@ -20,6 +20,12 @@ chrome.storage.local.onChanged.addListener((changes) => {
   if (changes.debug && !changes.debug.newValue) forgetTraces();
 });
 
+// Chrome's translator needs a click to fetch each language, and the default
+// profile is no use until it has one, so a fresh install starts there.
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+  if (reason === 'install') chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') });
+});
+
 // One controller per request the page made, so a page that gives up can say
 // which request it is giving up on.
 const jobs = new Map<string, AbortController>();

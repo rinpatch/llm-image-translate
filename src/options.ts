@@ -1,5 +1,5 @@
 import { type ListedModel, listModels } from './backends/client.ts';
-import { LANGUAGES, code } from './core/language.ts';
+import { LANGUAGES } from './core/language.ts';
 import { OCR_ADAPTERS, TRANSLATE_ADAPTERS, ocrAdapter } from './backends/registry.ts';
 import { stagesOf } from './platform/metrics.ts';
 import { type ImageResult, type PingResult } from './platform/messages.ts';
@@ -13,6 +13,7 @@ import {
   saveProfiles, settings, toEndpoint,
 } from './platform/settings.ts';
 import { $, clear, el, ms } from './ui/dom.ts';
+import { downloadPack, packState } from './ui/packs.ts';
 import { bar, legend } from './ui/stages.ts';
 
 const OTHER = 'other';
@@ -386,19 +387,7 @@ async function adopt(role: Role): Promise<void> {
   });
 }
 
-// Chrome's translator downloads a language pack only on a click, and only
-// counts the click for the page it happened on — the offscreen document that
-// translates can never have one. Once this origin has a pair, the document
-// gets it with no click at all. A pack Chrome already holds for another site
-// still says "downloadable" here, and "downloading" it takes a fraction of a
-// second.
-const translatorApi = (globalThis as any).Translator;
 let target = 'English';
-
-const packPair = () => ({
-  sourceLanguage: code($<HTMLSelectElement>('translator-pack').value),
-  targetLanguage: code(target),
-});
 
 function packSay(text: string, kind = ''): void {
   const status = $('translator-pack-status');
@@ -414,8 +403,8 @@ async function showPack(): Promise<void> {
   select.value = chosen && chosen !== target ? chosen : 'Japanese';
   const get = $<HTMLButtonElement>('translator-pack-get');
   get.hidden = true;
-  if (!translatorApi) return packSay('This browser has no built-in translator.', 'bad');
-  const state = await translatorApi.availability(packPair());
+  const state = await packState(select.value, target);
+  if (state === 'missing') return packSay('This browser has no built-in translator.', 'bad');
   if (state === 'available') return packSay(`Ready to translate into ${target}.`, 'ok');
   if (state === 'unavailable') {
     return packSay(`Chrome cannot translate ${select.value} into ${target}.`, 'bad');
@@ -431,11 +420,8 @@ function wirePack(): void {
     get.disabled = true;
     packSay('Downloading…');
     try {
-      await translatorApi.create({
-        ...packPair(),
-        monitor: (m: EventTarget) => m.addEventListener('downloadprogress', (e: any) =>
-          packSay(`Downloading… ${Math.round(e.loaded * 100)}%`)),
-      });
+      await downloadPack($<HTMLSelectElement>('translator-pack').value, target,
+        (done) => packSay(`Downloading… ${Math.round(done * 100)}%`));
       await showPack();
     } catch (e: any) {
       packSay(String(e?.message || e), 'bad');

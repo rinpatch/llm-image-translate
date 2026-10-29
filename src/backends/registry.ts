@@ -24,8 +24,14 @@ export const TRANSLATE_ADAPTERS: Record<string, TranslateAdapter> = {
   [hunyuanMt.id]: hunyuanMt,
 };
 
-export const ocrAdapter = (id?: string): OcrAdapter =>
-  OCR_ADAPTERS[id || ''] || hunyuanSpotting;
+export function ocrAdapter(id: string): OcrAdapter {
+  const adapter = OCR_ADAPTERS[id];
+  if (!adapter) throw new Error(`no reader adapter called ${id}`);
+  return adapter;
+}
 
-export const translateAdapter = (id?: string): TranslateAdapter =>
-  TRANSLATE_ADAPTERS[id || ''] || translateGemma;
+export function translateAdapter(id: string): TranslateAdapter {
+  const adapter = TRANSLATE_ADAPTERS[id];
+  if (!adapter) throw new Error(`no translator adapter called ${id}`);
+  return adapter;
+}

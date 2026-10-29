@@ -91,17 +91,6 @@ export const provider = (id: string): Provider =>
 export const providersFor = (role: Role): Provider[] =>
   PROVIDERS.filter((p) => role in p.baseUrl);
 
-/** Where an endpoint runs, for one written by hand without saying. */
-export function providerOf(endpoint: Omit<EndpointSettings, 'provider'> & { provider?: string }):
-  string {
-  if (endpoint.provider) return endpoint.provider;
-  if (endpoint.adapter === 'ppocr-browser' || endpoint.adapter === 'chrome-translator') {
-    return 'browser';
-  }
-  if (endpoint.baseUrl.startsWith('https://openrouter.ai/')) return 'openrouter';
-  return 'server';
-}
-
 /** The known model this endpoint is, one-pass or not. */
 export function knownModel(role: Role, endpoint: EndpointSettings): KnownModel | undefined {
   return (provider(endpoint.provider).models[role] || []).find((known) =>

@@ -38,12 +38,18 @@ sleep 1
 agent-browser close --all >/dev/null 2>&1 || true
 agent-browser --extension "$root/extension" open "chrome-extension://$id/options.html" >/dev/null
 agent-browser eval "chrome.storage.sync.set({target:'$target'}).then(()=>'ok')" >/dev/null
+# Not the default profile: Chrome for Testing never finishes downloading a
+# language pack, so Chrome's translator would fail every page.
 if [ -n "${READER_ADAPTER:-}" ]; then
-  # A profile of its own: the fields it leaves out take the defaults, translator
-  # included.
+  provider=$([ -n "${READER_URL:-}" ] && echo server || echo browser)
   agent-browser eval "chrome.storage.local.set({profile:'render',profiles:[{id:'render',
-    name:'render',reader:{baseUrl:'${READER_URL:-}',model:'${READER_MODEL:-}',
-    adapter:'$READER_ADAPTER'}}]}).then(()=>'ok')" >/dev/null
+    name:'render',
+    reader:{provider:'$provider',baseUrl:'${READER_URL:-}',apiKey:'',
+      model:'${READER_MODEL:-}',adapter:'$READER_ADAPTER'},
+    translator:{provider:'server',baseUrl:'http://127.0.0.1:8091',apiKey:'',model:'',
+      adapter:'hunyuan-mt'}}]}).then(()=>'ok')" >/dev/null
+else
+  agent-browser eval "chrome.storage.local.set({profile:'llamacpp'}).then(()=>'ok')" >/dev/null
 fi
 
 for page in test/fixtures/pages/*.png; do

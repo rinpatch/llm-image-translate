@@ -206,8 +206,10 @@ a guess, and a profile pairs the two.
 A **profile** is a named pair of endpoints — a reader and a translator, each
 with its adapter, model and key — and the popup switches between them, so a page
 the local models struggle with can go to a hosted one without retyping anything.
-Five ship: **Local** (PP-OCR in the browser, Hy-MT2 on llama.cpp), the same
-with TranslateGemma, and three on OpenRouter — Gemini 3.1 Flash Lite with the
+Six ship. A fresh install opens on **Local — Chrome's translator**, PP-OCR and
+Chrome's Translator API with nothing to start, and on a welcome page that
+downloads its language packs and offers the others: **Local** (PP-OCR in the
+browser, Hy-MT2 on llama.cpp), the same with TranslateGemma, and three on OpenRouter — Gemini 3.1 Flash Lite with the
 30B Hy-MT2, the same Gemini translating in one pass, and Qwen3-VL with Hy-MT2.
 They are ordinary profiles once installed — rename, edit or delete them, and
 duplicate one to start your own.

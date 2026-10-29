@@ -50,6 +50,15 @@ const endpoint = (
 // page while it translates, which no text-only translator does, but a general
 // model is the one naming the characters.
 export const SHIPPED: Profile[] = [
+  // First, so a fresh install opens on it: nothing to start at all. Chrome's
+  // translator is far quicker than Hy-MT2 and more literal — names come out read
+  // character by character — but the others all need a server or a key.
+  {
+    id: 'browser-only',
+    name: 'Local — Chrome\'s translator',
+    reader: endpoint('browser', '', 'ppocr-browser'),
+    translator: endpoint('browser', '', 'chrome-translator'),
+  },
   {
     id: 'llamacpp',
     name: 'Local',
@@ -61,14 +70,6 @@ export const SHIPPED: Profile[] = [
     name: 'Local + TranslateGemma',
     reader: endpoint('browser', '', 'ppocr-browser'),
     translator: endpoint('server', 'http://127.0.0.1:8091', 'gemma-raw'),
-  },
-  // Nothing to start at all. Chrome's translator is far quicker than Hy-MT2 and
-  // more literal: names come out read character by character.
-  {
-    id: 'browser-only',
-    name: 'Local — Chrome\'s translator',
-    reader: endpoint('browser', '', 'ppocr-browser'),
-    translator: endpoint('browser', '', 'chrome-translator'),
   },
   {
     id: 'openrouter',
@@ -92,12 +93,6 @@ export const SHIPPED: Profile[] = [
     translator: endpoint('openrouter', OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
   },
 ];
-
-/** What an endpoint missing a field falls back to: the profile a fresh install opens on. */
-export const DEFAULT_ENDPOINTS: Record<Role, EndpointSettings> = {
-  reader: SHIPPED[0].reader,
-  translator: SHIPPED[0].translator,
-};
 
 /** Ids are only ever compared, never parsed. */
 export const newId = (): string =>

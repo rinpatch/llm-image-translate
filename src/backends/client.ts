@@ -34,9 +34,7 @@ let inBrowser: ((body: Record<string, unknown>) => Promise<any>) | null = null;
 export const readsInBrowser = (ask: typeof inBrowser): void => { inBrowser = ask; };
 
 function headersFor(endpoint: Endpoint): Record<string, string> {
-  const headers: Record<string, string> = { ...endpoint.headers };
-  if (endpoint.apiKey) headers.Authorization = `Bearer ${endpoint.apiKey}`;
-  return headers;
+  return endpoint.apiKey ? { Authorization: `Bearer ${endpoint.apiKey}` } : {};
 }
 
 async function post(

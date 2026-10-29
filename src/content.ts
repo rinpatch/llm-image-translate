@@ -89,16 +89,14 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
 
   let res = cache.get(key);
   if (!res) {
-    const answer = await send<ImageResult>(message) as ImageResult;
+    const answer = await send<ImageResult>(message);
     // Cancelled, or cancelled and started again: this answer is to a question
     // nobody is asking any more.
     if (state.jobId !== jobId) return;
-    if (!answer?.ok) {
+    if (!answer.ok) {
       state.jobId = null;
-      const failure = answer as { code?: string; error?: string };
-      console.error(`[translate] ${failure?.code || 'failed'} — `
-        + `${failure?.error || 'no reason given'}`);
-      setStatus(img, 'error', failure?.error || TITLES.error);
+      console.error(`[translate] ${answer.code || 'failed'} — ${answer.error}`);
+      setStatus(img, 'error', answer.error || TITLES.error);
       return;
     }
     res = cache.set(key, answer);
@@ -106,15 +104,10 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
   state.jobId = null;
 
   if (!res.blocks.length) {
-    console.log('[translate] no text found in', src);
     setStatus(img, 'empty');
     return;
   }
 
-  const { read, translate, total_ms } = res.timings;
-  console.log(`[translate] ${res.blocks.length} block(s) in ${total_ms}ms — `
-    + `read ${read?.ms}ms, translate ${translate?.ms}ms`);
-  console.table(res.blocks.map((b) => ({ original: b.src, translated: b.translation, skipped: b.skipped })));
   state.translated = res.image;
   // A strict content security policy blocks blob: images, and the badge would
   // otherwise say "shown" over a broken image.
@@ -155,7 +148,7 @@ function blobToDataUrl(src: string): Promise<string> {
 
 send<PublicSettings>({ type: 'settings' }).then((loaded) => {
   if (loaded && !('error' in loaded)) config = loaded;
-  if (config.images !== false) layer.start();
+  if (config.images) layer.start();
 });
 
 // A changed profile means everything translated so far was made by something

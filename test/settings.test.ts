@@ -63,19 +63,6 @@ test('a key and a model reach the client only when they are set', () => {
     { baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'sk-x', model: 'qwen' });
 });
 
-test('half an endpoint keeps the rest of the default, adapter included', async () => {
-  stubStorage({}, {
-    profiles: [{ id: 'mine', name: 'Mine', translator: { baseUrl: 'http://127.0.0.1:9999' } }],
-    profile: 'mine',
-  });
-  const stored = await settings();
-  assert.equal(stored.translator.baseUrl, 'http://127.0.0.1:9999');
-  assert.equal(stored.translator.adapter, 'hunyuan-mt',
-    'a lost adapter would quietly send some other model its prompt');
-  assert.equal(stored.translator.model, '');
-  assert.deepEqual(stored.reader, SHIPPED[0].reader, 'the other role is all default');
-});
-
 test('an active id naming nothing falls back rather than leaving no endpoints', async () => {
   stubStorage({}, { profiles: [profile('a'), profile('b')], profile: 'deleted' });
   const { active } = await profiles();
@@ -97,24 +84,6 @@ test('a preference syncs and a profile stays on the machine', async () => {
   await save('debug', true);
   assert.deepEqual(areas.sync.store, { target: 'Korean' });
   assert.deepEqual(Object.keys(areas.local.store).sort(), ['debug', 'profile', 'profiles']);
-});
-
-test('an endpoint written without a provider gets the one its URL implies', async () => {
-  const bare = (baseUrl: string, extra = {}) =>
-    ({ baseUrl, apiKey: '', model: '', adapter: 'json-boxes', ...extra });
-  stubStorage({}, {
-    profiles: [
-      { id: 'a', name: 'a', reader: bare('https://openrouter.ai/api/v1'),
-        translator: bare('http://127.0.0.1:8091', { adapter: 'hunyuan-mt' }) },
-      { id: 'b', name: 'b', reader: bare('', { adapter: 'ppocr-browser' }),
-        translator: bare('http://127.0.0.1:8091', { apiKey: 'sk-own' }) },
-    ],
-  });
-  const { list: [a, b] } = await profiles();
-  assert.equal(a.reader.provider, 'openrouter', 'not the default role\'s server');
-  assert.equal(a.translator.provider, 'server');
-  assert.equal(b.reader.provider, 'browser');
-  assert.equal(b.translator.provider, 'server');
 });
 
 test('one key per server, shared by every profile on it', async () => {

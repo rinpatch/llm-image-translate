@@ -1,8 +1,7 @@
 import {
-  DEFAULT_ENDPOINTS, type EndpointSettings, type Profile, type Role, ROLES, SHIPPED,
-  find, newId, toEndpoint,
+  type EndpointSettings, type Profile, type Role, ROLES, SHIPPED, find, toEndpoint,
 } from './profiles.ts';
-import { keyScope, providerOf } from './providers.ts';
+import { keyScope } from './providers.ts';
 
 export { type EndpointSettings, type Role, ROLES, toEndpoint };
 
@@ -36,7 +35,8 @@ export const PUBLIC_DEFAULTS: PublicSettings = {
 };
 
 export const PRIVATE_DEFAULTS: PrivateSettings = {
-  ...DEFAULT_ENDPOINTS,
+  reader: SHIPPED[0].reader,
+  translator: SHIPPED[0].translator,
   profile: SHIPPED[0].id,
   profileName: SHIPPED[0].name,
   debug: false,
@@ -65,23 +65,6 @@ export async function publicSettings(): Promise<PublicSettings> {
   return { ...PUBLIC_DEFAULTS, ...(await chrome.storage.sync.get(PUBLIC_DEFAULTS)) };
 }
 
-// A profile written by hand, as tools/render-fixtures.sh does, can leave fields
-// out. A missing adapter would silently become some other model's prompt, so
-// each gets the default. The provider is worked out rather than defaulted:
-// defaulting would call an OpenRouter endpoint local.
-function whole(role: Role, stored: unknown): EndpointSettings {
-  const { provider: _, ...rest } = DEFAULT_ENDPOINTS[role];
-  const merged = { ...rest, ...(stored as Partial<EndpointSettings>) };
-  return { ...merged, provider: providerOf(merged) };
-}
-
-const wholeProfile = (stored: Partial<Profile>): Profile => ({
-  id: stored.id || newId(),
-  name: stored.name || 'Unnamed',
-  reader: whole('reader', stored.reader),
-  translator: whole('translator', stored.translator),
-});
-
 export type Keys = Record<string, string>;
 
 /** API keys by server, from `keyScope`. */
@@ -103,10 +86,8 @@ export async function saveKey(baseUrl: string, key: string): Promise<void> {
  */
 export async function profiles(): Promise<{ list: Profile[]; active: Profile }> {
   const stored = await chrome.storage.local.get({ profiles: null, profile: '', keys: {} });
-  const raw = Array.isArray(stored.profiles) && stored.profiles.length
-    ? (stored.profiles as Partial<Profile>[])
-    : SHIPPED;
-  const list = raw.map(wholeProfile);
+  // A copy, because the keys are written onto it and SHIPPED is shared.
+  const list = structuredClone((stored.profiles || SHIPPED) as Profile[]);
   for (const profile of list) {
     for (const role of ROLES) {
       const endpoint = profile[role];

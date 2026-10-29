@@ -1,0 +1,60 @@
+<meta charset="utf-8">
+<title>Set up Image Translate</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+  body { max-width: 560px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  .choice { display: flex; gap: calc(var(--step) * 3); align-items: flex-start;
+            padding: calc(var(--step) * 3); margin-bottom: calc(var(--step) * 2);
+            border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
+  .choice:has(input:checked) { border-color: var(--accent); }
+  .choice:has(input:disabled) { cursor: default; opacity: .6; }
+  .choice > input { width: auto; margin-top: 3px; }
+  .choice > div { flex: 1; }
+  .choice b { display: block; font-weight: 600; }
+  .choice .blurb { margin: 2px 0 0; }
+  .choice .key { margin-top: calc(var(--step) * 2); }
+  .choice .key span { display: block; color: var(--muted); margin-bottom: 3px; font-size: 12px; }
+
+  #packs ul { list-style: none; margin: 0; padding: 0; }
+  #packs li { display: flex; align-items: center; gap: calc(var(--step) * 3);
+              padding: calc(var(--step) * 2) 0; border-bottom: 1px solid var(--line); }
+  #packs li > :first-child { flex: 0 0 140px; }
+  #packs li .status { flex: 1; min-height: 0; }
+  #packs li select { width: auto; }
+
+  kbd { font: 12px/1 ui-monospace, monospace; padding: 2px 5px;
+        border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; }
+</style>
+
+<h1>Image Translate</h1>
+<p class="blurb">Translates the text inside images, on any page.</p>
+
+<section>
+  <h2>Translate into</h2>
+  <label><select id="target"></select></label>
+</section>
+
+<section>
+  <h2>Where it runs</h2>
+  <p class="blurb">Change this any time from the toolbar button.</p>
+  <div id="choices"></div>
+</section>
+
+<section id="packs" hidden>
+  <h2>Language packs</h2>
+  <p class="blurb">Chrome translates on this computer and needs each language
+  downloaded once. Get the ones you expect to read.</p>
+  <ul id="pack-list"></ul>
+</section>
+
+<section>
+  <h2>Using it</h2>
+  <p>Hold <kbd id="key">⌘</kbd> over an image and click the <b>T</b> that appears.
+  Click it again to see the original.</p>
+  <div class="buttons">
+    <button type="button" id="done">Done</button>
+  </div>
+  <footer><a href="options.html">All settings →</a></footer>
+</section>
+<script src="dist/welcome.js"></script>

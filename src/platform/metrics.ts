@@ -179,7 +179,7 @@ function label(src: string): string {
 
 async function stored(): Promise<Run[]> {
   const { [KEY]: runs } = await chrome.storage.local.get({ [KEY]: [] });
-  return Array.isArray(runs) ? runs as Run[] : [];
+  return runs as Run[];
 }
 
 export async function record(

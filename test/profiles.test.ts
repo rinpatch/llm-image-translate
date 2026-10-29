@@ -26,7 +26,8 @@ test('ids are unique, since switching profiles goes by id', () => {
 
 test('the first shipped profile is the one a fresh install opens on', () => {
   assert.equal(PRIVATE_DEFAULTS.profile, SHIPPED[0].id);
-  assert.equal(SHIPPED[0].reader.adapter, 'ppocr-browser', 'nothing to start but a translator');
+  assert.equal(SHIPPED[0].reader.adapter, 'ppocr-browser');
+  assert.equal(SHIPPED[0].translator.adapter, 'chrome-translator', 'nothing to start at all');
 });
 
 test('a duplicate is a separate profile with a name of its own', () => {

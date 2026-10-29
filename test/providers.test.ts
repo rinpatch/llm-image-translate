@@ -4,7 +4,7 @@ import assert from 'node:assert';
 import { OCR_ADAPTERS, TRANSLATE_ADAPTERS } from '../src/backends/registry.ts';
 import { SHIPPED } from '../src/platform/profiles.ts';
 import {
-  PROVIDERS, adapterFor, guessAdapter, keyScope, knownModel, onePass, providerOf, startOn, twoPass,
+  PROVIDERS, adapterFor, guessAdapter, keyScope, knownModel, onePass, startOn, twoPass,
 } from '../src/platform/providers.ts';
 
 test('every known model names an adapter that exists', () => {
@@ -23,15 +23,6 @@ test('every one-pass variant is a real adapter that translates', () => {
     assert.equal(twoPass(both), plain);
   }
   assert.equal(onePass('hunyuan-spotting'), undefined, 'no checkbox where there is no variant');
-});
-
-test('every shipped endpoint is filed under the provider it would be worked out as', () => {
-  for (const profile of SHIPPED) {
-    for (const endpoint of [profile.reader, profile.translator]) {
-      assert.equal(providerOf({ ...endpoint, provider: undefined }), endpoint.provider,
-        profile.id);
-    }
-  }
 });
 
 test('every shipped OpenRouter model shows up by name rather than as "another model"', () => {
