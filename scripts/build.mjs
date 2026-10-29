@@ -29,11 +29,12 @@ const ctx = await context({
     options: 'src/options.ts',
     stats: 'src/stats.ts',
     debug: 'src/debug.ts',
+    welcome: 'src/welcome.ts',
   },
   outdir: 'extension/dist',
   bundle: true,
   format: 'iife',
-  target: 'chrome116',
+  target: 'chrome138',
   sourcemap: 'linked',
   logLevel: 'info',
 });
