@@ -13,8 +13,11 @@
   #try.dropping { outline: 2px dashed var(--accent); outline-offset: 8px; }
   #try-stages { margin: calc(var(--step) * 3) 0; }
   #try-stages .total { font-size: 12px; color: var(--muted); }
-  #try-image { display: block; max-width: 100%; margin-bottom: calc(var(--step) * 3);
+  #try-frame { position: relative; width: fit-content; max-width: 100%;
+               margin-bottom: calc(var(--step) * 3); }
+  #try-image { display: block; max-width: 100%;
                border: 1px solid var(--line); border-radius: var(--radius); }
+  #try-notes { position: absolute; inset: 0; }
   #try-blocks { margin: calc(var(--step) * 3) 0 0; padding-left: 20px; font-size: 12px; }
   #try-blocks li { margin-bottom: calc(var(--step) * 2); }
   #try-blocks .src { color: var(--muted); }
@@ -112,7 +115,7 @@
   <div class="status" id="try-status" aria-live="polite"></div>
   <div id="try-result" hidden>
     <div id="try-stages"></div>
-    <img id="try-image" alt="">
+    <div id="try-frame"><img id="try-image" alt=""></div>
     <label class="check"><input type="checkbox" id="try-original">
       <span>Show the original</span></label>
     <ol id="try-blocks"></ol>
@@ -124,6 +127,10 @@
   <label class="check"><input type="checkbox" id="images">
     <span>Show a badge on images</span></label>
   <p class="blurb">The badge appears while ⌘ is held (Super on Windows and Linux).</p>
+  <label class="check"><input type="checkbox" id="notes">
+    <span>Show translations as Danbooru-style notes</span></label>
+  <p class="blurb">Leaves the image as it is and puts a box over each piece of text;
+  hover one to read its translation.</p>
   <label class="check"><input type="checkbox" id="debug">
     <span>Debug mode</span></label>
   <p class="blurb">Logs every stage to the console and keeps the last few images for

@@ -40,7 +40,7 @@ test('the page is told what it needs and nothing about the endpoints', async () 
     profile: 'mine',
   });
   const forPage = await publicSettings();
-  assert.deepEqual(forPage, { source: 'Auto', target: 'Japanese', images: true });
+  assert.deepEqual(forPage, { source: 'Auto', target: 'Japanese', images: true, notes: false });
   assert.ok(!('reader' in forPage), 'no endpoint reaches a content script');
 
   const everything = await settings();

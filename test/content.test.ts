@@ -4,6 +4,7 @@ import { JSDOM } from 'jsdom';
 
 import { BadgeLayer } from '../src/content/badges.ts';
 import { ResultCache } from '../src/content/cache.ts';
+import { notesFor } from '../src/content/notes.ts';
 import { restore, show } from '../src/content/swap.ts';
 
 const any = globalThis as any;
@@ -157,6 +158,50 @@ test('a badge keeps out of the way until the modifier is held', () => {
   dom.window.dispatchEvent(new dom.window.Event('blur'));
   assert.equal(badge().style.display, 'none', 'cmd-tabbing away puts it back');
 
+  layer.stop();
+  dom.window.close();
+});
+
+test('notes sit over the text in proportion and follow the image', () => {
+  const dom = new JSDOM('<img id="pic">', { url: 'https://example.com' });
+  adopt(dom);
+  any.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
+  any.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+
+  const doc = dom.window.document;
+  const img = doc.querySelector('#pic') as HTMLImageElement;
+  let rect = { width: 200, height: 100, left: 10, top: 20 };
+  img.getBoundingClientRect = () => rect as DOMRect;
+
+  const notes = notesFor([
+    { box: [100, 50, 300, 100], src: '全場包郵', translation: 'Free shipping', skipped: null },
+    { box: [0, 0, 10, 10], src: 'OK', translation: 'OK', skipped: 'already English' },
+    { box: [300, 300, 380, 380], src: '終', translation: 'End', skipped: null },
+  ], 400, 400);
+  const boxes = [...notes.querySelectorAll<HTMLElement>('.box')];
+  assert.equal(boxes.length, 2, 'text left as it was gets no note');
+  assert.deepEqual([boxes[0].style.left, boxes[0].style.top,
+    boxes[0].style.width, boxes[0].style.height], ['25%', '12.5%', '50%', '12.5%']);
+  assert.equal(boxes[0].textContent, 'Free shipping');
+  assert.ok(!boxes[0].classList.contains('up'));
+  assert.ok(boxes[1].classList.contains('up') && boxes[1].classList.contains('end'),
+    'a note in the bottom-right corner opens up and to the left');
+
+  const layer = new BadgeLayer(() => {});
+  layer.start();
+  layer.setStatus(img, 'shown', '');
+  layer.setOverlay(img, notes);
+  assert.ok(notes.isConnected);
+  const origin = (notes.getRootNode() as ShadowRoot).host.getBoundingClientRect();
+  assert.equal(notes.style.left, `${10 - origin.left}px`);
+  assert.equal(notes.style.width, '200px');
+
+  rect = { width: 400, height: 200, left: 10, top: 20 };
+  dom.window.dispatchEvent(new dom.window.Event('resize'));
+  assert.equal(notes.style.width, '400px', 'resized with the image');
+
+  layer.setOverlay(img, null);
+  assert.ok(!notes.isConnected, 'taken off with the translation');
   layer.stop();
   dom.window.close();
 });

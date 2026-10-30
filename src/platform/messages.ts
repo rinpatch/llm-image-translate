@@ -77,6 +77,8 @@ export type ImageBytes = string | Blob;
 
 export type ImageResult =
   | { ok: true; image: ImageBytes | null; original?: string; blocks: BlockReport[];
+      /** The size the reader saw, which is what the blocks' boxes are measured in. */
+      width?: number; height?: number;
       timings: Timings; /** The id it was kept under, in debug mode. */ trace?: string }
   | Failure;
 

@@ -27,6 +27,8 @@ interface Controller {
   status: Status;
   title: string;
   offscreen: boolean;
+  /** Laid over the image and kept on it, beneath the badge. */
+  overlay: HTMLElement | null;
 }
 
 export class BadgeLayer {
@@ -125,6 +127,15 @@ export class BadgeLayer {
     this.place(img);
   }
 
+  setOverlay(img: HTMLImageElement, overlay: HTMLElement | null): void {
+    const c = this.controllers.get(img);
+    if (!c) return;
+    c.overlay?.remove();
+    c.overlay = overlay;
+    if (overlay) this.surface!.prepend(overlay);
+    this.place(img);
+  }
+
   scan(root: Node): void {
     if (root.nodeType !== Node.ELEMENT_NODE) return;
     const el = root as Element;
@@ -181,7 +192,8 @@ export class BadgeLayer {
       this.onActivate(img);
     });
     this.surface!.append(badge);
-    this.controllers.set(img, { badge, status: 'idle', title: '', offscreen: false });
+    this.controllers.set(img,
+      { badge, status: 'idle', title: '', offscreen: false, overlay: null });
     this.visibility?.observe(img);
     this.sizes?.observe(img);
     this.place(img);
@@ -190,6 +202,7 @@ export class BadgeLayer {
 
   private detach(img: HTMLImageElement): void {
     this.controllers.get(img)?.badge.remove();
+    this.controllers.get(img)?.overlay?.remove();
     this.controllers.delete(img);
     this.candidates.delete(img);
     this.visibility?.unobserve(img);
@@ -206,12 +219,20 @@ export class BadgeLayer {
     const hidden = (idle && !this.armed)
       || rect.width < MIN_SIDE || rect.height < MIN_SIDE || c.offscreen;
     c.badge.style.display = hidden ? 'none' : '';
+    if (c.overlay) c.overlay.style.display = hidden ? 'none' : '';
     if (hidden) return;
     // Both rects are viewport-relative and the host sits in the page, so the
     // difference holds while scrolling; only layout changes disturb it.
     const origin = this.host.getBoundingClientRect();
-    c.badge.style.left = `${rect.left - origin.left + 6}px`;
-    c.badge.style.top = `${rect.top - origin.top + 6}px`;
+    const left = rect.left - origin.left;
+    const top = rect.top - origin.top;
+    c.badge.style.left = `${left + 6}px`;
+    c.badge.style.top = `${top + 6}px`;
+    if (c.overlay) {
+      Object.assign(c.overlay.style, {
+        left: `${left}px`, top: `${top}px`, width: `${rect.width}px`, height: `${rect.height}px`,
+      });
+    }
   }
 
   private render(img: HTMLImageElement): void {

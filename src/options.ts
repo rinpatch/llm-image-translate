@@ -1,6 +1,7 @@
 import { type ListedModel, listModels } from './backends/client.ts';
 import { LANGUAGES } from './core/language.ts';
 import { OCR_ADAPTERS, TRANSLATE_ADAPTERS, ocrAdapter } from './backends/registry.ts';
+import { notesFor } from './content/notes.ts';
 import { stagesOf } from './platform/metrics.ts';
 import { type ImageResult, type PingResult } from './platform/messages.ts';
 import { SHIPPED, type Profile, copyOf, find, newId, uniqueName } from './platform/profiles.ts';
@@ -431,7 +432,7 @@ function wirePack(): void {
   });
 }
 
-function toggle(id: 'images' | 'debug'): void {
+function toggle(id: 'images' | 'notes' | 'debug'): void {
   $<HTMLInputElement>(id).addEventListener('change', (e) => {
     save(id, (e.target as HTMLInputElement).checked);
   });
@@ -463,6 +464,7 @@ async function purgeCache(): Promise<void> {
 // what it reports is what the badge would do with this profile.
 let trialJob = '';
 let trialResult: Extract<ImageResult, { ok: true }> | null = null;
+let notes = false;
 
 function trialSay(text: string, kind = ''): void {
   const status = $('try-status');
@@ -538,15 +540,32 @@ function showTrial(): void {
   $('try-result').hidden = !result.image;
   if (!result.image) return;
   clear($('try-stages')).append(bar(stages, total, true), legend(stages));
-  const original = $<HTMLInputElement>('try-original');
-  original.checked = false;
-  $<HTMLImageElement>('try-image').src = result.image as string;
+  $<HTMLInputElement>('try-original').checked = false;
+  drawTrial();
 
   clear($('try-blocks')).append(...blocks.map((b) => el('li', {},
     el('div', { className: 'src' }, b.src),
     b.skipped
       ? el('div', { className: 'skipped' }, `Left alone: ${b.skipped}`)
       : el('div', {}, b.translation))));
+}
+
+/** The result the way a page would show it, which depends on the notes setting. */
+function drawTrial(): void {
+  const result = trialResult;
+  $('try-notes')?.remove();
+  if (!result?.image) return;
+  const original = $<HTMLInputElement>('try-original').checked;
+  const asNotes = notes && result.width && result.height && result.original;
+  $<HTMLImageElement>('try-image').src =
+    ((original || asNotes ? result.original : null) || result.image) as string;
+  if (!asNotes || original) return;
+  // In a shadow root, so the notes' class names cannot meet this page's styles.
+  const host = el('div', { id: 'try-notes' });
+  const layer = notesFor(result.blocks, result.width!, result.height!);
+  Object.assign(layer.style, { left: '0', top: '0', width: '100%', height: '100%' });
+  host.attachShadow({ mode: 'open' }).append(layer);
+  $('try-frame').append(host);
 }
 
 async function trialFile(file: File | undefined | null): Promise<void> {
@@ -572,11 +591,7 @@ function wireTrial(): void {
   $('try-stop').addEventListener('click', () => {
     if (trialJob) chrome.runtime.sendMessage({ type: 'cancelImage', jobId: trialJob });
   });
-  $<HTMLInputElement>('try-original').addEventListener('change', (e) => {
-    if (!trialResult?.image) return;
-    const before = (e.target as HTMLInputElement).checked && trialResult.original;
-    $<HTMLImageElement>('try-image').src = (before || trialResult.image) as string;
-  });
+  $<HTMLInputElement>('try-original').addEventListener('change', drawTrial);
 
   const zone = $('try');
   zone.addEventListener('dragover', (e) => {
@@ -597,6 +612,10 @@ function wireTrial(): void {
     trialFile(file);
   });
   chrome.storage.sync.onChanged.addListener((changes) => {
+    if (changes.notes) {
+      notes = Boolean(changes.notes.newValue);
+      drawTrial();
+    }
     if (!changes.target) return;
     target = String(changes.target.newValue);
     $('try-target').textContent = target;
@@ -613,6 +632,7 @@ wireOnePass();
 wireTrial();
 wirePack();
 toggle('images');
+toggle('notes');
 toggle('debug');
 $('test').addEventListener('click', test);
 $('purge-cache').addEventListener('click', purgeCache);
@@ -625,6 +645,7 @@ $('purge-cache').addEventListener('click', purgeCache);
   [{ list, active }, keyring] = await Promise.all([profiles(), keys()]);
   show();
   $<HTMLInputElement>('images').checked = stored.images;
+  $<HTMLInputElement>('notes').checked = notes = stored.notes;
   $<HTMLInputElement>('debug').checked = stored.debug;
   $('try-target').textContent = stored.target;
 })();

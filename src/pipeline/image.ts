@@ -308,7 +308,8 @@ export async function translateImage(
       });
     }
 
-    return { ok: true, image: after, original: before, blocks: report, timings, trace };
+    return { ok: true, image: after, original: before, blocks: report, width, height,
+             timings, trace };
   } catch (e: any) {
     if (e instanceof Cancelled || signal.aborted) return cancelled();
     fail('pipeline failed', e);

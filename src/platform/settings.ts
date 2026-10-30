@@ -13,6 +13,8 @@ export interface PublicSettings {
   source: string;
   target: string;
   images: boolean;
+  /** Boxes over the original text with the translation on hover, not a painted image. */
+  notes: boolean;
 }
 
 /** Endpoints and their keys. The worker is the only reader. */
@@ -32,6 +34,7 @@ export const PUBLIC_DEFAULTS: PublicSettings = {
   source: 'Auto',
   target: 'English',
   images: true,
+  notes: false,
 };
 
 export const PRIVATE_DEFAULTS: PrivateSettings = {

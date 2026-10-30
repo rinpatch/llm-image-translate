@@ -1,5 +1,6 @@
 import { BadgeLayer, type Status } from './content/badges.ts';
-import { ResultCache } from './content/cache.ts';
+import { type Ready, ResultCache } from './content/cache.ts';
+import { notesFor } from './content/notes.ts';
 import { restore, show } from './content/swap.ts';
 import { type ImageResult, type Message, type TranslateImage } from './platform/messages.ts';
 import { affectsResults, type PublicSettings } from './platform/settings.ts';
@@ -15,7 +16,7 @@ const TITLES: Record<Status, string> = {
 
 interface State {
   status: Status;
-  translated: string | null;
+  translated: Ready | null;
   /** Set while the worker is busy, so the page can call that work off. */
   jobId: string | null;
 }
@@ -24,7 +25,7 @@ const states = new Map<HTMLImageElement, State>();
 const cache = new ResultCache();
 const layer = new BadgeLayer(onActivate);
 
-let config: PublicSettings = { images: true, source: 'Auto', target: 'English' };
+let config: PublicSettings = { images: true, notes: false, source: 'Auto', target: 'English' };
 
 // Reloading the extension leaves this script running in the page with a dead
 // chrome.runtime. sendMessage then throws where it stands rather than rejecting,
@@ -61,8 +62,8 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
 
   if (state.translated) {
     const showing = state.status === 'shown';
-    if (showing) restore(img);
-    else show(img, state.translated);
+    if (showing) conceal(img);
+    else present(img, state.translated);
     setStatus(img, showing ? 'hidden' : 'shown');
     return;
   }
@@ -108,15 +109,28 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
     return;
   }
 
-  state.translated = res.image;
+  state.translated = res;
   // A strict content security policy blocks blob: images, and the badge would
   // otherwise say "shown" over a broken image.
   img.addEventListener('error', () => {
     console.error('[translate] the page refused the translated image — '
       + 'its content security policy may block blob: URLs');
   }, { once: true });
-  show(img, res.image!);
+  present(img, res);
   setStatus(img, 'shown');
+}
+
+function present(img: HTMLImageElement, res: Ready): void {
+  if (config.notes && res.width && res.height) {
+    layer.setOverlay(img, notesFor(res.blocks, res.width, res.height));
+  } else {
+    show(img, res.image!);
+  }
+}
+
+function conceal(img: HTMLImageElement): void {
+  layer.setOverlay(img, null);
+  restore(img);
 }
 
 function cancel(img: HTMLImageElement): void {
@@ -130,7 +144,7 @@ function cancel(img: HTMLImageElement): void {
 /** Back to untranslated: the blob URLs are about to be revoked under them. */
 function invalidate(): void {
   for (const [img, state] of states) {
-    if (state.status === 'shown') restore(img);
+    if (state.status === 'shown') conceal(img);
     state.translated = null;
     setStatus(img, 'idle');
   }
@@ -167,6 +181,14 @@ addEventListener('pagehide', () => {
 chrome.storage.sync.onChanged.addListener((changes) => {
   if (changes.source) config.source = String(changes.source.newValue);
   if (changes.target) config.target = String(changes.target.newValue);
+  if (changes.notes) {
+    config.notes = Boolean(changes.notes.newValue);
+    for (const [img, state] of states) {
+      if (state.status !== 'shown' || !state.translated) continue;
+      conceal(img);
+      present(img, state.translated);
+    }
+  }
   if (!changes.images) return;
   config.images = Boolean(changes.images.newValue);
   if (config.images) layer.rescan();
