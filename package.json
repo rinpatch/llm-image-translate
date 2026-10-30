@@ -6,6 +6,7 @@
   "scripts": {
     "test": "npm run check && node --test test/",
     "build": "node scripts/build.mjs",
+    "package": "scripts/package.sh",
     "watch": "node scripts/build.mjs --watch",
     "check": "tsc --noEmit"
   },
