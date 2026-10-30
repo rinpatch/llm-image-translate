@@ -379,4 +379,4 @@ fixture pages, and the reader bench.
 ## Licence
 
 MIT, in `LICENSE`. ONNX Runtime and the PP-OCR models it ships are under their
-own licences, listed in `licenses/README.txt`.
+own licences, in `THIRD_PARTY_NOTICES.txt`.
