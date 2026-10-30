@@ -1,11 +1,6 @@
 node_modules/
 tools/extension_key.pem
 extension/vendor/
-proto/node_modules/
-poc/.venv/
-poc/.logs/
-poc/models/
-poc/__pycache__/
 extension/dist/
 .openrouter-key
 extension/_metadata/

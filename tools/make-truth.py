@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# /// script
+# dependencies = ["pillow"]
+# ///
 """Draws the pages tools/bench-readers.ts scores readers against.
 
 Drawn rather than found, because the point is knowing where every line really
@@ -14,7 +17,7 @@ Both stay under 1280 on the long side, the smallest `maxDim` of any adapter,
 so no reader has to scale them down and the boxes stay in the pixels the truth
 is written in.
 
-    poc/.venv/bin/python tools/make-truth.py
+    uv run tools/make-truth.py
 """
 
 from __future__ import annotations

@@ -1,7 +1,6 @@
 # Image Translate
 
-A Chrome extension that translates the text inside images, and a proof of
-concept that does the same from the command line. By default the text is read
+A Chrome extension that translates the text inside images. By default the text is read
 in the browser and translated by a
 [llama.cpp](https://github.com/ggml-org/llama.cpp) server on your own machine;
 either half can be pointed at a hosted service instead.
@@ -46,9 +45,6 @@ have the seconds than the gigabytes, `IDLE=-1 ./macos/install.sh` never sleeps.
 `./macos/install.sh --uninstall` takes them out again; logs are in
 `~/Library/Logs/image-translate/`.
 
-`poc/start.sh` does the same thing in the foreground, with the browser demo
-alongside, and leaves anything already listening alone.
-
 Then load `extension/` from `chrome://extensions` with developer mode on.
 `npm run watch` rebuilds on save; the extension still has to be reloaded there
 for the worker to pick the new bundle up.
@@ -61,9 +57,6 @@ profile on a sample image.
 Nothing about that is specific to llama.cpp. Either role can run on any
 OpenAI-compatible server or on OpenRouter; picking a known model picks its
 adapter, and an unknown one gets a guess from its name that can be overridden.
-
-`poc/` also has a browser demo of the same pipeline at `http://127.0.0.1:8000`,
-which is easier to iterate on. See `poc/README.md`.
 
 ## Why two models
 
@@ -89,8 +82,8 @@ tried that does. TranslateGemma still reads `晴山空` slightly better, which i
 why it still has a profile of its own:
 
 ```bash
-MT_MODEL=bullerwins/translategemma-4b-it-GGUF:Q4_K_M MT_STYLE=gemma \
-MT_ARGS=--no-jinja poc/start.sh
+MT_MODEL=bullerwins/translategemma-4b-it-GGUF:Q4_K_M MT_ARGS=--no-jinja \
+  ./macos/install.sh
 ```
 
 ## What it does
@@ -130,8 +123,7 @@ as its own column, which then gets translated as if it were words.
 
 **Backgrounds with texture.** The original is painted over with the dominant
 colour around it, which is invisible on a flat background and obvious over a
-photograph. Real inpainting needs a model the browser cannot host; `poc/` has it
-behind a flag.
+photograph. Real inpainting needs a model the browser cannot host.
 
 ## Layout
 

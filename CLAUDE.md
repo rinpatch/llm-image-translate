@@ -119,7 +119,7 @@ every reader is handed the same pixels; both a PNG and a JPEG are written, and
 the adapter's `encode` picks. Regenerate with:
 
 ```bash
-poc/.venv/bin/python tools/make-truth.py
+uv run tools/make-truth.py
 ```
 
 Two traps in there. Songti's face 0 is Songti SC **Black**, whose glyph set has
@@ -295,29 +295,14 @@ an argument:
 
 One translation of it takes ~19s end to end, which outruns the agent-browser
 daemon's read timeout if you loop over several in a single `eval`. Drive one per
-call, or go at the server directly with `tools/probe-reader.py`.
+call.
 
-## Profiling the reader
+## A small sample
 
-```bash
-poc/.venv/bin/python tools/probe-reader.py test/fixtures/manga-page.png 1600 1280
-```
-
-Reports llama.cpp's own split of prefill and generation per scale. Two traps:
-
-**The prompt cache.** Asking twice with the same image comes back `prompt_n: 1`
-and no prefill at all — ~8s rather than ~12.6s on the manga page. Both numbers
-are real, they answer different questions. Vary the image, or the scale, to
-measure a cold prefill.
-
-**Shrinking is not free.** Below about 1280 HunyuanOCR starts repeating itself
-and runs to `max_tokens`, so the smaller image is *slower* and its extra spots
-are duplicates. Watch `unique` against `spots` and `finish`, never `spots` alone.
-
-Generate a small CJK sample with the poc's venv, which already has PIL:
+Generate a small CJK sample with Pillow:
 
 ```bash
-poc/.venv/bin/python -c "
+uv run --with pillow python -c "
 from PIL import Image, ImageDraw, ImageFont
 img = Image.new('RGB', (520, 260), 'white'); d = ImageDraw.Draw(img)
 f = ImageFont.truetype('/System/Library/Fonts/Supplemental/Songti.ttc', 40)

@@ -14,6 +14,9 @@ OCR_MODEL="${OCR_MODEL:-prithivMLmods/HunyuanOCR-1.5-GGUF-Updated:Q8_0}"
 MT_MODEL="${MT_MODEL:-tencent/Hy-MT2-1.8B-GGUF:Q6_K}"
 OCR_PORT="${OCR_PORT:-8090}"
 MT_PORT="${MT_PORT:-8091}"
+# Extra llama-server flags for the translator. TranslateGemma will not start
+# without --no-jinja.
+MT_ARGS="${MT_ARGS:-}"
 IDLE="${IDLE:-60}"
 CTX="${CTX:-8192}"
 
@@ -41,8 +44,9 @@ LLAMA="$(command -v llama-server)"
 mkdir -p "$AGENTS" "$LOGS"
 
 write_agent() {
-  local role=$1 model=$2 port=$3
-  local label="$PREFIX.$role"
+  local role=$1 model=$2 port=$3 extra=${4:-}
+  local label="$PREFIX.$role" args="" arg
+  for arg in $extra; do args+="<string>$arg</string>"; done
   cat > "$AGENTS/$label.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -62,6 +66,7 @@ write_agent() {
     <string>-fa</string><string>on</string>
     <string>-c</string><string>$CTX</string>
     <string>--sleep-idle-seconds</string><string>$IDLE</string>
+    $args
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
@@ -89,7 +94,7 @@ PLIST
 
 echo "==> Installing agents"
 write_agent reader "$OCR_MODEL" "$OCR_PORT"
-write_agent translator "$MT_MODEL" "$MT_PORT"
+write_agent translator "$MT_MODEL" "$MT_PORT" "$MT_ARGS"
 
 echo
 echo "==> Waiting for them to answer (first run downloads the models)"
@@ -117,6 +122,6 @@ from about 4.2 GB between them to about 0.34 GB. Waking costs a few seconds.
   stop one   launchctl bootout gui/$UID/$PREFIX.reader
   remove     $0 --uninstall
 
-Point the extension at http://127.0.0.1:$OCR_PORT and
-http://127.0.0.1:$MT_PORT — the "Local llama.cpp" preset already does.
+The "Local" profile translates with the one on :$MT_PORT. The reader on
+:$OCR_PORT is HunyuanOCR, for a profile set to read with it.
 NEXT
