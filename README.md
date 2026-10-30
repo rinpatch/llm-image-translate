@@ -375,3 +375,8 @@ reader actually returned — spot parsing, row and column grouping, CJK joining,
 script detection, the untranslated check — and the page-side pieces under
 jsdom. `CLAUDE.md` covers the heavier checks: the real extension over the
 fixture pages, and the reader bench.
+
+## Licence
+
+MIT, in `LICENSE`. ONNX Runtime and the PP-OCR models it ships are under their
+own licences, listed in `licenses/README.txt`.

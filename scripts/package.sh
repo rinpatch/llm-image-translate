@@ -28,7 +28,7 @@ mkdir -p "$out"
 
 # _metadata is Chrome's, written into the folder when it loads it unpacked.
 rsync -a --exclude _metadata --exclude .DS_Store extension/ "$stage/"
-cp LICENSE "$stage/"
+cp -R LICENSE licenses "$stage/"
 
 (cd "$out" && zip -qrX "$stage.zip" "$name-$version")
 
