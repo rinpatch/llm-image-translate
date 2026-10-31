@@ -8,6 +8,7 @@
   .stat b { display: block; font-size: 21px; font-weight: 500; font-variant-numeric: tabular-nums; }
   .stat span { color: var(--muted); font-size: 12px; }
 
+  h1 { margin-bottom: calc(var(--step) * 3); }
   .scope { max-width: 280px; margin-top: 16px; }
 
   table.history { width: 100%; table-layout: fixed; border-collapse: collapse;
@@ -31,29 +32,5 @@
   tr.detail .regions { display: inline-block; margin-top: 6px; }
 </style>
 
-<h1>Timings</h1>
-<p class="blurb">The last 200 images of one profile, as medians.</p>
-
-<label class="scope" id="scope" hidden><span>Profile</span><select id="profile"></select></label>
-
-<div id="summary"></div>
-
-<section id="breakdown">
-  <h2>Where the time goes</h2>
-  <div id="stages"></div>
-</section>
-
-<section>
-  <h2>History</h2>
-  <label class="check"><input type="checkbox" id="failures-only">
-    <span>Failures only</span></label>
-  <div id="history"></div>
-</section>
-
-<footer>
-  <div class="rule">
-    <a href="options.html">← Settings</a>
-    <button type="button" id="clear">Forget the history</button>
-  </div>
-</footer>
+<div id="app"></div>
 <script src="dist/stats.js"></script>

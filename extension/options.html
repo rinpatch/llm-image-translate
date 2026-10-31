@@ -4,8 +4,9 @@
 <style>
   body { max-width: 560px; margin: 0 auto; padding: 32px 24px 64px; }
 
-  #reader-served:empty, #translator-served:empty { display: none; }
-  #reader-served, #translator-served { margin: -6px 0 calc(var(--step) * 3); }
+  .served { margin: -6px 0 calc(var(--step) * 3); }
+  .pack { align-items: center; margin-bottom: var(--step); }
+  .pack .status { min-height: 0; }
 
   details { margin-bottom: calc(var(--step) * 3); font-size: 12px; }
   summary { color: var(--muted); cursor: pointer; margin-bottom: calc(var(--step) * 2); }
@@ -24,126 +25,5 @@
   #try-blocks .skipped { color: var(--muted); font-style: italic; }
 </style>
 
-<h1>Image Translate</h1>
-<p class="blurb">A reader finds the text, a translator translates it.</p>
-
-<section>
-  <h2>Profile</h2>
-  <p class="blurb">A reader and a translator under one name, switchable from the popup.</p>
-  <label><span>In use</span><select id="profile"></select></label>
-  <label><span>Name</span><input type="text" id="profile-name"></label>
-  <div class="buttons">
-    <button type="button" id="profile-new">New</button>
-    <button type="button" id="profile-copy">Duplicate</button>
-    <button type="button" id="profile-delete">Delete</button>
-  </div>
-</section>
-
-<section id="reader-section">
-  <h2>Reader</h2>
-  <p class="blurb">Finds the text in the image and reads it.</p>
-  <label><span>Method</span><select id="reader-method">
-    <option value="browser">PP-OCR in this browser</option>
-    <option value="vlm">Vision language model</option>
-  </select></label>
-  <div id="reader-vlm">
-  <label><span>Runs on</span><select id="reader-provider"></select></label>
-  <label id="reader-url-row"><span>Server</span><input type="url" id="reader-baseUrl"></label>
-  <label id="reader-known-row"><span>Model</span><select id="reader-known"></select></label>
-  <label id="reader-model-row"><span id="reader-model-label">Model id</span><input type="text"
-    id="reader-model" list="reader-models" autocomplete="off" spellcheck="false"></label>
-  <datalist id="reader-models"></datalist>
-  <div class="status" id="reader-served"></div>
-  <label id="reader-key-row"><span>API key</span><input type="password" id="reader-apiKey"
-    autocomplete="off"></label>
-  <p class="blurb" id="reader-key-note"></p>
-  <div id="reader-onepass-row">
-    <label class="check"><input type="checkbox" id="reader-onepass">
-      <span>Translate while reading</span></label>
-    <p class="blurb">One request per image, and the model sees the page as it
-    translates. No separate translator is used.</p>
-  </div>
-  <details>
-    <summary>Adapter</summary>
-    <label><span>Prompt and reply format</span><select id="reader-adapter"></select></label>
-    <p class="blurb">Picked from the model. Change it for a model that answers in a
-    different shape.</p>
-  </details>
-  </div>
-  <div class="status" id="reader-status"></div>
-</section>
-
-<section id="translator-section">
-  <h2>Translator</h2>
-  <p class="blurb">Turns what the reader found into the target language.</p>
-  <label><span>Runs on</span><select id="translator-provider"></select></label>
-  <label id="translator-url-row"><span>Server</span><input type="url" id="translator-baseUrl"></label>
-  <label id="translator-known-row"><span>Model</span><select id="translator-known"></select></label>
-  <label id="translator-model-row"><span id="translator-model-label">Model id</span><input type="text"
-    id="translator-model" list="translator-models" autocomplete="off" spellcheck="false"></label>
-  <datalist id="translator-models"></datalist>
-  <div class="status" id="translator-served"></div>
-  <div id="translator-pack-row">
-    <label><span>Language pack</span><select id="translator-pack"></select></label>
-    <div class="buttons"><button type="button" id="translator-pack-get">Download</button></div>
-    <div class="status" id="translator-pack-status"></div>
-    <p class="blurb">Chrome translates on this machine, one pair of languages at a
-    time. Each pair is downloaded once, from here.</p>
-  </div>
-  <label id="translator-key-row"><span>API key</span><input type="password" id="translator-apiKey"
-    autocomplete="off"></label>
-  <p class="blurb" id="translator-key-note"></p>
-  <details>
-    <summary>Adapter</summary>
-    <label><span>Prompt and reply format</span><select id="translator-adapter"></select></label>
-    <p class="blurb">Picked from the model. Change it for a model that answers in a
-    different shape.</p>
-  </details>
-  <div class="status" id="translator-status"></div>
-</section>
-
-<section id="try">
-  <h2>Try it</h2>
-  <p class="blurb">Runs this profile on one image, into <span id="try-target">English</span>.
-  An image dropped or pasted on this page works too.</p>
-  <div class="buttons">
-    <button type="button" id="try-sample">Sample page</button>
-    <button type="button" id="try-pick">Choose an image…</button>
-    <button type="button" id="try-stop" hidden>Stop</button>
-    <input type="file" id="try-file" accept="image/*" hidden>
-  </div>
-  <div class="status" id="try-status" aria-live="polite"></div>
-  <div id="try-result" hidden>
-    <div id="try-stages"></div>
-    <div id="try-frame"><img id="try-image" alt=""></div>
-    <label class="check"><input type="checkbox" id="try-original">
-      <span>Show the original</span></label>
-    <ol id="try-blocks"></ol>
-  </div>
-</section>
-
-<section>
-  <h2>Pages</h2>
-  <label class="check"><input type="checkbox" id="images">
-    <span>Show a badge on images</span></label>
-  <p class="blurb">The badge appears while ⌘ is held (Super on Windows and Linux).</p>
-  <label class="check"><input type="checkbox" id="notes">
-    <span>Show translations as Danbooru-style notes</span></label>
-  <p class="blurb">Leaves the image as it is and puts a box over each piece of text;
-  hover one to read its translation.</p>
-  <label class="check"><input type="checkbox" id="debug">
-    <span>Debug mode</span></label>
-  <p class="blurb">Logs every stage to the console and keeps the last few images for
-  <a href="debug.html">Regions</a>.</p>
-</section>
-
-<footer>
-  <div class="rule">
-    <div class="buttons">
-      <button type="button" id="test">Test both endpoints</button>
-      <button type="button" id="purge-cache" aria-live="polite">Clear cache</button>
-    </div>
-    <span><a href="welcome.html">Setup guide</a> · <a href="stats.html">Timings and history →</a></span>
-  </div>
-</footer>
+<div id="app"></div>
 <script src="dist/options.js"></script>

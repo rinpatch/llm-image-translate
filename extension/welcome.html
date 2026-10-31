@@ -1,21 +1,46 @@
 <meta charset="utf-8">
-<title>Set up Image Translate</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Welcome to Image Translate</title>
 <link rel="stylesheet" href="ui.css">
 <style>
-  body { max-width: 560px; margin: 0 auto; padding: 32px 24px 64px; }
+  body { max-width: 640px; margin: 0 auto; padding: 56px 24px 80px; }
+
+  .hero { display: flex; align-items: center; gap: calc(var(--step) * 5);
+          margin-bottom: calc(var(--step) * 12); }
+  .hero img { width: 64px; height: 64px; flex: none; }
+  .hero h1 { font-size: 26px; letter-spacing: -.01em; margin: 0 0 var(--step); }
+  .hero p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+  .steps > li { counter-increment: step; position: relative; padding-left: 44px;
+                margin-bottom: calc(var(--step) * 12); }
+  .steps > li::before { content: counter(step); position: absolute; left: 0; top: -2px;
+                        width: 26px; height: 26px; border-radius: 50%;
+                        display: grid; place-items: center; font-size: 13px; font-weight: 600;
+                        color: var(--bg); background: var(--accent); }
+  .steps h2 { font-size: 16px; margin-bottom: calc(var(--step) * 3); }
+  #target { max-width: 240px; }
 
   .choice { display: flex; gap: calc(var(--step) * 3); align-items: flex-start;
-            padding: calc(var(--step) * 3); margin-bottom: calc(var(--step) * 2);
+            padding: calc(var(--step) * 3) calc(var(--step) * 4);
+            margin-bottom: calc(var(--step) * 2);
             border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
-  .choice:has(input:checked) { border-color: var(--accent); }
-  .choice:has(input:disabled) { cursor: default; opacity: .6; }
-  .choice > input { width: auto; margin-top: 3px; }
-  .choice > div { flex: 1; }
+  .choice:has(input[type=radio]:checked) { border-color: var(--accent);
+                                           box-shadow: inset 0 0 0 1px var(--accent); }
+  .choice:has(input[type=radio]:disabled) { cursor: default; opacity: .6; }
+  .choice > input { width: auto; margin-top: 4px; }
+  .choice > div { flex: 1; min-width: 0; }
   .choice b { display: block; font-weight: 600; }
-  .choice .blurb { margin: 2px 0 0; }
-  .choice .key { margin-top: calc(var(--step) * 2); }
-  .choice .key span { display: block; color: var(--muted); margin-bottom: 3px; font-size: 12px; }
+  .choice .blurb { margin: 2px 0 0; font-size: 13px; }
+  .fields { margin-top: calc(var(--step) * 3); }
+  .choice:not(:has(input[type=radio]:checked)) .fields { display: none; }
+  .field { margin-bottom: calc(var(--step) * 3); }
+  .field:last-child { margin-bottom: 0; }
+  .field > span { display: block; color: var(--muted); margin-bottom: 3px; font-size: 12px; }
+  .fields .status { min-height: 0; }
 
+  #packs { margin-top: calc(var(--step) * 5); }
+  #packs h3 { font-size: 13px; margin: 0 0 2px; }
   #packs ul { list-style: none; margin: 0; padding: 0; }
   #packs li { display: flex; align-items: center; gap: calc(var(--step) * 3);
               padding: calc(var(--step) * 2) 0; border-bottom: 1px solid var(--line); }
@@ -23,38 +48,22 @@
   #packs li .status { flex: 1; min-height: 0; }
   #packs li select { width: auto; }
 
+  .trial { display: grid; grid-template-columns: 260px 1fr; gap: calc(var(--step) * 6);
+           align-items: start; }
+  @media (max-width: 560px) { .trial { grid-template-columns: 1fr; } }
+  .trial img { display: block; width: 100%; border: 1px solid var(--line);
+               border-radius: var(--radius); }
+  .trial .status { margin-top: calc(var(--step) * 3); }
+  #try-original-row { margin-top: calc(var(--step) * 2); }
+
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg);
+                   font-weight: 600; }
+  button.primary:hover { filter: brightness(1.1); }
+
   kbd { font: 12px/1 ui-monospace, monospace; padding: 2px 5px;
         border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; }
+  footer { display: flex; align-items: center; justify-content: space-between; }
 </style>
 
-<h1>Image Translate</h1>
-<p class="blurb">Translates the text inside images, on any page.</p>
-
-<section>
-  <h2>Translate into</h2>
-  <label><select id="target"></select></label>
-</section>
-
-<section>
-  <h2>Where it runs</h2>
-  <p class="blurb">Change this any time from the toolbar button.</p>
-  <div id="choices"></div>
-</section>
-
-<section id="packs" hidden>
-  <h2>Language packs</h2>
-  <p class="blurb">Chrome translates on this computer and needs each language
-  downloaded once. Get the ones you expect to read.</p>
-  <ul id="pack-list"></ul>
-</section>
-
-<section>
-  <h2>Using it</h2>
-  <p>Hold <kbd id="key">⌘</kbd> over an image and click the <b>T</b> that appears.
-  Click it again to see the original.</p>
-  <div class="buttons">
-    <button type="button" id="done">Done</button>
-  </div>
-  <footer><a href="options.html">All settings →</a></footer>
-</section>
+<div id="app"></div>
 <script src="dist/welcome.js"></script>

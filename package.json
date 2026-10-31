@@ -21,6 +21,7 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "onnxruntime-web": "^1.30.0"
+    "onnxruntime-web": "^1.30.0",
+    "preact": "^11.1.1"
   }
 }

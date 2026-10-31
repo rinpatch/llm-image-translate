@@ -48,42 +48,5 @@
                word-break: break-word; }
 </style>
 
-<h1>Regions</h1>
-<p class="blurb">What the reader spotted, and what grouping made of it. Kept for the
-last few images while debug mode is on.</p>
-
-<div class="tools" id="pick-wrap">
-  <label><select id="pick"></select></label>
-</div>
-
-<div class="tools" id="toggles">
-  <label class="check"><input type="checkbox" id="show-spots" checked>
-    <span>Lines the reader found</span></label>
-  <label class="check"><input type="checkbox" id="show-blocks" checked>
-    <span>Blocks they were merged into</span></label>
-  <label class="check"><input type="checkbox" id="show-drawn">
-    <span>Where the translation was drawn</span></label>
-  <a id="save" download>Save the image</a>
-</div>
-
-<div class="stage" id="stage"></div>
-
-<div class="blocks" id="blocks"></div>
-
-<section id="logged-wrap" hidden>
-  <h2>What the worker logged</h2>
-  <p class="blurb">The service worker's own console, kept because it goes with the
-  worker and this page outlives it.</p>
-  <pre id="logged"></pre>
-</section>
-
-<footer>
-  <div class="rule">
-    <div class="buttons">
-      <a href="options.html">← Settings</a>
-      <a href="stats.html">Timings</a>
-    </div>
-    <button type="button" id="clear" hidden>Forget these</button>
-  </div>
-</footer>
+<div id="app"></div>
 <script src="dist/debug.js"></script>
