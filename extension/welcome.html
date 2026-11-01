@@ -34,9 +34,7 @@
   .choice .blurb { margin: 2px 0 0; font-size: 13px; }
   .fields { margin-top: calc(var(--step) * 3); }
   .choice:not(:has(input[type=radio]:checked)) .fields { display: none; }
-  .field { margin-bottom: calc(var(--step) * 3); }
   .field:last-child { margin-bottom: 0; }
-  .field > span { display: block; color: var(--muted); margin-bottom: 3px; font-size: 12px; }
   .fields .status { min-height: 0; }
 
   #packs { margin-top: calc(var(--step) * 5); }
@@ -51,18 +49,12 @@
   .trial { display: grid; grid-template-columns: 260px 1fr; gap: calc(var(--step) * 6);
            align-items: start; }
   @media (max-width: 560px) { .trial { grid-template-columns: 1fr; } }
-  .trial img { display: block; width: 100%; border: 1px solid var(--line);
-               border-radius: var(--radius); }
+  .trial .trial-frame { width: auto; }
+  .trial .trial-frame img { width: 100%; }
   .trial .status { margin-top: calc(var(--step) * 3); }
-  #try-original-row { margin-top: calc(var(--step) * 2); }
-
-  button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg);
-                   font-weight: 600; }
-  button.primary:hover { filter: brightness(1.1); }
 
   kbd { font: 12px/1 ui-monospace, monospace; padding: 2px 5px;
         border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; }
-  footer { display: flex; align-items: center; justify-content: space-between; }
 </style>
 
 <div id="app"></div>

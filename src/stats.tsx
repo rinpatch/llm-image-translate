@@ -5,8 +5,8 @@ import {
 } from './platform/metrics.ts';
 import { kept } from './platform/traces.ts';
 import { useAsync } from './ui/async.ts';
-import { Check } from './ui/fields.tsx';
-import { ms, plural } from './ui/format.ts';
+import { Check, Names } from './ui/fields.tsx';
+import { clock, ms, plural } from './ui/format.ts';
 import { Bar, Legend } from './ui/stages.tsx';
 
 const ask = <T,>(type: 'metrics' | 'log' | 'clearMetrics'): Promise<T> =>
@@ -47,10 +47,6 @@ function Summary({ report }: { report: ProfileReport | undefined }) {
   );
 }
 
-// Seconds are in the tooltip; the column is a place in the afternoon, not a stopwatch.
-const time = (at: number) => new Date(at).toLocaleTimeString([],
-  { hour: '2-digit', minute: '2-digit' });
-
 function HistoryRow({ run, scale, traced }: { run: Run; scale: number; traced: boolean }) {
   const [open, setOpen] = useState(false);
   return (
@@ -62,7 +58,7 @@ function HistoryRow({ run, scale, traced }: { run: Run; scale: number; traced: b
           setOpen(!open);
         }}>
         <td class="twist">{open ? '▾' : '▸'}</td>
-        <td class="when num" title={new Date(run.at).toLocaleString()}>{time(run.at)}</td>
+        <td class="when num" title={new Date(run.at).toLocaleString()}>{clock(run.at)}</td>
         <td class="where" title={run.url}>{run.url}</td>
         <td class="shape"><Bar stages={stagesOf(run)} scale={scale} /></td>
         <td class="total num">{run.total_ms ? ms(run.total_ms) : '—'}</td>
@@ -130,9 +126,8 @@ function Stats() {
       {/* Nothing to switch between until a second profile has translated something. */}
       {report.profiles.length > 1 && (
         <label class="scope"><span>Profile</span>
-          <select value={chosen} onChange={(e) => setPicked(e.currentTarget.value)}>
-            {report.profiles.map(({ profile }) => <option value={profile}>{profile}</option>)}
-          </select>
+          <Names names={report.profiles.map(({ profile }) => profile)} value={chosen}
+            onPick={setPicked} />
         </label>
       )}
       <Summary report={report.profiles.find((p) => p.profile === chosen)} />

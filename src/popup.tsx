@@ -3,7 +3,7 @@ import { useState } from 'preact/hooks';
 import { LANGUAGES } from './core/language.ts';
 import { profiles, publicSettings, save } from './platform/settings.ts';
 import { useAsync } from './ui/async.ts';
-import { Names } from './ui/fields.tsx';
+import { Names, ProfileSelect } from './ui/fields.tsx';
 
 type Picked = Partial<Record<'profile' | 'source' | 'target', string>>;
 
@@ -26,9 +26,7 @@ function Popup() {
     <>
       <label>
         <span>Models</span>
-        <select value={value('profile')} onChange={(e) => pick('profile')(e.currentTarget.value)}>
-          {stored?.list.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <ProfileSelect list={stored?.list || []} value={value('profile')} onPick={pick('profile')} />
       </label>
       <label>
         <span>Translate from</span>

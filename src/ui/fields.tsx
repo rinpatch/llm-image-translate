@@ -1,5 +1,6 @@
 import { type ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
+import { type Profile } from '../platform/profiles.ts';
 
 interface InputProps {
   value: string;
@@ -44,9 +45,28 @@ export function Names({ names, value, onPick, ...rest }: {
   );
 }
 
-export const Row = ({ label, children }: { label: ComponentChildren; children: ComponentChildren }) => (
-  <label><span>{label}</span>{children}</label>
-);
+/** A select over profiles, by id. */
+export function ProfileSelect({ list, value, onPick }: {
+  list: readonly Profile[]; value: string; onPick: (id: string) => void;
+}) {
+  return (
+    <select value={value} onChange={(e) => onPick(e.currentTarget.value)}>
+      {list.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+    </select>
+  );
+}
+
+/**
+ * A labelled field. `div` where it sits inside another label, which cannot
+ * hold one.
+ */
+export function Row({ label, children, div }: {
+  label: ComponentChildren; children: ComponentChildren; div?: boolean;
+}) {
+  return div
+    ? <div class="field"><span>{label}</span>{children}</div>
+    : <label><span>{label}</span>{children}</label>;
+}
 
 export const Check = ({ checked, onCheck, label, id }: {
   checked: boolean; onCheck: (on: boolean) => void; label: string; id?: string;
@@ -55,4 +75,14 @@ export const Check = ({ checked, onCheck, label, id }: {
     <input type="checkbox" checked={checked} onChange={(e) => onCheck(e.currentTarget.checked)} />
     <span>{label}</span>
   </label>
+);
+
+/** A checkbox with a line under it saying what it does. */
+export const Toggle = ({ on, set, label, children }: {
+  on: boolean; set: (on: boolean) => void; label: string; children: ComponentChildren;
+}) => (
+  <>
+    <Check label={label} checked={on} onCheck={set} />
+    <p class="blurb">{children}</p>
+  </>
 );

@@ -1,5 +1,6 @@
 // What a server says it serves, and what follows from that: shared by the
 // settings page's endpoints and the welcome page's server card.
+import { useEffect, useRef } from 'preact/hooks';
 import { type ListedModel, listModels } from '../backends/client.ts';
 import { type EndpointSettings, type Role, toEndpoint } from '../platform/profiles.ts';
 import { adapterFor, provider } from '../platform/providers.ts';
@@ -39,6 +40,28 @@ export function adoption(role: Role, endpoint: EndpointSettings, served: Served)
   return (e: EndpointSettings) => {
     e.model = served[0].id;
     e.adapter = adapterFor(role, e, undefined, isLlamacpp(served));
+  };
+}
+
+/**
+ * Applies `adoption` once the server answers, but only after the server or the
+ * key has changed (or from the start, for an endpoint made just now): merely
+ * looking at an endpoint does not rewrite it. Wrap those changes in what this
+ * returns.
+ */
+export function useAdoption(role: Role, endpoint: EndpointSettings, served: Served,
+  edit: (change: (e: EndpointSettings) => void) => void, fresh: boolean) {
+  const armed = useRef(fresh);
+  useEffect(() => {
+    if (!armed.current) return;
+    if (endpoint.provider === 'server' && endpoint.baseUrl && served === undefined) return;
+    armed.current = false;
+    const adopt = adoption(role, endpoint, served);
+    if (adopt) edit(adopt);
+  });
+  return (change: () => void) => {
+    armed.current = true;
+    change();
   };
 }
 

@@ -4,7 +4,7 @@ import { type Box } from './core/geometry.ts';
 import { forget, headings, traced, type Trace, type TraceHeading } from './platform/traces.ts';
 import { useAsync } from './ui/async.ts';
 import { Check } from './ui/fields.tsx';
-import { ms, plural } from './ui/format.ts';
+import { clock, ms, plural } from './ui/format.ts';
 
 // Spread around the wheel rather than taken from a list, so that however many
 // blocks a page comes apart in, no two next to each other share a colour.
@@ -20,8 +20,6 @@ function place(box: Box, width: number, height: number) {
     height: `${((y1 - y0) / height) * 100}%`,
   };
 }
-
-const when = (at: number) => new Date(at).toLocaleTimeString();
 
 /** The tail of a URL, which is the part that says which image this was. */
 const shortly = (url: string) => {
@@ -158,7 +156,7 @@ function Debug() {
           <label><select value={id} onChange={(e) => setId(e.currentTarget.value)}>
             {found.map((t) => (
               <option key={t.id} value={t.id}>
-                {`${when(t.at)} · ${shortly(t.url)} · ${t.lines} lines`
+                {`${clock(t.at, true)} · ${shortly(t.url)} · ${t.lines} lines`
                   + ` → ${t.blocks} blocks${t.total_ms ? ` · ${ms(t.total_ms)}` : ''}`}
               </option>
             ))}

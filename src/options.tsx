@@ -1,36 +1,32 @@
 import { type ComponentChildren, render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { LANGUAGES } from './core/language.ts';
-import { OCR_ADAPTERS, TRANSLATE_ADAPTERS, ocrAdapter } from './backends/registry.ts';
-import { notesFor } from './content/notes.ts';
+import { OCR_ADAPTERS, TRANSLATE_ADAPTERS } from './backends/registry.ts';
 import { stagesOf } from './platform/metrics.ts';
-import { type ImageResult, type PingResult } from './platform/messages.ts';
+import { type PingResult } from './platform/messages.ts';
 import { SHIPPED, type Profile, copyOf, find, newId, uniqueName } from './platform/profiles.ts';
 import {
   adapterFor, keyScope, knownModel, onePass, provider, providersFor,
   startOn, twoPass,
 } from './platform/providers.ts';
+import { hostOf, rolesUsed } from './platform/ready.ts';
 import {
   type Keys, type Role, type Settings, ROLES, keys, profiles, purgeResults, save, saveKey,
   saveProfiles, settings,
 } from './platform/settings.ts';
-import { Check, Input, Names, Row } from './ui/fields.tsx';
-import { ms } from './ui/format.ts';
+import { Input, Names, ProfileSelect, Row, Toggle } from './ui/fields.tsx';
 import { PackStatus } from './ui/packs.tsx';
 import {
-  type Served, ModelField, adoption, isLlamacpp, servedNote, useServed,
+  type Served, ModelField, isLlamacpp, servedNote, useAdoption, useServed,
 } from './ui/served.tsx';
 import { Bar, Legend } from './ui/stages.tsx';
 import { NONE, type Note, Status, note } from './ui/status.tsx';
+import { TrialImage, totalOf, useTrial } from './ui/trial.tsx';
 
 type Endpoint = Profile[Role];
 type Edit = (change: (endpoint: Endpoint) => void) => void;
 
 const OTHER = 'other';
-
-function hostOf(url: string): string {
-  try { return new URL(url).host; } catch { return ''; }
-}
 
 function AdapterPicker({ role, endpoint, served, edit }: {
   role: Role; endpoint: Endpoint; served: Served; edit: Edit;
@@ -101,20 +97,7 @@ function EndpointFields({ role, endpoint, fresh, edit, setKey, afterModel, child
   const host = hostOf(endpoint.baseUrl);
   const said = servedNote(role, endpoint, served);
 
-  // Only after the server or the key changes: merely looking at a profile does
-  // not rewrite it.
-  const adopting = useRef(fresh);
-  useEffect(() => {
-    if (!adopting.current) return;
-    if (endpoint.provider === 'server' && endpoint.baseUrl && served === undefined) return;
-    adopting.current = false;
-    const adopt = adoption(role, endpoint, served);
-    if (adopt) edit(adopt);
-  });
-  const andAdopt = (change: () => void) => {
-    adopting.current = true;
-    change();
-  };
+  const andAdopt = useAdoption(role, endpoint, served, edit, fresh);
 
   // Focused once the redraw has shown the field.
   const focusModel = useRef(false);
@@ -227,14 +210,15 @@ function Reader({ profile, fresh, status, edit, setKey }: RoleProps) {
       </Row>
       {!inBrowser && (
         <EndpointFields role="reader" endpoint={endpoint} fresh={fresh || switched.current} edit={edit} setKey={setKey}>
-          {onePass(plain) && <>
-            <Check label="Translate while reading" checked={plain !== endpoint.adapter}
-              onCheck={(on) => edit((endpoint) => {
+          {onePass(plain) && (
+            <Toggle label="Translate while reading" on={plain !== endpoint.adapter}
+              set={(on) => edit((endpoint) => {
                 endpoint.adapter = on ? onePass(plain) || plain : plain;
-              })} />
-            <p class="blurb">One request per image, and the model sees the page as it
-              translates. No separate translator is used.</p>
-          </>}
+              })}>
+              One request per image, and the model sees the page as it translates. No
+              separate translator is used.
+            </Toggle>
+          )}
         </EndpointFields>
       )}
       <Status of={status} />
@@ -275,10 +259,8 @@ function ProfilePicker({ list, active, switchTo, rename }: {
       <h2>Profile</h2>
       <p class="blurb">A reader and a translator under one name, switchable from the popup.</p>
       <Row label="In use">
-        <select value={active.id}
-          onChange={(e) => switchTo(find(list, e.currentTarget.value) || list[0], list)}>
-          {list.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <ProfileSelect list={list} value={active.id}
+          onPick={(id) => switchTo(find(list, id) || list[0], list)} />
       </Row>
       <Row label="Name">
         <Input key={active.id} type="text" id="profile-name" value={active.name} onCommit={rename} />
@@ -308,82 +290,12 @@ function ProfilePicker({ list, active, switchTo, rename }: {
   );
 }
 
-/** The result's notes, in a shadow root so their class names cannot meet this page's styles. */
-function NotesLayer({ result }: { result: Extract<ImageResult, { ok: true }> }) {
-  const host = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const root = host.current!.shadowRoot || host.current!.attachShadow({ mode: 'open' });
-    const layer = notesFor(result.blocks, result.width!, result.height!);
-    Object.assign(layer.style, { left: '0', top: '0', width: '100%', height: '100%' });
-    root.replaceChildren(layer);
-  }, [result]);
-  return <div id="try-notes" ref={host} />;
-}
-
-/** The first role that cannot run without a key it does not have. */
-function missingKey(active: Profile): Role | undefined {
-  const used = ocrAdapter(active.reader.adapter).capabilities.alsoTranslates
-    ? ['reader' as const] : ROLES;
-  return used.find((role) =>
-    provider(active[role].provider).key === 'required' && !active[role].apiKey);
-}
-
-// The trial run. It goes through the worker exactly as a page's image would, so
-// what it reports is what the badge would do with this profile.
 function Trial({ active, notes, target }: { active: Profile; notes: boolean; target: string }) {
-  const [job, setJob] = useState('');
-  const [told, setTold] = useState<Note>(NONE);
-  const [result, setResult] = useState<Extract<ImageResult, { ok: true }> | null>(null);
-  const [original, setOriginal] = useState(false);
+  const trial = useTrial();
   const [dropping, setDropping] = useState(false);
   const file = useRef<HTMLInputElement>(null);
 
-  // Any edit makes the last result someone else's, unless it is still running.
-  useEffect(() => {
-    if (job) return;
-    setResult(null);
-    setTold(NONE);
-  }, [active]);
-
-  const trial = async (src: string, dataUrl?: string) => {
-    if (job) return;
-    // Otherwise the answer is a bare 401 from a request that was never going to work.
-    const keyless = missingKey(active);
-    if (keyless) {
-      setTold(note(`The ${keyless} needs an API key for ${hostOf(active[keyless].baseUrl)}.`, 'bad'));
-      return;
-    }
-    const jobId = crypto.randomUUID();
-    setJob(jobId);
-    const started = Date.now();
-    const tick = setInterval(() => setTold(note(`Translating… ${ms(Date.now() - started)}`)), 100);
-    setTold(note('Translating…'));
-
-    let answer: ImageResult;
-    try {
-      answer = await chrome.runtime.sendMessage(
-        { type: 'translateImage', jobId, src, dataUrl, fresh: true });
-    } catch (e: any) {
-      answer = { ok: false, error: String(e?.message || e) };
-    } finally {
-      clearInterval(tick);
-      setJob('');
-    }
-
-    if (!answer.ok) {
-      setResult(null);
-      setTold(answer.code === 'cancelled' ? note('Stopped.') : note(answer.error, 'bad'));
-      return;
-    }
-    const stages = stagesOf(answer.timings);
-    const total = answer.timings.total_ms || stages.reduce((n, s) => n + s.ms, 0);
-    const shown = answer.blocks.filter((b) => !b.skipped).length;
-    setResult(answer);
-    setOriginal(false);
-    setTold(answer.image
-      ? note(`${shown} of ${answer.blocks.length} blocks translated in ${ms(total)}.`, 'ok')
-      : note(`No text found (${ms(total)}).`));
-  };
+  useEffect(() => trial.forget(), [active]);
 
   const trialFile = async (picked: File | undefined | null) => {
     if (!picked || !picked.type.startsWith('image/')) return;
@@ -394,7 +306,7 @@ function Trial({ active, notes, target }: { active: Profile; notes: boolean; tar
       reader.readAsDataURL(picked);
     });
     // The name is only what the history shows; the bytes are in the data URL.
-    await trial(picked.name || 'pasted image', dataUrl);
+    await trial.run(picked.name || 'pasted image', dataUrl);
   };
 
   // Only an image on the clipboard: pasting a key into a field is still a paste.
@@ -411,10 +323,8 @@ function Trial({ active, notes, target }: { active: Profile; notes: boolean; tar
     return () => document.removeEventListener('paste', listener);
   }, []);
 
+  const { result } = trial;
   const stages = result ? stagesOf(result.timings) : [];
-  const total = result ? result.timings.total_ms || stages.reduce((n, s) => n + s.ms, 0) : 0;
-  // The result the way a page would show it, which depends on the notes setting.
-  const asNotes = Boolean(notes && result?.width && result.height && result.original);
 
   return (
     <section id="try" class={dropping ? 'dropping' : ''}
@@ -432,30 +342,24 @@ function Trial({ active, notes, target }: { active: Profile; notes: boolean; tar
       <p class="blurb">Runs this profile on one image, into {target}. An image dropped or
         pasted on this page works too.</p>
       <div class="buttons">
-        <button type="button" disabled={Boolean(job)}
-          onClick={() => trial(chrome.runtime.getURL('sample.jpg'))}>Sample page</button>
-        <button type="button" disabled={Boolean(job)}
+        <button type="button" disabled={trial.busy}
+          onClick={() => trial.run(chrome.runtime.getURL('sample.jpg'))}>Sample page</button>
+        <button type="button" disabled={trial.busy}
           onClick={() => file.current!.click()}>Choose an image…</button>
-        {job && <button type="button" onClick={() =>
-          chrome.runtime.sendMessage({ type: 'cancelImage', jobId: job })}>Stop</button>}
+        {trial.running && <button type="button" onClick={trial.cancel}>Stop</button>}
         <input type="file" ref={file} accept="image/*" hidden onChange={(e) => {
           trialFile(e.currentTarget.files?.[0]);
           e.currentTarget.value = '';
         }} />
       </div>
-      <Status of={told} live />
+      <Status of={trial.told} live />
       {result?.image && (
         <div>
           <div id="try-stages">
-            <Bar stages={stages} scale={total} tall />
+            <Bar stages={stages} scale={totalOf(result)} tall />
             <Legend stages={stages} />
           </div>
-          <div id="try-frame">
-            <img id="try-image" alt=""
-              src={((original || asNotes ? result.original : null) || result.image) as string} />
-            {asNotes && !original && <NotesLayer result={result} />}
-          </div>
-          <Check label="Show the original" checked={original} onCheck={setOriginal} />
+          <TrialImage result={result} notes={notes} />
           <ol id="try-blocks">
             {result.blocks.map((b) => (
               <li>
@@ -470,15 +374,6 @@ function Trial({ active, notes, target }: { active: Profile; notes: boolean; tar
       )}
     </section>
   );
-}
-
-function Toggle({ on, set, label, children }: {
-  on: boolean; set: (on: boolean) => void; label: string; children: ComponentChildren;
-}) {
-  return <>
-    <Check label={label} checked={on} onCheck={set} />
-    <p class="blurb">{children}</p>
-  </>;
 }
 
 function PurgeButton() {
@@ -594,7 +489,7 @@ function Options() {
     save(key, on);
   };
 
-  const translates = ocrAdapter(active.reader.adapter).capabilities.alsoTranslates;
+  const translates = !rolesUsed(active).includes('translator');
   const roleProps = (r: Role) => ({
     profile: active, fresh: fresh === active.id,
     status: tested[r] || NONE, edit: edit(r), setKey: setKey(r),

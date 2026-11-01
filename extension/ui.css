@@ -1,4 +1,4 @@
-/* Shared by the popup, the settings page and the stats page. Anything that is
+/* Shared by every extension page. Anything that is
    not specific to one of them belongs here rather than in a page's own block. */
 
 :root {
@@ -70,8 +70,9 @@ section {
   border-top: 1px solid var(--line);
 }
 
-label { display: block; margin-bottom: calc(var(--step) * 3); }
-label > span { display: block; color: var(--muted); margin-bottom: 3px; font-size: 12px; }
+label, .field { display: block; margin-bottom: calc(var(--step) * 3); }
+label > span, .field > span { display: block; color: var(--muted); margin-bottom: 3px;
+                              font-size: 12px; }
 
 input, select {
   width: 100%;
@@ -110,6 +111,10 @@ button {
 }
 button:hover { border-color: var(--muted); }
 button[disabled] { color: var(--muted); cursor: default; border-color: var(--line); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg);
+                 font-weight: 600; }
+button.primary:hover { filter: brightness(1.1); }
+button.primary[disabled] { opacity: .6; filter: none; }
 
 .buttons { display: flex; gap: calc(var(--step) * 2); }
 
@@ -140,5 +145,12 @@ a { color: var(--accent); }
 .legend i.substage { width: 5px; height: 5px; margin-left: 2px; opacity: .55; }
 .legend .substage-label { padding-left: 4px; color: var(--muted); }
 .legend .substage-value { opacity: .8; }
+
+/* The trial run's result, on the settings page and the welcome page. */
+.trial-frame { position: relative; width: fit-content; max-width: 100%;
+               margin-bottom: calc(var(--step) * 2); }
+.trial-frame img { display: block; max-width: 100%;
+                   border: 1px solid var(--line); border-radius: var(--radius); }
+.trial-notes { position: absolute; inset: 0; }
 
 footer { margin-top: calc(var(--step) * 7); font-size: 12px; }

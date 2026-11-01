@@ -24,6 +24,11 @@ export async function packState(source: string, target: string): Promise<PackSta
   return api.availability(pair(source, target));
 }
 
+/** `pack` names the pack where nothing beside the line says which. */
+export const fetchingNote = (fraction?: number, pack = '') =>
+  note(`Downloading${pack ? ` the ${pack} pack` : ''}…`
+    + (fraction === undefined ? '' : ` ${Math.round(fraction * 100)}%`));
+
 /** Has to be called from a click handler, or Chrome refuses to download. */
 export async function downloadPack(
   source: string, target: string, progress: (fraction: number) => void,
@@ -49,10 +54,9 @@ export function PackStatus({ source, target, stamp = 0 }: {
 
   const download = async () => {
     setDownloading(true);
-    setProgress(note('Downloading…'));
+    setProgress(fetchingNote());
     try {
-      await downloadPack(source, target,
-        (done) => setProgress(note(`Downloading… ${Math.round(done * 100)}%`)));
+      await downloadPack(source, target, (done) => setProgress(fetchingNote(done)));
       setProgress(null);
     } catch (e: any) {
       setProgress(note(String(e?.message || e), 'bad'));
