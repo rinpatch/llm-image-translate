@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges">
+  <defs><clipPath id="tile"><rect width="16" height="16" rx="3"/></clipPath></defs>
+  <g clip-path="url(#tile)">
+    <rect width="16" height="16" fill="#35618e"/>
+    <path d="M0 14 L4 10 L6 12 L9 9 L16 15 V16 H0 Z" fill="#4f7eae" shape-rendering="auto"/>
+    <rect x="7" y="6" width="9" height="9" fill="#000"/>
+    <rect x="8" y="7" width="7" height="7" fill="#ffe"/>
+  </g>
+  <path fill="#fff" d="M4 2h1v1h-1z M1 3h1v1h-1z M2 3h1v1h-1z M3 3h1v1h-1z M4 3h1v1h-1z M5 3h1v1h-1z M6 3h1v1h-1z M2 4h1v1h-1z M6 4h1v1h-1z M3 5h1v1h-1z M5 5h1v1h-1z M4 6h1v1h-1z M2 7h1v1h-1z M3 7h1v1h-1z M5 7h1v1h-1z M6 7h1v1h-1z"/>
+  <path fill="#000" d="M11 7h1v1h-1z M10 8h1v1h-1z M12 8h1v1h-1z M10 9h1v1h-1z M12 9h1v1h-1z M9 10h1v1h-1z M10 10h1v1h-1z M11 10h1v1h-1z M12 10h1v1h-1z M13 10h1v1h-1z M9 11h1v1h-1z M13 11h1v1h-1z M9 12h1v1h-1z M13 12h1v1h-1z"/>
+</svg>
