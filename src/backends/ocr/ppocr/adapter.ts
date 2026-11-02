@@ -21,6 +21,13 @@ interface Spot {
 // where the faintest real line still scores above 0.6.
 const MIN_SCORE = 0.5;
 
+// The general recogniser has no Hangul, so Korean needs a second one. On Auto
+// nobody has said what the page is in, so both read every line.
+const scriptFor = (source: string): string => {
+  const name = source.trim().toLowerCase();
+  return name === 'korean' ? 'korean' : name === 'auto' || !name ? 'compare' : 'general';
+};
+
 const boxOf = (quad: [number, number][]): Box => [
   Math.round(Math.min(...quad.map((p) => p[0]))),
   Math.round(Math.min(...quad.map((p) => p[1]))),
@@ -47,8 +54,8 @@ export const ppOcrBrowser: OcrAdapter = {
   // page is the crops it recognises, not the detection. PNG because the bytes
   // never leave the browser.
   capabilities: { maxDim: 1600, encode: 'png', alsoTranslates: false, inBrowser: true },
-  build: (image: EncodedImage): ModelRequest => ({
-    kind: 'offscreen', body: { image: image.dataUrl },
+  build: (image: EncodedImage, _target: string, source = 'Auto'): ModelRequest => ({
+    kind: 'offscreen', body: { image: image.dataUrl, script: scriptFor(source) },
   }),
   parse: parseSpots,
 };

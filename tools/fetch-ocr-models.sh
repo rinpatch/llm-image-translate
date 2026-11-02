@@ -39,6 +39,18 @@ curl -fsSL --retry 3 -o "$dict" \
 classes=$(wc -l < "$out/charset.txt" | tr -d ' ')
 [ "$classes" -eq 18709 ] || { echo "charset is $((classes + 1)) entries, expected 18710" >&2; exit 1; }
 
+# The general recogniser has no Hangul at all. Korean has its own, a PP-OCRv5
+# one since there is no v6 for it yet, with only Hangul and Latin in it. Its
+# table is laid out the same way: 11945 entries, 11947 outputs.
+curl -fsSL --retry 3 -o "$out/korean_PP-OCRv5_rec_mobile.onnx" \
+  "$models/onnx/PP-OCRv5/rec/korean_PP-OCRv5_rec_mobile.onnx"
+curl -fsSL --retry 3 -o "$dict" \
+  "$models/paddle/PP-OCRv5/rec/korean_PP-OCRv5_rec_mobile/ppocrv5_korean_dict.txt"
+{ printf 'blank\n'; sed -e '$a\' "$dict"; printf ' '; } > "$out/charset-korean.txt"
+
+classes=$(wc -l < "$out/charset-korean.txt" | tr -d ' ')
+[ "$classes" -eq 11946 ] || { echo "Korean charset is $((classes + 1)) entries, expected 11947" >&2; exit 1; }
+
 # One WebAssembly build serves both providers: ONNX Runtime 1.30 asks for the
 # asyncify pair when WebGPU is the backend, and the same binary carries the CPU
 # kernels the wasm provider falls back to. The loader beside it is fetched by

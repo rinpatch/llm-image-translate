@@ -62,7 +62,7 @@ export interface OcrAdapter {
     /** Runs in this browser, so there is no endpoint to point at or test. */
     inBrowser?: boolean;
   };
-  build(image: EncodedImage, target: string): ModelRequest;
+  build(image: EncodedImage, target: string, source?: string): ModelRequest;
   parse(content: string, image: EncodedImage): TextLine[];
 }
 

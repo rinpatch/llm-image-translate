@@ -145,6 +145,12 @@ outputs, and the missing two are CTC's blank at the front and a space at the
 back — which is why the script checks the count and why `engine.ts` splits the
 file on `\n` alone. Trimming it would lose exactly that space.
 
+There is a third model beside them: PP-OCRv5's Korean recogniser, because
+the general one has no Hangul and reads a Korean line as a stray digit. It
+replaces the general one when Translate from is Korean, and on Auto it reads
+every line too and wins only where its reading has Hangul in it — without that
+check it reads a Japanese line as a lone `1` at 0.99 confidence.
+
 It lives in an offscreen document (`src/offscreen.ts`), not the worker, because
 a service worker is evicted after thirty seconds idle and has no `Worker`. The
 worker creates the document on demand (`src/platform/offscreen.ts`) and reaches

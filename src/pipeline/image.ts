@@ -208,7 +208,7 @@ export async function translateImage(
   let spots: TextLine[] = [];
   try {
     started = Date.now();
-    const reply = await send(toEndpoint(config.reader), ocr.build(image, config.target),
+    const reply = await send(toEndpoint(config.reader), ocr.build(image, config.target, config.source),
       'the reader', signal);
     timings.read = stageOf(Date.now() - started, [reply.stats]);
     spots = ocr.parse(reply.text, image);

@@ -15,6 +15,7 @@ looked at. Run them all with `tools/render-fixtures.sh`.
 | `banner-large.png` | 556px, the same banner | The one that showed level text being given a lean. The `東京都` pill is small enough that the profile ties with itself at every shallow angle. |
 | `tweets-thread.png` | X thread, dark, three posts and a quoted one | The handle line sits at the body's pitch, in the body's size, on the body's left margin — nothing about the boxes says it is not the first line of the post. What says it is the grey of `·1h` meeting the white of the first word below. |
 | `picnic-bullets.png` | Japanese infographic, two panels and four bullet lists | Bullets are evenly spaced, one line each, set exactly like a wrapped paragraph. Only the `・` tells them apart, so this is the page that says grouping cannot be blind to the text. |
+| `korean-caption.png` | phone photo of a meal, one white Korean caption | The general recogniser has no Hangul and read the caption as `0`, so nothing was translated. On Auto the Korean recogniser has to win this line. |
 | `leaflet-story.png` | our own Russian render of the leaflet, as posted | A screenshot of translated output, so it reads back as an ordinary page. |
 
 ## reported/

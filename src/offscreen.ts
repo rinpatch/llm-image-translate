@@ -5,7 +5,7 @@
 // weights and recompiling shaders on the click that matters. A document has no
 // extension API but `chrome.runtime` — no storage, no tabs — so the worker
 // decides everything and this only ever answers the one question.
-import { Reader } from './backends/ocr/ppocr/engine.ts';
+import { Reader, type Script } from './backends/ocr/ppocr/engine.ts';
 
 // WebGPU first: the detector takes about 50ms there against 555ms on wasm,
 // which is only for machines without WebGPU.
@@ -14,10 +14,10 @@ const reader = new Reader({
   providers: ['webgpu', 'wasm'],
 });
 
-async function read(dataUrl: string) {
+async function read(dataUrl: string, script?: Script) {
   const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob());
   try {
-    return await reader.read(bitmap);
+    return await reader.read(bitmap, script);
   } finally {
     bitmap.close();
   }
@@ -88,7 +88,7 @@ chrome.runtime.onMessage.addListener((msg: any, _sender, sendResponse) => {
     try {
       switch (msg.type) {
         case 'ocr': {
-          const { spots, timings } = await read(msg.image);
+          const { spots, timings } = await read(msg.image, msg.script);
           sendResponse({ ok: true, lines: spots, timings });
           break;
         }

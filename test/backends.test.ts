@@ -234,6 +234,14 @@ test('a reader in this browser is asked without a socket, and answers with lines
     'the quad becomes the box that holds it, and a guess below MIN_SCORE is dropped');
 });
 
+test('the browser reader brings in its Korean recogniser unless the page is known not to be Korean', () => {
+  const script = (source?: string) => ppOcrBrowser.build(image, 'English', source).body.script;
+  assert.equal(script('Korean'), 'korean');
+  assert.equal(script('Auto'), 'compare');
+  assert.equal(script(), 'compare');
+  assert.equal(script('Japanese'), 'general');
+});
+
 test('a reader that cannot run here says so rather than posting somewhere', async () => {
   readsInBrowser(null);
   await assert.rejects(send({ baseUrl: '' }, ppOcrBrowser.build(image, 'English'), 'the reader'),

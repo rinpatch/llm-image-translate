@@ -21,6 +21,15 @@ const REC_WIDTH = 320;
  *  widest member, so a wide one in with narrow ones is wasted work. */
 const REC_BATCH = 6;
 
+/**
+ * In `compare`, the Korean reading only replaces the general one when it has
+ * Hangul in it and is at least this sure. Without the Hangul it is the Korean
+ * model reading Japanese as a lone "1" at 0.99; real Korean lines score 0.96
+ * and up, and the nearest miss on a manga page was 0.75.
+ */
+const KOREAN_MIN = 0.8;
+const HANGUL = /[\u3131-\u318e\uac00-\ud7a3]/;
+
 /** Taller than this against its width and the line is a column, read sideways. */
 const UPRIGHT_RATIO = 1.5;
 
@@ -29,6 +38,13 @@ export interface Spot {
   score: number;
   quad: Point[];
 }
+
+/**
+ * Which recogniser reads the lines. The general one has no Hangul at all and
+ * the Korean one has nothing else but Latin, so neither can stand in for the
+ * other. `compare` reads every line with both and keeps the surer reading.
+ */
+export type Script = 'general' | 'korean' | 'compare';
 
 export interface Timings {
   det_ms: number;
@@ -111,10 +127,15 @@ function crop(source: OffscreenCanvas, quad: Point[]): OffscreenCanvas {
   return canvas;
 }
 
+interface Recogniser {
+  session: ort.InferenceSession;
+  charset: string[];
+}
+
 export class Reader {
   private det?: ort.InferenceSession;
-  private rec?: ort.InferenceSession;
-  private charset: string[] = [];
+  private rec?: Recogniser;
+  private korean?: Promise<Recogniser>;
   private starting?: Promise<void>;
   private readonly db: DbOptions;
   private readonly options: EngineOptions;
@@ -134,8 +155,27 @@ export class Reader {
     await this.starting;
   }
 
+  private at(file: string): string {
+    return `${this.options.base}${file}`;
+  }
+
+  private async recogniser(model: string, charset: string): Promise<Recogniser> {
+    const table = fetch(this.at(charset)).then((r) => r.text());
+    const session = await ort.InferenceSession.create(this.at(model),
+      { executionProviders: [...this.options.providers] });
+    // Split on \n and not by line: the table has a literal space in it as its
+    // last entry, and trimming would lose exactly that one.
+    return { session, charset: (await table).split('\n') };
+  }
+
+  /** Only built the first time a page asks for it, after the other two. */
+  private koreanReady(): Promise<Recogniser> {
+    this.korean ??= this.ready().then(() =>
+      this.recogniser('korean_PP-OCRv5_rec_mobile.onnx', 'charset-korean.txt'));
+    return this.korean;
+  }
+
   private async start(): Promise<void> {
-    const at = (file: string) => `${this.options.base}${file}`;
     // Bundled into one file, so there is no script URL for the runtime to work
     // its own location out from — it has to be told where the WebAssembly is.
     ort.env.wasm.wasmPaths = this.options.base;
@@ -143,18 +183,16 @@ export class Reader {
     // cross-origin isolated and an extension page is not.
     ort.env.wasm.numThreads = 1;
     ort.env.logLevel = 'error';
-    const config = { executionProviders: [...this.options.providers] };
-    const charset = fetch(at('charset.txt')).then((r) => r.text());
     // One after the other, for the same reason.
-    this.det = await ort.InferenceSession.create(at('PP-OCRv6_det_small.onnx'), config);
-    this.rec = await ort.InferenceSession.create(at('PP-OCRv6_rec_small.onnx'), config);
-    // Split on \n and not by line: the table has a literal space in it as its
-    // last entry, and trimming would lose exactly that one.
-    this.charset = (await charset).split('\n');
+    this.det = await ort.InferenceSession.create(this.at('PP-OCRv6_det_small.onnx'),
+      { executionProviders: [...this.options.providers] });
+    this.rec = await this.recogniser('PP-OCRv6_rec_small.onnx', 'charset.txt');
   }
 
-  async read(bitmap: ImageBitmap): Promise<{ spots: Spot[]; timings: Timings }> {
+  async read(bitmap: ImageBitmap, script: Script = 'general'):
+    Promise<{ spots: Spot[]; timings: Timings }> {
     await this.ready();
+    const korean = script === 'general' ? undefined : await this.koreanReady();
     const started = Date.now();
     const { canvas: page } = this.draw(bitmap);
 
@@ -163,7 +201,18 @@ export class Reader {
     const det_ms = Date.now() - detAt;
 
     const recAt = Date.now();
-    const spots = await this.recognise(page, quads);
+    const crops = quads.map((quad) => crop(page, quad.points));
+    const readings = script === 'korean'
+      ? await this.recognise(korean!, crops)
+      : await this.recognise(this.rec!, crops);
+    if (script === 'compare') {
+      const other = await this.recognise(korean!, crops);
+      other.forEach((reading, i) => {
+        if (HANGUL.test(reading.text) && reading.score >= KOREAN_MIN
+            && reading.score > readings[i].score) readings[i] = reading;
+      });
+    }
+    const spots = readings.map((reading, i) => ({ ...reading, quad: quads[i].points }));
     const rec_ms = Date.now() - recAt;
 
     return {
@@ -193,26 +242,22 @@ export class Reader {
     return boxesFromMap(map, size.width, size.height, width, height, this.db);
   }
 
-  private async recognise(page: OffscreenCanvas, quads: Quad[]): Promise<Spot[]> {
-    if (!quads.length) return [];
-    const crops = quads.map((quad) => crop(page, quad.points));
+  private async recognise(rec: Recogniser, crops: OffscreenCanvas[]): Promise<Reading[]> {
     // Widest last, so a batch holds crops of a similar shape and the padding to
     // the widest of them is not most of the batch.
     const order = crops.map((_, i) => i)
       .sort((a, b) => crops[a].width / crops[a].height - crops[b].width / crops[b].height);
 
-    const spots: Spot[] = new Array(quads.length);
+    const readings: Reading[] = new Array(crops.length);
     for (let from = 0; from < order.length; from += REC_BATCH) {
       const batch = order.slice(from, from + REC_BATCH);
-      const readings = await this.recogniseBatch(batch.map((i) => crops[i]));
-      batch.forEach((index, at) => {
-        spots[index] = { ...readings[at], quad: quads[index].points };
-      });
+      const read = await this.recogniseBatch(rec, batch.map((i) => crops[i]));
+      batch.forEach((index, at) => { readings[index] = read[at]; });
     }
-    return spots;
+    return readings;
   }
 
-  private async recogniseBatch(crops: OffscreenCanvas[]): Promise<Reading[]> {
+  private async recogniseBatch(rec: Recogniser, crops: OffscreenCanvas[]): Promise<Reading[]> {
     const widest = crops.reduce((most, one) =>
       Math.max(most, one.width / one.height), REC_WIDTH / REC_HEIGHT);
     const width = Math.round(REC_HEIGHT * widest);
@@ -237,12 +282,12 @@ export class Reader {
       }
     });
 
-    const output = await this.rec!.run({
+    const output = await rec.session.run({
       x: new ort.Tensor('float32', input, [crops.length, 3, REC_HEIGHT, width]),
     });
-    const tensor = output[this.rec!.outputNames[0]] as ort.Tensor;
+    const tensor = output[rec.session.outputNames[0]] as ort.Tensor;
     const logits = await tensor.getData() as Float32Array;
     const [, slices, classes] = tensor.dims as number[];
-    return crops.map((_, item) => decode(logits, item, slices, classes, this.charset));
+    return crops.map((_, item) => decode(logits, item, slices, classes, rec.charset));
   }
 }
