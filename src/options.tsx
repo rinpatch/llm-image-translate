@@ -497,7 +497,7 @@ function Options() {
 
   return (
     <>
-      <h1>Image Translate</h1>
+      <h1>LLM Image Translate</h1>
       <p class="blurb">A reader finds the text, a translator translates it.</p>
 
       <ProfilePicker list={list} active={active} switchTo={switchTo}

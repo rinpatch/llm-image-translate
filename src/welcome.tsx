@@ -226,7 +226,7 @@ function Welcome() {
       <header class="hero">
         <img src="icons/128.png" alt="" />
         <div>
-          <h1>Image Translate</h1>
+          <h1>LLM Image Translate</h1>
           <p>Reads the text in an image and paints the translation over it.</p>
         </div>
       </header>

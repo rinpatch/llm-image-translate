@@ -1,4 +1,4 @@
-# Image Translate
+# LLM Image Translate
 
 A Chrome extension that translates the text inside images. By default the text is read
 in the browser and translated by a

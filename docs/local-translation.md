@@ -15,7 +15,7 @@ Then set the extension to use OpenAI-compatible model at `http://127.0.0.1:8091`
 `Hy-MT2-1.8B-GGUF:Q6_K` uses 4GB of RAM, so you might not want to keep it loaded in memory on a personal computer. Fortunately, we can automatically unload the model when not in use using the `sleep-idle-seconds` option in `llama.cpp`, when unloaded the server only consumes ~100MB of memory, however the next translation will have to wait while the weights are loaded (around 2 seconds on M4 Pro).
 
 ## Setting up on MacOS with auto-scaling
-`macos/install.sh` in the Image Translate repository starts the translator at login and keeps them running in the background.
+`macos/install.sh` in the LLM Image Translate repository starts the translator at login and keeps them running in the background.
 
 1. Install llama.cpp:
 
@@ -25,7 +25,7 @@ Then set the extension to use OpenAI-compatible model at `http://127.0.0.1:8091`
 2. Fetch and run the script. The first run downloads the models, which takes a few minutes:
 
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/rinpatch/image-translate/main/macos/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/rinpatch/llm-image-translate/main/macos/install.sh | bash
    ```
 3. Check that the translator answers. `200` means it is up:
 
@@ -37,9 +37,9 @@ Then set the extension to use OpenAI-compatible model at `http://127.0.0.1:8091`
 To remove everything, run:
 
 ```bash
-launchctl bootout gui/$UID/me.wantan.image-translate.translator
-rm ~/Library/LaunchAgents/me.wantan.image-translate.translator.plist
-rm -r ~/Library/Logs/image-translate
+launchctl bootout gui/$UID/me.wantan.llm-image-translate.translator
+rm ~/Library/LaunchAgents/me.wantan.llm-image-translate.translator.plist
+rm -r ~/Library/Logs/llm-image-translate
 ```
 
 The downloaded model stays in `~/.cache/huggingface` until you delete them.

@@ -6,9 +6,9 @@
 # back at the price of the memory.
 set -euo pipefail
 
-LABEL="me.wantan.image-translate.translator"
+LABEL="me.wantan.llm-image-translate.translator"
 AGENTS="$HOME/Library/LaunchAgents"
-LOGS="$HOME/Library/Logs/image-translate"
+LOGS="$HOME/Library/Logs/llm-image-translate"
 MODEL="tencent/Hy-MT2-1.8B-GGUF:Q6_K"
 PORT=8091
 IDLE="${IDLE:-60}"
