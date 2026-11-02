@@ -23,27 +23,22 @@ only way back to the original and the only way to call a slow translation off.
 ## Running it
 
 ```bash
-./macos/install.sh         # reader on :8090, translator on :8091, at login
+./macos/install.sh         # translator on :8091, at login
 npm install && npm run build
 ```
 
-The two models run as launchd agents that start at login. A minute after the
-last request they hand their weights back, which takes them from 4.2 GB between
-them to 0.34 GB:
+The translator runs as a launchd agent that starts at login. A minute after the
+last request it hands its weights back, which takes it from 1.99 GB to 0.12 GB;
+the first request after that waits 3.1s reading them back off disk, and the
+next takes 0.2s. If you would rather have the seconds than the gigabytes,
+`IDLE=-1 ./macos/install.sh` never sleeps.
 
-| | reader | translator |
-| --- | --- | --- |
-| working | 2.19 GB | 1.99 GB |
-| idle | 0.22 GB | 0.12 GB |
-| first request after idling | 4.7s | 3.1s |
-| once awake | 0.4s | 0.2s |
+Logs are in `~/Library/Logs/image-translate/`. To take it out again:
 
-The wait is reading the weights back off disk, and it is per model — translating
-a picture wakes both, translating the next one wakes neither. If you would rather
-have the seconds than the gigabytes, `IDLE=-1 ./macos/install.sh` never sleeps.
-
-`./macos/install.sh --uninstall` takes them out again; logs are in
-`~/Library/Logs/image-translate/`.
+```bash
+launchctl bootout gui/$UID/me.wantan.image-translate.translator
+rm ~/Library/LaunchAgents/me.wantan.image-translate.translator.plist
+```
 
 Then load `extension/` from `chrome://extensions` with developer mode on.
 `npm run watch` rebuilds on save; the extension still has to be reloaded there
@@ -79,11 +74,10 @@ per line whenever the reply drifts.
 
 Neither gets `雨宮静久` right at this size; the hosted 30B is the only model
 tried that does. TranslateGemma still reads `晴山空` slightly better, which is
-why it still has a profile of its own:
+why it still has a profile of its own. It will not start without `--no-jinja`:
 
 ```bash
-MT_MODEL=bullerwins/translategemma-4b-it-GGUF:Q4_K_M MT_ARGS=--no-jinja \
-  ./macos/install.sh
+llama-server -hf bullerwins/translategemma-4b-it-GGUF:Q4_K_M --port 8091 --no-jinja
 ```
 
 ## What it does

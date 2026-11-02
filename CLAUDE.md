@@ -273,7 +273,9 @@ through a message, and turning debug mode off throws them all away.
 
 ## Against the live models
 
-`./macos/install.sh` puts the reader on :8090 and the translator on :8091.
+`./macos/install.sh` puts the translator on :8091. A HunyuanOCR reader, if
+there is one, is on :8090 and started by hand:
+`llama-server -hf prithivMLmods/HunyuanOCR-1.5-GGUF-Updated:Q8_0 --port 8090 -fa on --sleep-idle-seconds 60`.
 `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8090/v1/models` before
 blaming the code.
 

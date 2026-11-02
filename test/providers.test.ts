@@ -34,7 +34,7 @@ test('every shipped OpenRouter model shows up by name rather than as "another mo
   }
 });
 
-test('the models install.sh serves get the adapters the shipped profiles use', () => {
+test('the local models get the adapters the shipped profiles use', () => {
   assert.equal(guessAdapter('reader', 'prithivMLmods/HunyuanOCR-1.5-GGUF-Updated:Q8_0', true),
     'hunyuan-spotting');
   assert.equal(guessAdapter('translator', 'tencent/Hy-MT2-1.8B-GGUF:Q6_K', true), 'hunyuan-mt');
