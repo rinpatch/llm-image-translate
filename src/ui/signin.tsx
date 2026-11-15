@@ -80,7 +80,6 @@ export function SignIn({ token, setKey, div }: {
             onCommit={(url) => paste.current(url.trim())} />
         </Row>
       )}
-      <p class="blurb">Translations count against your ChatGPT plan's usage.</p>
     </>
   );
 }

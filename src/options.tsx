@@ -176,7 +176,6 @@ function Options() {
 
       <section>
         <h2>Translator</h2>
-        <p class="blurb">PP-OCR finds and reads the text, in this browser; this translates it.</p>
         <Choices translator={translator} target={stored.target} />
       </section>
 
