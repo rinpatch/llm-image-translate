@@ -146,7 +146,7 @@ a { color: var(--accent); }
 .legend .substage-label { padding-left: 4px; color: var(--muted); }
 .legend .substage-value { opacity: .8; }
 
-/* The trial run's result, on the settings page and the welcome page. */
+/* The trial run's result, on the settings page. */
 .trial-frame { position: relative; width: fit-content; max-width: 100%;
                margin-bottom: calc(var(--step) * 2); }
 .trial-frame img { display: block; max-width: 100%;
@@ -154,3 +154,31 @@ a { color: var(--accent); }
 .trial-notes { position: absolute; inset: 0; }
 
 footer { margin-top: calc(var(--step) * 7); font-size: 12px; }
+
+/* The setup cards, on the welcome page and the settings page. */
+.choice { display: flex; gap: calc(var(--step) * 3); align-items: flex-start;
+          padding: calc(var(--step) * 3) calc(var(--step) * 4);
+          margin-bottom: calc(var(--step) * 2);
+          border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
+.choice:has(input[type=radio]:checked) { border-color: var(--accent);
+                                         box-shadow: inset 0 0 0 1px var(--accent); }
+.choice:has(input[type=radio]:disabled) { cursor: default; opacity: .6; }
+.choice > input { width: auto; margin-top: 4px; }
+.choice > div { flex: 1; min-width: 0; }
+.choice b { display: block; font-weight: 600; }
+.choice .blurb { margin: 2px 0 0; font-size: 13px; }
+.fields { margin-top: calc(var(--step) * 3); }
+.choice:not(:has(input[type=radio]:checked)) .fields { display: none; }
+.fields .field:last-child { margin-bottom: 0; }
+.fields .status { min-height: 0; }
+
+.packs { margin-top: calc(var(--step) * 5); }
+.packs h3 { font-size: 13px; margin: 0 0 2px; }
+.packs ul { list-style: none; margin: 0; padding: 0; }
+.packs li { display: flex; align-items: center; gap: calc(var(--step) * 3);
+            padding: calc(var(--step) * 2) 0; border-bottom: 1px solid var(--line); }
+.packs li > :first-child { flex: 0 0 140px; }
+.packs li .status { flex: 1; min-height: 0; }
+.packs li select { width: auto; }
+
+.custom { margin-top: calc(var(--step) * 6); }

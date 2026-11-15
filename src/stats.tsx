@@ -122,7 +122,7 @@ function Stats() {
 
   return (
     <>
-      <h1>Timings</h1>
+      <h1>History &amp; Performance</h1>
       {/* Nothing to switch between until a second profile has translated something. */}
       {report.profiles.length > 1 && (
         <label class="scope"><span>Profile</span>

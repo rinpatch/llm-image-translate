@@ -154,12 +154,12 @@ test('the effort and tier picked on the profile are the ones asked for', async (
     return new Response('');
   }) as typeof fetch;
   const fresh = startOn('translator', 'chatgpt');
-  for (const settings of [fresh, { ...fresh, effort: 'high', fast: true }]) {
+  for (const settings of [fresh, { ...fresh, effort: 'high', fast: false }]) {
     await send(toEndpoint(settings), chatLines.build(['x'], 'Chinese', 'English'), 'the translator')
       .catch(() => {});
   }
   assert.deepEqual(efforts, ['low', 'high']);
-  assert.deepEqual(tiers, [undefined, 'priority']);
+  assert.deepEqual(tiers, ['priority', undefined], 'fast unless turned off');
 });
 
 test('a spent allowance says why, not just its status', async () => {

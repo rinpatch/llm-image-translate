@@ -195,7 +195,7 @@ function Debug() {
         <div class="rule">
           <div class="buttons">
             <a href="options.html">← Settings</a>
-            <a href="stats.html">Timings</a>
+            <a href="stats.html">History &amp; Performance</a>
           </div>
           {trace && <button type="button" onClick={async () => {
             await forget();

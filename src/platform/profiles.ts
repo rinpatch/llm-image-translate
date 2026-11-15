@@ -14,7 +14,7 @@ export interface EndpointSettings {
   adapter: string;
   /** The ChatGPT plan's reasoning effort. Unset is low. */
   effort?: string;
-  /** The ChatGPT plan's fast mode. */
+  /** The ChatGPT plan's fast mode. Unset is on: it is only ever turned off. */
   fast?: boolean;
 }
 
@@ -28,7 +28,7 @@ export const toEndpoint = (
   ...(apiKey ? { apiKey } : {}),
   ...(model ? { model } : {}),
   ...(provider === 'chatgpt'
-    ? { responses: true, ...(effort ? { effort } : {}), ...(fast ? { fast } : {}) } : {}),
+    ? { responses: true, ...(effort ? { effort } : {}), ...(fast !== false ? { fast: true } : {}) } : {}),
 });
 
 /**
@@ -76,10 +76,10 @@ const CHATGPT: Profile = {
   translator: endpoint('chatgpt', OPENAI, 'chat-lines', 'gpt-6-luna'),
 };
 
-/** What a fresh install has. The rest are added as the welcome page picks them. */
+/** What a fresh install has. The rest are added as their cards are picked. */
 export const SHIPPED: Profile[] = [IN_BROWSER];
 
-/** The setups the welcome page offers, written into the list when picked. */
+/** The setups offered as cards, written into the list when picked. */
 export const PRESETS: Profile[] = [IN_BROWSER, HOSTED, CHATGPT];
 
 /** Ids are only ever compared, never parsed. */

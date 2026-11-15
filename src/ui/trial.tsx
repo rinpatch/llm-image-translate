@@ -1,4 +1,4 @@
-// The trial run, on the settings page and the welcome page. It goes through the
+// The trial run on the settings page. It goes through the
 // worker exactly as a page's image would, so what it reports is what the badge
 // would do with the active profile.
 import { useEffect, useRef, useState } from 'preact/hooks';

@@ -1,5 +1,5 @@
 // What a server says it serves, and what follows from that: shared by the
-// settings page's endpoints and the welcome page's server card.
+// settings page's endpoints and the server card.
 import { useEffect, useRef } from 'preact/hooks';
 import { type ListedModel, listModels } from '../backends/client.ts';
 import { type EndpointSettings, type Role, toEndpoint } from '../platform/profiles.ts';

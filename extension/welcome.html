@@ -21,37 +21,12 @@
   .steps h2 { font-size: 16px; margin-bottom: calc(var(--step) * 3); }
   #target { max-width: 240px; }
 
-  .choice { display: flex; gap: calc(var(--step) * 3); align-items: flex-start;
-            padding: calc(var(--step) * 3) calc(var(--step) * 4);
-            margin-bottom: calc(var(--step) * 2);
-            border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
-  .choice:has(input[type=radio]:checked) { border-color: var(--accent);
-                                           box-shadow: inset 0 0 0 1px var(--accent); }
-  .choice:has(input[type=radio]:disabled) { cursor: default; opacity: .6; }
-  .choice > input { width: auto; margin-top: 4px; }
-  .choice > div { flex: 1; min-width: 0; }
-  .choice b { display: block; font-weight: 600; }
-  .choice .blurb { margin: 2px 0 0; font-size: 13px; }
-  .fields { margin-top: calc(var(--step) * 3); }
-  .choice:not(:has(input[type=radio]:checked)) .fields { display: none; }
-  .field:last-child { margin-bottom: 0; }
-  .fields .status { min-height: 0; }
+  .check { display: flex; align-items: center; gap: calc(var(--step) * 3); }
+  .check .status { min-height: 0; text-align: right; }
 
-  #packs { margin-top: calc(var(--step) * 5); }
-  #packs h3 { font-size: 13px; margin: 0 0 2px; }
-  #packs ul { list-style: none; margin: 0; padding: 0; }
-  #packs li { display: flex; align-items: center; gap: calc(var(--step) * 3);
-              padding: calc(var(--step) * 2) 0; border-bottom: 1px solid var(--line); }
-  #packs li > :first-child { flex: 0 0 140px; }
-  #packs li .status { flex: 1; min-height: 0; }
-  #packs li select { width: auto; }
-
-  .trial { display: grid; grid-template-columns: 260px 1fr; gap: calc(var(--step) * 6);
-           align-items: start; }
-  @media (max-width: 560px) { .trial { grid-template-columns: 1fr; } }
-  .trial .trial-frame { width: auto; }
-  .trial .trial-frame img { width: 100%; }
-  .trial .status { margin-top: calc(var(--step) * 3); }
+  .use h2 { font-size: 16px; margin-bottom: calc(var(--step) * 3); }
+  .practice { display: block; width: 260px; margin-top: calc(var(--step) * 4);
+              border-radius: var(--radius); }
 
   kbd { font: 12px/1 ui-monospace, monospace; padding: 2px 5px;
         border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; }
@@ -59,3 +34,5 @@
 
 <div id="app"></div>
 <script src="dist/welcome.js"></script>
+<!-- Content scripts never run on extension pages, so the practice screen loads it itself. -->
+<script src="dist/content.js"></script>

@@ -4,18 +4,19 @@ import { LANGUAGES } from './core/language.ts';
 import { OCR_ADAPTERS, TRANSLATE_ADAPTERS } from './backends/registry.ts';
 import { stagesOf } from './platform/metrics.ts';
 import { type PingResult } from './platform/messages.ts';
-import { SHIPPED, type Profile, copyOf, find, newId, uniqueName } from './platform/profiles.ts';
+import { type Profile, copyOf, find, newId, uniqueName } from './platform/profiles.ts';
 import {
   EFFORTS, adapterFor, knownModel, onePass, provider, providersFor,
   scopeOf, startOn, twoPass,
 } from './platform/providers.ts';
 import { hostOf, rolesUsed } from './platform/ready.ts';
 import {
-  type Keys, type Role, type Settings, ROLES, keys, profiles, purgeResults, save, saveKey,
-  saveProfiles, settings,
+  type Role, type Settings, purgeResults, save, settings,
 } from './platform/settings.ts';
+import { Choices } from './ui/choices.tsx';
 import { Input, Names, ProfileSelect, Row, Toggle } from './ui/fields.tsx';
 import { PackStatus } from './ui/packs.tsx';
+import { useProfiles } from './ui/profiles.ts';
 import { SignIn } from './ui/signin.tsx';
 import {
   type Served, ModelField, isLlamacpp, servedNote, useAdoption, useServed,
@@ -167,7 +168,7 @@ function EndpointFields({ role, endpoint, fresh, edit, setKey, afterModel, child
         </Row>
       )}
       {p.id === 'chatgpt' && (
-        <Toggle label="Fast mode" on={Boolean(endpoint.fast)}
+        <Toggle label="Fast mode" on={endpoint.fast !== false}
           set={(on) => edit((endpoint) => { endpoint.fast = on; })}>
           About 1.5× faster, and counts 2.5× against the plan's usage.
         </Toggle>
@@ -199,12 +200,11 @@ const lastModel = new Map<string, Endpoint>();
 interface RoleProps {
   profile: Profile;
   fresh: boolean;
-  status: Note;
   edit: Edit;
   setKey: (key: string) => void;
 }
 
-function Reader({ profile, fresh, status, edit, setKey }: RoleProps) {
+function Reader({ profile, fresh, edit, setKey }: RoleProps) {
   const endpoint = profile.reader;
   const inBrowser = endpoint.provider === 'browser';
   const plain = twoPass(endpoint.adapter);
@@ -239,12 +239,11 @@ function Reader({ profile, fresh, status, edit, setKey }: RoleProps) {
           )}
         </EndpointFields>
       )}
-      <Status of={status} />
     </section>
   );
 }
 
-function Translator({ profile, fresh, status, edit, setKey, target, source }:
+function Translator({ profile, fresh, edit, setKey, target, source }:
   RoleProps & { target: string; source: string }) {
   const endpoint = profile.translator;
   return (
@@ -254,7 +253,6 @@ function Translator({ profile, fresh, status, edit, setKey, target, source }:
       <EndpointFields role="translator" endpoint={endpoint} fresh={fresh} edit={edit} setKey={setKey}
         afterModel={endpoint.adapter === 'chrome-translator'
           && <Pack target={target} initial={source} />} />
-      <Status of={status} />
     </section>
   );
 }
@@ -275,7 +273,8 @@ function ProfilePicker({ list, active, switchTo, rename }: {
   return (
     <section>
       <h2>Profile</h2>
-      <p class="blurb">A reader and a translator under one name, switchable from the popup.</p>
+      <p class="blurb">A reader finds the text, a translator translates it. Each pair is kept
+        under a name, switchable from the toolbar button.</p>
       <Row label="In use">
         <ProfileSelect list={list} value={active.id}
           onPick={(id) => switchTo(find(list, id) || list[0], list)} />
@@ -410,47 +409,26 @@ function PurgeButton() {
 }
 
 function Options() {
-  const [list, setList] = useState<Profile[]>([]);
-  const [activeId, setActiveId] = useState(SHIPPED[0].id);
-  const [keyring, setKeyring] = useState<Keys>({});
+  const profiles = useProfiles();
+  const { list, setList, active, setActiveId } = profiles;
   const [stored, setStored] = useState<Settings | null>(null);
   const [fresh, setFresh] = useState('');
-  const [tested, setTested] = useState<Partial<Record<Role, Note>>>({});
+  const [tested, setTested] = useState<Note>(NONE);
 
   useEffect(() => {
-    Promise.all([settings(), profiles(), keys()]).then(([s, { list, active }, k]) => {
-      setStored(s);
-      setList(list);
-      setActiveId(active.id);
-      setKeyring(k);
-    });
+    settings().then(setStored);
+    // The toolbar button changes these too, while this page is open.
     const listener = (changes: Record<string, chrome.storage.StorageChange>) => {
-      if (changes.notes || changes.target) {
-        setStored((s) => s && {
-          ...s,
-          ...(changes.notes && { notes: Boolean(changes.notes.newValue) }),
-          ...(changes.target && { target: String(changes.target.newValue) }),
-        });
-      }
+      const picked = Object.fromEntries((['notes', 'source', 'target'] as const)
+        .filter((key) => changes[key]).map((key) => [key, changes[key].newValue]));
+      setStored((s) => s && { ...s, ...picked });
     };
     chrome.storage.sync.onChanged.addListener(listener);
     return () => chrome.storage.sync.onChanged.removeListener(listener);
   }, []);
 
-  const active = find(list, activeId) || list[0];
-
-  // Every change to the list or the choice is written back from here, so edits
-  // that land together are saved together. Not on the render that loaded them.
-  const loaded = useRef(false);
-  useEffect(() => { if (loaded.current) saveProfiles(list); }, [list]);
-  // After the list: an active id naming a profile nobody has stored yet reads
-  // back as no profile at all. Storage applies the two writes in order.
-  useEffect(() => { if (loaded.current) save('profile', activeId); }, [activeId]);
-  useEffect(() => { if (list.length) loaded.current = true; }, [list]);
-
-  // A test's answer is about the endpoint it asked, so an edit to a role clears it.
-  useEffect(() => setTested((t) => ({ ...t, reader: undefined })), [active?.reader]);
-  useEffect(() => setTested((t) => ({ ...t, translator: undefined })), [active?.translator]);
+  // A test's answer is about the endpoints it asked.
+  useEffect(() => setTested(NONE), [active]);
 
   useEffect(() => {
     if (fresh) (document.getElementById('profile-name') as HTMLInputElement | null)?.select();
@@ -476,30 +454,23 @@ function Options() {
     replace(active.id, (profile) => {
       const endpoint = { ...profile[role] };
       change(endpoint);
-      endpoint.apiKey = keyring[scopeOf(endpoint)] || '';
+      endpoint.apiKey = profiles.keyring[scopeOf(endpoint)] || '';
       return { ...profile, [role]: endpoint };
     });
 
-  const setKey = (role: Role) => async (key: string) => {
-    const scope = scopeOf(active[role]);
-    await saveKey(scope, key);
-    setKeyring(await keys());
-    setList((now) => now.map((profile) => {
-      const copy = { ...profile };
-      for (const r of ROLES) {
-        if (scopeOf(profile[r]) === scope) copy[r] = { ...profile[r], apiKey: key };
-      }
-      return copy;
-    }));
-  };
+  const setKey = (role: Role) => (key: string) => profiles.setKey(scopeOf(active[role]), key);
 
   const test = async () => {
-    setTested({ reader: note('Checking…'), translator: note('Checking…') });
+    setTested(note('Checking…'));
     const ping: PingResult = await chrome.runtime.sendMessage({ type: 'ping' });
-    setTested({
-      reader: ping.reader ? note(ping.reader, 'bad') : note('Answered.', 'ok'),
-      translator: ping.translator ? note(ping.translator, 'bad') : note('Answered.', 'ok'),
-    });
+    const failed = [ping.reader, ping.translator].filter(Boolean).join('; ');
+    setTested(failed ? note(failed[0].toUpperCase() + failed.slice(1), 'bad')
+      : note('Answered.', 'ok'));
+  };
+
+  const pick = (key: 'source' | 'target') => (name: string) => {
+    setStored({ ...stored, [key]: name });
+    save(key, name);
   };
 
   const flag = (key: 'images' | 'notes' | 'debug') => (on: boolean) => {
@@ -509,28 +480,41 @@ function Options() {
 
   const translates = !rolesUsed(active).includes('translator');
   const roleProps = (r: Role) => ({
-    profile: active, fresh: fresh === active.id,
-    status: tested[r] || NONE, edit: edit(r), setKey: setKey(r),
+    profile: active, fresh: fresh === active.id, edit: edit(r), setKey: setKey(r),
   });
 
   return (
     <>
       <h1>LLM Image Translate</h1>
-      <p class="blurb">A reader finds the text, a translator translates it.</p>
 
-      <ProfilePicker list={list} active={active} switchTo={switchTo}
-        rename={(name) => replace(active.id, (profile) => ({
-          ...profile,
-          name: uniqueName(list.filter((p) => p.id !== profile.id), name.trim() || 'Unnamed'),
-        }))} />
+      <section>
+        <h2>Languages</h2>
+        <Row label="Translate from">
+          <Names names={['Auto', ...LANGUAGES]} value={stored.source} onPick={pick('source')} />
+        </Row>
+        <Row label="Translate into">
+          <Names names={LANGUAGES} value={stored.target} onPick={pick('target')} />
+        </Row>
+      </section>
 
-      {/* Keyed by profile, so switching starts each section over. Written out
-          rather than spread: Preact only reads a key given as an attribute. */}
-      <Reader key={`${active.id}-reader`} {...roleProps('reader')} />
-      {!translates && (
-        <Translator key={`${active.id}-translator`} {...roleProps('translator')}
-          target={stored.target} source={stored.source} />
-      )}
+      <section>
+        <h2>Model</h2>
+        <Choices profiles={profiles} target={stored.target} custom={<>
+          <ProfilePicker list={list} active={active} switchTo={switchTo}
+            rename={(name) => replace(active.id, (profile) => ({
+              ...profile,
+              name: uniqueName(list.filter((p) => p.id !== profile.id), name.trim() || 'Unnamed'),
+            }))} />
+
+          {/* Keyed by profile, so switching starts each section over. Written out
+              rather than spread: Preact only reads a key given as an attribute. */}
+          <Reader key={`${active.id}-reader`} {...roleProps('reader')} />
+          {!translates && (
+            <Translator key={`${active.id}-translator`} {...roleProps('translator')}
+              target={stored.target} source={stored.source} />
+          )}
+        </>} />
+      </section>
 
       <Trial active={active} notes={stored.notes} target={stored.target} />
 
@@ -553,12 +537,11 @@ function Options() {
       <footer>
         <div class="rule">
           <div class="buttons">
-            <button type="button" onClick={test}>
-              {translates ? 'Test the endpoint' : 'Test both endpoints'}
-            </button>
+            <button type="button" onClick={test}>Test</button>
             <PurgeButton />
+            <Status of={tested} live />
           </div>
-          <span><a href="welcome.html">Setup guide</a> · <a href="stats.html">Timings and history →</a></span>
+          <span><a href="welcome.html">Setup guide</a> · <a href="stats.html">History &amp; Performance →</a></span>
         </div>
       </footer>
     </>

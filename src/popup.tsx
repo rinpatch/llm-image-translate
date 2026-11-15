@@ -39,7 +39,7 @@ function Popup() {
       <footer class="rule">
         <a href="#" onClick={(e) => open(e, () => chrome.runtime.openOptionsPage())}>Settings…</a>
         <a href="#" onClick={(e) => open(e, () =>
-          chrome.tabs.create({ url: chrome.runtime.getURL('stats.html') }))}>Timings…</a>
+          chrome.tabs.create({ url: chrome.runtime.getURL('stats.html') }))}>History &amp; Performance…</a>
       </footer>
     </>
   );
