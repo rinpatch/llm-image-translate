@@ -166,7 +166,7 @@ send<PublicSettings>({ type: 'settings' }).then((loaded) => {
   if (config.images) layer.start();
 });
 
-// A changed profile means everything translated so far was made by something
+// A changed translator means everything translated so far was made by something
 // else. Only the key names are looked at: the values are none of this page's
 // business.
 chrome.storage.local.onChanged.addListener((changes) => {

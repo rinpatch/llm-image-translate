@@ -1,15 +1,16 @@
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
 import { LANGUAGES } from './core/language.ts';
-import { profiles, publicSettings, save } from './platform/settings.ts';
+import { PROVIDERS } from './platform/providers.ts';
+import { publicSettings, save, translators } from './platform/settings.ts';
 import { useAsync } from './ui/async.ts';
-import { Names, ProfileSelect } from './ui/fields.tsx';
+import { Names } from './ui/fields.tsx';
 
-type Picked = Partial<Record<'profile' | 'source' | 'target', string>>;
+type Picked = Partial<Record<'provider' | 'source' | 'target', string>>;
 
 function Popup() {
-  const stored = useAsync(() => Promise.all([publicSettings(), profiles()])
-    .then(([s, { list, active }]) => ({ list, profile: active.id, source: s.source, target: s.target })), []);
+  const stored = useAsync(() => Promise.all([publicSettings(), translators()])
+    .then(([s, t]) => ({ provider: t.provider, source: s.source, target: s.target })), []);
   const [picked, setPicked] = useState<Picked>({});
   const value = (key: keyof Picked) => picked[key] ?? stored?.[key] ?? '';
   const pick = (key: keyof Picked) => (name: string) => {
@@ -25,8 +26,10 @@ function Popup() {
   return (
     <>
       <label>
-        <span>Models</span>
-        <ProfileSelect list={stored?.list || []} value={value('profile')} onPick={pick('profile')} />
+        <span>Translator</span>
+        <select value={value('provider')} onChange={(e) => pick('provider')(e.currentTarget.value)}>
+          {PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </select>
       </label>
       <label>
         <span>Translate from</span>

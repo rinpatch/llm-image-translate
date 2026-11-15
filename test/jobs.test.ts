@@ -27,8 +27,8 @@ test('the oldest entry goes, and it is handed over on the way out', () => {
 test('switching model or endpoint has to miss', () => {
   const request = { type: 'translateImage' as const, jobId: 'j1', src: 'https://host/a.png' };
   const base = keyFor(request, config);
-  const other = { ...config, reader: { ...config.reader, model: 'qwen' } };
-  assert.notEqual(keyFor(request, other), base, 'a different reader is a different answer');
+  const other = { ...config, translator: { ...config.translator, model: 'qwen' } };
+  assert.notEqual(keyFor(request, other), base, 'a different model is a different answer');
   assert.notEqual(keyFor(request, { ...config, target: 'Korean' }), base);
   assert.equal(keyFor(request, { ...config }), base, 'same settings, same slot');
   assert.equal(keyFor({ ...request, jobId: 'j2' }, config), base,

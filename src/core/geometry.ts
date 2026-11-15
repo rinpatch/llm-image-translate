@@ -4,8 +4,6 @@ export type Box = [number, number, number, number];
 export interface TextLine {
   text: string;
   box: Box;
-  /** Set only by a reader that translates in the same pass. */
-  translation?: string;
 }
 
 /** Which edge the source lines were set against. */
@@ -16,8 +14,6 @@ export interface Block {
   lines: string[];
   /** One per entry in `lines`: where each sat before they were joined. */
   boxes: Box[];
-  /** One per entry in `lines`, or absent when the reader only read. */
-  translations?: string[];
   vertical: boolean;
   align: Align;
   /**

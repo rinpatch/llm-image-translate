@@ -1,19 +1,5 @@
 import { OPENAI } from '../backends/chatgpt.ts';
-import { type EndpointSettings, type Role } from './profiles.ts';
-
-// Reader adapters that also come in a translating variant. Stored as the adapter
-// id so the worker never has to know one pass was a checkbox.
-const ONE_PASS: Record<string, string> = {
-  'json-boxes': 'json-boxes-translate',
-  'json-boxes-yx': 'json-boxes-yx-translate',
-};
-
-/** The translating variant of a reader adapter, if it has one. */
-export const onePass = (adapter: string): string | undefined => ONE_PASS[adapter];
-
-/** The reader adapter with translating taken back out. */
-export const twoPass = (adapter: string): string =>
-  Object.keys(ONE_PASS).find((plain) => ONE_PASS[plain] === adapter) || adapter;
+import { type EndpointSettings } from './endpoint.ts';
 
 /** A model worth offering by name, and the adapter that knows how to talk to it. */
 export interface KnownModel {
@@ -24,136 +10,81 @@ export interface KnownModel {
 }
 
 /**
- * Where a role's model runs. The settings page asks for this first and derives
- * the URL, whether a key is wanted and which models to offer from it, so the
- * adapter only has to be picked by hand for a model nobody has tried.
+ * Where the translator runs: one card each on the welcome and settings pages.
+ * The URL, whether a key is wanted and which model to use all follow from it.
  */
 export interface Provider {
   id: string;
   label: string;
-  /** Filled in when the provider is picked. Absent for a role it cannot fill. */
-  baseUrl: Partial<Record<Role, string>>;
+  baseUrl: string;
   /** Whether the URL is the user's to change. */
   editUrl: boolean;
   /** `signin` is an account signed into on the settings page, whose token stands in for a key. */
   key: 'required' | 'optional' | 'none' | 'signin';
-  /** Whether /models lists anything worth choosing from. llama.cpp lists its one. */
-  lists: boolean;
-  models: Partial<Record<Role, KnownModel[]>>;
+  /** The model it uses. A server has none: its model is typed in, or the one it serves. */
+  known?: KnownModel;
 }
 
 export const OPENROUTER = 'https://openrouter.ai/api/v1';
 
-/** Reasoning efforts every ChatGPT plan model takes. Some go higher; none go lower. */
-export const EFFORTS = ['low', 'medium', 'high', 'xhigh'];
-
+// In the order the cards show them. The first is what a fresh install has:
+// nothing to start and no key.
 export const PROVIDERS: Provider[] = [
   {
-    id: 'server',
-    label: 'OpenAI-compatible server',
-    // Where install.sh puts the two models, which is the likeliest server there is.
-    baseUrl: { reader: 'http://127.0.0.1:8090', translator: 'http://127.0.0.1:8091' },
-    editUrl: true,
-    key: 'optional',
-    lists: true,
-    models: {},
+    id: 'browser',
+    label: 'In this browser',
+    baseUrl: '',
+    editUrl: false,
+    key: 'none',
+    known: { name: 'Chrome\'s translator', model: '', adapter: 'chrome-translator' },
   },
   {
+    // Hy-MT2 is a translation model rather than a chat model, and the only
+    // family tried that reads 雨宮静久 as Amamiya Shizuku instead of inventing
+    // a reading.
     id: 'openrouter',
     label: 'OpenRouter',
-    baseUrl: { reader: OPENROUTER, translator: OPENROUTER },
+    baseUrl: OPENROUTER,
     editUrl: false,
     key: 'required',
-    lists: true,
-    models: {
-      reader: [
-        { name: 'Gemini 3.1 Flash Lite', model: 'google/gemini-3.1-flash-lite',
-          adapter: 'json-boxes-yx' },
-        { name: 'Qwen3-VL 8B', model: 'qwen/qwen3-vl-8b-instruct', adapter: 'json-boxes' },
-      ],
-      translator: [
-        { name: 'Hy-MT2 30B', model: 'tencent/hy-mt2-30b-a3b', adapter: 'hunyuan-mt' },
-      ],
-    },
+    known: { name: 'Hy-MT2 30B', model: 'tencent/hy-mt2-30b-a3b', adapter: 'hunyuan-mt' },
   },
   {
     id: 'chatgpt',
     label: 'ChatGPT plan',
-    baseUrl: { translator: OPENAI },
+    baseUrl: OPENAI,
     editUrl: false,
     key: 'signin',
-    // Asked of the worker, which keeps the token fresh.
-    lists: true,
-    models: {
-      // The plan's models as chatgpt.com/backend-api/codex/models lists them; the
-      // full list is searchable from the model field. Luna first: on a long page
-      // it was the quickest.
-      translator: [
-        { name: 'GPT-6-Luna', model: 'gpt-6-luna', adapter: 'chat-lines' },
-        { name: 'GPT-5.6-Luna', model: 'gpt-5.6-luna', adapter: 'chat-lines' },
-        { name: 'GPT-6.1-Sol', model: 'gpt-6.1-sol', adapter: 'chat-lines' },
-        { name: 'GPT-6-Sol', model: 'gpt-6-sol', adapter: 'chat-lines' },
-        { name: 'GPT-6.1 Terra', model: 'gpt-6.1-terra', adapter: 'chat-lines' },
-        { name: 'GPT-5.6-Terra', model: 'gpt-5.6-terra', adapter: 'chat-lines' },
-        { name: 'GPT-5.6-Sol', model: 'gpt-5.6-sol', adapter: 'chat-lines' },
-        { name: 'GPT-6-Astra', model: 'gpt-6-astra', adapter: 'chat-lines' },
-      ],
-    },
+    // Luna: on a long page it was the quickest of the plan's models. Low effort
+    // and fast mode, which endpoint.ts leaves on unless told otherwise.
+    known: { name: 'GPT-6-Luna', model: 'gpt-6-luna', adapter: 'chat-lines' },
   },
   {
-    id: 'browser',
-    label: 'This browser',
-    baseUrl: { reader: '', translator: '' },
-    editUrl: false,
-    key: 'none',
-    lists: false,
-    models: {
-      reader: [{ name: 'PP-OCR', model: '', adapter: 'ppocr-browser' }],
-      translator: [{ name: 'Chrome\'s translator', model: '', adapter: 'chrome-translator' }],
-    },
+    id: 'server',
+    label: 'OpenAI-compatible server',
+    // Where install.sh puts the translator, which is the likeliest server there is.
+    baseUrl: 'http://127.0.0.1:8091',
+    editUrl: true,
+    key: 'optional',
   },
 ];
 
 export const provider = (id: string): Provider =>
   PROVIDERS.find((p) => p.id === id) || PROVIDERS[0];
 
-export const providersFor = (role: Role): Provider[] =>
-  PROVIDERS.filter((p) => role in p.baseUrl);
-
-/** The known model this endpoint is, one-pass or not. */
-export function knownModel(role: Role, endpoint: EndpointSettings): KnownModel | undefined {
-  return (provider(endpoint.provider).models[role] || []).find((known) =>
-    known.model === endpoint.model && known.adapter === twoPass(endpoint.adapter));
-}
-
 /**
- * A best guess at the adapter for a model nobody listed, from its name. Wrong
- * guesses are what the advanced adapter picker is for. TranslateGemma's prompt
- * goes to llama.cpp's own /completion, so only a llama.cpp server gets it.
+ * A best guess at the adapter for a model nobody listed, from its name.
+ * TranslateGemma's prompt goes to llama.cpp's own /completion, so only a
+ * llama.cpp server gets it.
  */
-export function guessAdapter(role: Role, model: string, llamacpp: boolean): string {
-  if (role === 'reader') {
-    if (/gemini/i.test(model)) return 'json-boxes-yx';
-    if (/hunyuan.?ocr/i.test(model)) return 'hunyuan-spotting';
-    return 'json-boxes';
-  }
+export function guessAdapter(model: string, llamacpp: boolean): string {
   if (/hy-mt|hunyuan-mt/i.test(model)) return 'hunyuan-mt';
   if (llamacpp && /translategemma/i.test(model)) return 'gemma-raw';
   return 'chat-lines';
 }
 
-/** The adapter for `model`, keeping the reader in one pass if it already was. */
-export function adapterFor(
-  role: Role, endpoint: EndpointSettings, known?: KnownModel, llamacpp = false,
-): string {
-  const base = known?.adapter || guessAdapter(role, endpoint.model, llamacpp);
-  const wasOnePass = role === 'reader' && twoPass(endpoint.adapter) !== endpoint.adapter;
-  return wasOnePass ? onePass(base) || base : base;
-}
-
-// A key belongs to an account on a server, not to a profile: three profiles on
-// OpenRouter are one account, and asking for the key three times invites the
-// copies to drift apart.
+// Keys are kept by server rather than with the card, so switching cards and
+// back keeps them, and one server written two ways is still one key.
 export const keyScope = (baseUrl: string): string =>
   baseUrl.trim().replace(/\/+$/, '').replace(/\/v1$/, '').toLowerCase();
 
@@ -164,15 +95,14 @@ export const CHATGPT_KEY = 'chatgpt';
 export const scopeOf = ({ provider, baseUrl }: { provider: string; baseUrl: string }): string =>
   (provider === 'chatgpt' ? CHATGPT_KEY : keyScope(baseUrl));
 
-/** A fresh endpoint on `id`, with its first known model. */
-export function startOn(role: Role, id: string): EndpointSettings {
+/** A fresh endpoint on `id`, with its model. */
+export function startOn(id: string): EndpointSettings {
   const p = provider(id);
-  const first = p.models[role]?.[0];
   return {
     provider: p.id,
-    baseUrl: p.baseUrl[role] || '',
+    baseUrl: p.baseUrl,
     apiKey: '',
-    model: first?.model || '',
-    adapter: first?.adapter || guessAdapter(role, '', false),
+    model: p.known?.model || '',
+    adapter: p.known?.adapter || guessAdapter('', false),
   };
 }

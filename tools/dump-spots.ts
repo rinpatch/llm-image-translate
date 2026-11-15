@@ -5,8 +5,9 @@
 // is told about the pixels — the ink under each line, and which neighbouring
 // pairs something is drawn between. The result is a fixture for
 // test/grouping.test.ts, which then runs the real group() in node.
-import { hunyuanSpotting } from '../src/backends/ocr/hunyuan.ts';
-import { send } from '../src/backends/client.ts';
+import { ppOcrBrowser as reader } from '../src/backends/ocr/ppocr/adapter.ts';
+import { readsInBrowser, send } from '../src/backends/client.ts';
+import { askOffscreen } from '../src/platform/offscreen.ts';
 import { dividerFor } from '../src/core/rules.ts';
 import { inkOf, type RGB } from '../src/core/color.ts';
 import { type Box, seam, type TextLine } from '../src/core/geometry.ts';
@@ -54,15 +55,14 @@ const near = (a: Box, b: Box): boolean => {
   return Math.max(gapX, gapY) <= span * NEAR;
 };
 
-export async function dump(url: string, endpoint: string): Promise<SpotFixture> {
-  const { data, width, height, dataUrl } = await raster(
-    url, hunyuanSpotting.capabilities.maxDim);
+// An extension page can create the offscreen document as well as the worker can.
+readsInBrowser(askOffscreen);
+
+export async function dump(url: string): Promise<SpotFixture> {
+  const { data, width, height, dataUrl } = await raster(url, reader.capabilities.maxDim);
   const image = { dataUrl, width, height };
-  // The spotting prompt only reads, so the target language it is handed to
-  // satisfy the adapter never reaches the model.
-  const reply = await send({ baseUrl: endpoint },
-    hunyuanSpotting.build(image, 'English'), 'the reader');
-  const lines: TextLine[] = hunyuanSpotting.parse(reply.text, image);
+  const reply = await send({ baseUrl: '' }, reader.build(image), 'the reader');
+  const lines: TextLine[] = reader.parse(reply.text, image);
   const ink = (box: Box) => inkOf(data, width, height, box);
   const inks = lines.map((l) => ink(l.box));
   const heads = lines.map((l) => ink(seam(l.box, 'head')));

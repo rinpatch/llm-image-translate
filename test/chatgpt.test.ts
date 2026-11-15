@@ -5,11 +5,11 @@ import { OPENAI, authorizeUrl, exchange, isCallback, readCallback, refresh }
   from '../src/backends/chatgpt.ts';
 import { health, send } from '../src/backends/client.ts';
 import { chatLines } from '../src/backends/translate/chat-lines.ts';
-import { completeSignIn, planModels, withFreshTokens } from '../src/platform/chatgpt.ts';
-import { find, PRESETS, toEndpoint } from '../src/platform/profiles.ts';
+import { completeSignIn, withFreshTokens } from '../src/platform/chatgpt.ts';
+import { toEndpoint } from '../src/platform/endpoint.ts';
 import { CHATGPT_KEY, scopeOf, startOn } from '../src/platform/providers.ts';
 import { blocker } from '../src/platform/ready.ts';
-import { PRIVATE_DEFAULTS, PUBLIC_DEFAULTS, type Settings, profiles }
+import { PRIVATE_DEFAULTS, PUBLIC_DEFAULTS, type Settings, translators }
   from '../src/platform/settings.ts';
 
 const b64url = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -123,7 +123,7 @@ test('a chat request goes to the Responses API, streamed', async () => {
       } }));
   }) as typeof fetch;
 
-  const endpoint = { ...toEndpoint(startOn('translator', 'chatgpt')), apiKey: 'tok' };
+  const endpoint = { ...toEndpoint(startOn('chatgpt')), apiKey: 'tok' };
   const reply = await send(endpoint, chatLines.build(['全场包邮'], 'Chinese', 'English'),
     'the translator');
   assert.deepEqual(chatLines.parse(reply.text, 1), ['Free shipping']);
@@ -144,7 +144,7 @@ test('a chat request goes to the Responses API, streamed', async () => {
   assert.match(body.input[0].content[0].text, /1\. 全场包邮/);
 });
 
-test('the effort and tier picked on the profile are the ones asked for', async () => {
+test('the effort and tier stored are the ones asked for', async () => {
   const efforts: string[] = [];
   const tiers: (string | undefined)[] = [];
   globalThis.fetch = (async (_url: string, init: RequestInit) => {
@@ -153,7 +153,7 @@ test('the effort and tier picked on the profile are the ones asked for', async (
     tiers.push(body.service_tier);
     return new Response('');
   }) as typeof fetch;
-  const fresh = startOn('translator', 'chatgpt');
+  const fresh = startOn('chatgpt');
   for (const settings of [fresh, { ...fresh, effort: 'high', fast: false }]) {
     await send(toEndpoint(settings), chatLines.build(['x'], 'Chinese', 'English'), 'the translator')
       .catch(() => {});
@@ -182,22 +182,22 @@ test('the health check asks the same server for its models', async () => {
 });
 
 test('the sign-in and an API key for api.openai.com are kept apart', async () => {
-  const chatgpt = startOn('translator', 'chatgpt');
-  const server = { ...startOn('translator', 'server'), baseUrl: OPENAI };
+  const chatgpt = startOn('chatgpt');
+  const server = { ...startOn('server'), baseUrl: OPENAI };
   assert.notEqual(scopeOf(chatgpt), scopeOf(server));
 
   stubLocal({
-    profiles: [{ ...find(PRESETS, 'browser-only')!, reader: server, translator: chatgpt }],
+    provider: 'chatgpt', server,
     keys: { [CHATGPT_KEY]: 'tok', 'https://api.openai.com': 'sk-1' },
   });
-  const { active } = await profiles();
-  assert.equal(active.reader.apiKey, 'sk-1');
-  assert.equal(active.translator.apiKey, 'tok');
+  const t = await translators();
+  assert.equal(t.server.apiKey, 'sk-1');
+  assert.equal(t.translator.apiKey, 'tok');
 });
 
 const onChatgpt = (apiKey: string): Settings => ({
   ...PUBLIC_DEFAULTS, ...PRIVATE_DEFAULTS,
-  translator: { ...startOn('translator', 'chatgpt'), apiKey },
+  translator: { ...startOn('chatgpt'), apiKey },
 });
 
 test('two images at once refresh once, and the rotated token is kept', async () => {
@@ -229,33 +229,7 @@ test('two images at once refresh once, and the rotated token is kept', async () 
   assert.equal(refreshes, 1, 'a token with days left is used as it is');
 });
 
-test('the plan\'s model list is asked with a token that has not lapsed', async () => {
-  const fresh = access(Date.now() + 10 * 86_400_000);
-  const store: Record<string, unknown> = {
-    keys: { [CHATGPT_KEY]: access(Date.now() + 60_000) },
-    chatgpt: { hostId: 'h', clientId: 'oaiapp_1', refresh: 'rt-1' },
-  };
-  stubLocal(store);
-  const asked: { url: string; auth?: string }[] = [];
-  globalThis.fetch = (async (url: string, init: any) => {
-    asked.push({ url, auth: init?.headers?.Authorization });
-    if (url.endsWith('/models')) {
-      return { ok: true, json: async () => ({ data: [{ id: 'gpt-6-luna' }] }) };
-    }
-    return { ok: true, json: async () => ({ access_token: fresh, refresh_token: 'rt-2' }) };
-  }) as unknown as typeof fetch;
-
-  assert.deepEqual((await planModels())?.map((m) => m.id), ['gpt-6-luna']);
-  assert.deepEqual(asked.at(-1), { url: 'https://api.openai.com/v1/models', auth: `Bearer ${fresh}` });
-
-  stubLocal({});
-  assert.equal(await planModels(), null, 'not signed in');
-});
-
 test('a ChatGPT translator without a sign-in says so', () => {
-  const profile = structuredClone(find(PRESETS, 'browser-only')!);
-  profile.translator = startOn('translator', 'chatgpt');
-  assert.equal(blocker(profile), 'The translator needs you signed in to ChatGPT.');
-  profile.translator.apiKey = 'token';
-  assert.equal(blocker(profile), '');
+  assert.equal(blocker(startOn('chatgpt')), 'Sign in to ChatGPT first.');
+  assert.equal(blocker({ ...startOn('chatgpt'), apiKey: 'token' }), '');
 });

@@ -4,15 +4,14 @@
 import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { LANGUAGES } from './core/language.ts';
-import { cardOf } from './platform/cards.ts';
 import { type PingResult } from './platform/messages.ts';
 import { blocker } from './platform/ready.ts';
 import { publicSettings, save } from './platform/settings.ts';
 import { Choices } from './ui/choices.tsx';
 import { Names } from './ui/fields.tsx';
 import { downloadPack, fetchingNote, packState, stalledNote } from './ui/packs.tsx';
-import { useProfiles } from './ui/profiles.ts';
 import { NONE, type Note, Status, note } from './ui/status.tsx';
+import { useTranslator } from './ui/translator.ts';
 
 // What sample.jpg is written in.
 const SAMPLE = 'Japanese';
@@ -20,8 +19,8 @@ const SAMPLE_URL = chrome.runtime.getURL('sample.jpg');
 const MODIFIER = /Mac/.test(navigator.platform) ? '⌘' : 'Super';
 
 function Welcome() {
-  const profiles = useProfiles();
-  const { active } = profiles;
+  const translator = useTranslator();
+  const active = translator.translator;
   const [target, setTarget] = useState('English');
   const [packStamp, setPackStamp] = useState(0);
   const [checking, setChecking] = useState(false);
@@ -40,7 +39,7 @@ function Welcome() {
       if (blocked) return setTold(note(blocked, 'bad'));
       // Chrome only fetches a pack on a click, and this is one. The sample's
       // pack, so the next screen has something to translate.
-      if (cardOf(active) === 'browser-only' && SAMPLE !== target
+      if (active.provider === 'browser' && SAMPLE !== target
         && await packState(SAMPLE, target) !== 'available') {
         setTold(fetchingNote(undefined, SAMPLE));
         await downloadPack(SAMPLE, target, (done) => setTold(fetchingNote(done, SAMPLE)),
@@ -49,8 +48,9 @@ function Welcome() {
       }
       setTold(note('Checking…'));
       const ping: PingResult = await chrome.runtime.sendMessage({ type: 'ping' });
-      const failed = ping.reader || ping.translator;
-      if (failed) return setTold(note(failed[0].toUpperCase() + failed.slice(1), 'bad'));
+      if (ping.error) {
+        return setTold(note(ping.error[0].toUpperCase() + ping.error.slice(1), 'bad'));
+      }
       setTold(NONE);
       setScreen('use');
     } catch (e: any) {
@@ -113,7 +113,7 @@ function Welcome() {
 
         <li>
           <h2>Pick the translation model</h2>
-          <Choices profiles={profiles} target={target} packStamp={packStamp} />
+          <Choices translator={translator} target={target} packStamp={packStamp} />
         </li>
       </ol>
 

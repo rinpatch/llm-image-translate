@@ -1,6 +1,6 @@
 // What the reader in the offscreen document answers, and how it is read back.
 //
-// Must not import ./engine.ts: the registry reaches this file from the service
+// Must not import ./engine.ts: the pipeline reaches this file from the service
 // worker, and engine.ts would pull ONNX Runtime into the worker's bundle.
 import { type Box, type TextLine } from '../../../core/geometry.ts';
 import { type EncodedImage, type ModelRequest, type OcrAdapter } from '../../types.ts';
@@ -53,8 +53,8 @@ export const ppOcrBrowser: OcrAdapter = {
   // The detector resizes to a shorter side of its own, so the cost of a larger
   // page is the crops it recognises, not the detection. PNG because the bytes
   // never leave the browser.
-  capabilities: { maxDim: 1600, encode: 'png', alsoTranslates: false, inBrowser: true },
-  build: (image: EncodedImage, _target: string, source = 'Auto'): ModelRequest => ({
+  capabilities: { maxDim: 1600, encode: 'png' },
+  build: (image: EncodedImage, source = 'Auto'): ModelRequest => ({
     kind: 'offscreen', body: { image: image.dataUrl, script: scriptFor(source) },
   }),
   parse: parseSpots,

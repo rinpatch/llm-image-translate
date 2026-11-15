@@ -33,7 +33,7 @@ function Summary({ report }: { report: ProfileReport | undefined }) {
             <Stat value={String(report.failed)} caption={report.failed === 1 ? 'failure' : 'failures'} />}
         </div>
       </div>
-      {/* A profile that has only ever failed has no stages to draw. */}
+      {/* A translator that has only ever failed has no stages to draw. */}
       {report.runs > 0 && (
         <section id="breakdown">
           <h2>Where the time goes</h2>
@@ -110,12 +110,12 @@ function Stats() {
   const [report, history, traces] = useAsync(() => Promise.all([
     ask<Report>('metrics'), ask<Run[]>('log'), kept().catch(() => new Set<string>()),
   ]), [cleared]) ?? [NOTHING, [], new Set<string>()];
-  // The page shows one profile at a time: a hosted model and a local one are
+  // The page shows one translator at a time: a hosted model and a local one are
   // seconds apart, and a median over both describes neither.
   const [picked, setPicked] = useState('');
   const [only, setOnly] = useState(false);
 
-  // Otherwise the newest run's profile, which is the one whoever opened this
+  // Otherwise the newest run's translator, which is the one whoever opened this
   // page just used.
   const chosen = report.profiles.some((p) => p.profile === picked)
     ? picked : report.profiles[0]?.profile || '';
@@ -123,9 +123,9 @@ function Stats() {
   return (
     <>
       <h1>History &amp; Performance</h1>
-      {/* Nothing to switch between until a second profile has translated something. */}
+      {/* Nothing to switch between until a second translator has translated something. */}
       {report.profiles.length > 1 && (
-        <label class="scope"><span>Profile</span>
+        <label class="scope"><span>Translator</span>
           <Names names={report.profiles.map(({ profile }) => profile)} value={chosen}
             onPick={setPicked} />
         </label>

@@ -1,31 +1,24 @@
 #!/usr/bin/env node
-// Scores readers against pages whose true boxes are known.
+// Scores the reader against pages whose true boxes are known.
 //
-// It drives the same adapters the worker does — tools/readers.json says which
-// endpoint and model, and nothing here knows a prompt or a coordinate order.
-// So a new model is a line of JSON, and what is measured is what ships. A
-// reader that runs inside Chrome rather than behind a URL is `"kind":
-// "browser"`, and is driven through agent-browser instead of fetch.
+// It drives the extension's own PP-OCR, in Chrome through agent-browser, so
+// what is measured is what ships. It needs `npm run build` and
+// tools/fetch-ocr-models.sh first.
 //
-//     node tools/bench-readers.ts                       # every configured reader
-//     node tools/bench-readers.ts --reader local --runs 3
+//     node tools/bench-readers.ts
+//     node tools/bench-readers.ts --runs 3
 //     node tools/bench-readers.ts --json /tmp/gold.json
 //     node tools/bench-readers.ts --compare /tmp/gold.json
 //
-// A reader whose `keyEnv` names an unset variable is skipped rather than failed,
-// so the local pair can be benched without keys for the hosted ones.
-//
-// The pages are sent at the size they were drawn, which is inside every
-// adapter's maxDim — so the boxes that come back are in the same pixels the
-// truth is written in, and no reader is handed a differently scaled image from
-// the next one. tools/make-truth.py draws them.
+// The pages are sent at the size they were drawn, which is inside the reader's
+// maxDim, so the boxes that come back are in the same pixels the truth is
+// written in. tools/make-truth.py draws them.
 import { execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { send } from '../src/backends/client.ts';
-import { OCR_ADAPTERS } from '../src/backends/registry.ts';
+import { ppOcrBrowser as adapter } from '../src/backends/ocr/ppocr/adapter.ts';
 import { type EncodedImage, type ModelStats } from '../src/backends/types.ts';
 import { type TextLine } from '../src/core/geometry.ts';
 import { MIN_IOU, score, type Score } from './score.ts';
@@ -33,20 +26,9 @@ import { MIN_IOU, score, type Score } from './score.ts';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PAGES = join(ROOT, 'test/fixtures/truth');
 
-export interface ReaderConfig {
+// Saved runs carry it, so --compare can find the reader in one made earlier.
+interface ReaderConfig {
   name: string;
-  /**
-   * `http` posts to an endpoint. `browser` drives the extension's own reader
-   * through agent-browser, which is the only way to score something that runs
-   * inside Chrome — it needs `npm run build` to have happened first.
-   */
-  kind?: 'http' | 'browser';
-  /** An id in OCR_ADAPTERS — the same string the settings page stores. */
-  adapter: string;
-  baseUrl: string;
-  model?: string;
-  /** Environment variable holding the key, so none is written down here. */
-  keyEnv?: string;
 }
 
 /** What the bench needs of a reader. An in-process one would satisfy this too. */
@@ -56,29 +38,6 @@ interface Reader {
   encode: 'png' | 'jpeg';
   maxDim: number;
   read(image: EncodedImage): Promise<{ lines: TextLine[]; stats: ModelStats }>;
-}
-
-function httpReader(config: ReaderConfig): Reader {
-  const adapter = OCR_ADAPTERS[config.adapter];
-  if (!adapter) {
-    throw new Error(`${config.name}: no adapter "${config.adapter}" — have `
-      + Object.keys(OCR_ADAPTERS).join(', '));
-  }
-  const apiKey = config.keyEnv ? process.env[config.keyEnv] : undefined;
-  const endpoint = { baseUrl: config.baseUrl, ...(apiKey ? { apiKey } : {}),
-                     ...(config.model ? { model: config.model } : {}) };
-  return {
-    name: config.name,
-    what: `${config.adapter} @ ${config.model || config.baseUrl}`,
-    encode: adapter.capabilities.encode,
-    maxDim: adapter.capabilities.maxDim,
-    async read(image) {
-      // The target language is only read by an adapter that also translates;
-      // scoring one of those still only looks at what it located and read.
-      const reply = await send(endpoint, adapter.build(image, 'English'), config.name);
-      return { lines: adapter.parse(reply.text, image), stats: reply.stats };
-    },
-  };
 }
 
 const EXTENSION_ID = 'khbiipgidcclbakblacconmmpnacljae';
@@ -110,12 +69,10 @@ function launch(): void {
  * afterwards is a page rather than a cold start.
  */
 function browserReader(config: ReaderConfig): Reader {
-  const adapter = OCR_ADAPTERS[config.adapter];
-  if (!adapter) throw new Error(`${config.name}: no adapter "${config.adapter}"`);
   let started = false;
   return {
     name: config.name,
-    what: `${config.adapter} in Chrome`,
+    what: `${adapter.id} in Chrome`,
     encode: adapter.capabilities.encode,
     maxDim: adapter.capabilities.maxDim,
     async read(image) {
@@ -278,20 +235,13 @@ function flag(name: string, fallback?: string): string | undefined {
 async function main(): Promise<void> {
   const runs = Number(flag('runs', '1'));
   const minIou = Number(flag('min-iou', String(MIN_IOU)));
-  const configs: ReaderConfig[] = JSON.parse(
-    await readFile(flag('readers', join(ROOT, 'tools/readers.json'))!, 'utf8'));
-  const wanted = flag('reader');
+  const configs: ReaderConfig[] = [{ name: 'PP-OCR' }];
   const found = await pages(flag('page'));
   if (!found.length) throw new Error('no pages to score — run tools/make-truth.py');
 
   const saved: Saved = { when: new Date().toISOString(), readers: [] };
   for (const config of configs) {
-    if (wanted && !config.name.toLowerCase().includes(wanted.toLowerCase())) continue;
-    if (config.kind !== 'browser' && config.keyEnv && !process.env[config.keyEnv]) {
-      console.log(`\n${config.name}: skipped, ${config.keyEnv} is not set`);
-      continue;
-    }
-    const reader = config.kind === 'browser' ? browserReader(config) : httpReader(config);
+    const reader = browserReader(config);
     console.log(`\n${reader.name}  ·  ${reader.what}`);
     const results: Result[] = [];
     for (const page of found) results.push(await run(reader, page, runs, minIou));

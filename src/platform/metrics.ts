@@ -10,7 +10,10 @@ export interface Run extends Timings {
   at: number;
   /** Where the image came from. Never the image itself — see `label`. */
   url: string;
-  /** The profile's name when the image ran. */
+  /**
+   * The card that translated it, by name. Called profile from when there were
+   * profiles, so the history kept under that name still reads.
+   */
   profile: string;
   ok: boolean;
   error?: string;
@@ -112,12 +115,11 @@ export function stagesOf(
 }
 
 /**
- * One profile's numbers. Medians are only worth reading within a profile: a
+ * One translator's numbers. Medians are only worth reading within one: a
  * hosted model and a local one are seconds apart, and mixing them describes
  * neither.
  */
 export interface ProfileReport {
-  /** As it was named at the time, so a rename starts a fresh group. */
   profile: string;
   runs: number;
   /** Images that ended in an error. They are in the history, not in the medians. */
@@ -237,7 +239,7 @@ export async function report(): Promise<Report> {
     groups.delete(run.profile);
     groups.set(run.profile, [...runs, run]);
   }
-  // Newest last in the window, so reversing puts the profile in use on top.
+  // Newest last in the window, so reversing puts the translator in use on top.
   // Position rather than the clock: several images can share a millisecond.
   const profiles = [...groups].reverse().map(([name, runs]) => summarise(name, runs));
   return {

@@ -1,12 +1,9 @@
-import { type ListedModel, listModels } from '../backends/client.ts';
 import {
-  OPENAI, type Pending, type Tokens, authorizeUrl, exchange, expiresAt, isCallback, readCallback, refresh,
+  type Pending, type Tokens, authorizeUrl, exchange, expiresAt, isCallback, readCallback, refresh,
   revoke,
 } from '../backends/chatgpt.ts';
-// settings.ts first: it loads profiles.ts before providers.ts, which the
-// two need because each imports the other.
-import { type Settings, ROLES, keys, saveKey } from './settings.ts';
 import { CHATGPT_KEY } from './providers.ts';
+import { type Settings, keys, saveKey } from './settings.ts';
 
 // The access token is kept with the API keys, under its own name, so everything
 // that already fills keys in fills this in too. The rest is kept apart, and only
@@ -119,19 +116,8 @@ async function freshToken(): Promise<string> {
   return refreshing;
 }
 
-/** What the plan's token may call, or null when not signed in or refused. Worker only. */
-export async function planModels(): Promise<ListedModel[] | null> {
-  const apiKey = await freshToken();
-  return apiKey ? listModels({ baseUrl: OPENAI, apiKey }) : null;
-}
-
-/** `config` with every ChatGPT endpoint holding a token that has not expired. */
+/** `config` with a ChatGPT translator holding a token that has not expired. */
 export async function withFreshTokens(config: Settings): Promise<Settings> {
-  if (!ROLES.some((role) => config[role].provider === 'chatgpt')) return config;
-  const access = await freshToken();
-  const out = { ...config };
-  for (const role of ROLES) {
-    if (out[role].provider === 'chatgpt') out[role] = { ...out[role], apiKey: access };
-  }
-  return out;
+  if (config.translator.provider !== 'chatgpt') return config;
+  return { ...config, translator: { ...config.translator, apiKey: await freshToken() } };
 }

@@ -18,8 +18,8 @@ export function Bar({ stages, scale, tall }: { stages: StageRow[]; scale: number
   );
 }
 
-// Same filter as the bar: a one-pass profile has no translate stage at all, and
-// a legend entry for it would be a line that never runs.
+// Same filter as the bar: a page with no text never gets to the translate
+// stage, and a legend entry for it would be a line that never ran.
 export function Legend({ stages }: { stages: StageRow[] }) {
   return (
     <div class="legend">

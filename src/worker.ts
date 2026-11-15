@@ -1,5 +1,5 @@
 import { health, readsInBrowser } from './backends/client.ts';
-import { ocrAdapter, translateAdapter } from './backends/registry.ts';
+import { translateAdapter } from './backends/registry.ts';
 import { translateImage } from './pipeline/image.ts';
 import { forget, keyFor, once } from './pipeline/jobs.ts';
 import { type ImageResult, type Message, type PingResult, type Progress,
@@ -8,7 +8,8 @@ import { clear, entries, record, report } from './platform/metrics.ts';
 import { forget as forgetTraces } from './platform/traces.ts';
 import { fail, watchDebug } from './platform/log.ts';
 import { askOffscreen } from './platform/offscreen.ts';
-import { planModels, withFreshTokens } from './platform/chatgpt.ts';
+import { withFreshTokens } from './platform/chatgpt.ts';
+import { provider } from './platform/providers.ts';
 import { affectsResults, publicSettings, settings, toEndpoint } from './platform/settings.ts';
 
 watchDebug();
@@ -23,7 +24,7 @@ chrome.storage.local.onChanged.addListener((changes) => {
 });
 
 // Chrome's translator needs a click to fetch each language, and the default
-// profile is no use until it has one, so a fresh install starts there.
+// translator is no use until it has one, so a fresh install starts there.
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === 'install') chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') });
 });
@@ -76,7 +77,7 @@ async function run(
       if (result.ok || result.code !== 'cancelled') {
         await record({
           url: request.src,
-          profile: config.profileName,
+          profile: provider(config.provider).label,
           ok: result.ok,
           ...(result.ok
             ? { timings: result.timings, trace: result.trace }
@@ -93,21 +94,12 @@ async function run(
   }
 }
 
-// Reported per endpoint rather than as one verdict: the settings page puts each
-// answer beside the field it belongs to.
 async function ping(): Promise<PingResult> {
-  const config = await withFreshTokens(await settings());
-  // A reader that translates in the same pass never touches the other endpoint,
-  // so whatever is in those fields is nobody's business.
-  const ocr = ocrAdapter(config.reader.adapter);
-  const onePass = ocr.capabilities.alsoTranslates;
-  const translatesHere = translateAdapter(config.translator.adapter).capabilities.inBrowser;
-  const [reader, translator] = await Promise.all([
-    // A reader in this browser has no endpoint, so there is nothing to ask.
-    ocr.capabilities.inBrowser ? null : health(toEndpoint(config.reader), 'the reader'),
-    onePass || translatesHere ? null : health(toEndpoint(config.translator), 'the translator'),
-  ]);
-  return { ok: !reader && !translator, reader, translator };
+  const { translator } = await withFreshTokens(await settings());
+  // Chrome's translator has no endpoint, so there is nothing to ask.
+  const error = translateAdapter(translator.adapter).capabilities.inBrowser
+    ? null : await health(toEndpoint(translator), 'the translator');
+  return { ok: !error, error };
 }
 
 chrome.runtime.onMessage.addListener((msg: Message, sender, sendResponse) => {
@@ -124,7 +116,6 @@ chrome.runtime.onMessage.addListener((msg: Message, sender, sendResponse) => {
         case 'metrics': sendResponse(await report()); break;
         case 'log': sendResponse(await entries()); break;
         case 'clearMetrics': await clear(); sendResponse(await report()); break;
-        case 'chatgptModels': sendResponse(await planModels()); break;
         default: sendResponse({ ok: false, error: `unknown message ${(msg as any).type}` });
       }
     } catch (e: any) {

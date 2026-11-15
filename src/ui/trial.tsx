@@ -1,13 +1,13 @@
 // The trial run on the settings page. It goes through the
 // worker exactly as a page's image would, so what it reports is what the badge
-// would do with the active profile.
+// would do with the translator picked.
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { notesFor } from '../content/notes.ts';
 import { stagesOf } from '../platform/metrics.ts';
 import { sentence } from '../content/progress.ts';
 import { type ImageResult, type Progress, type ProgressMessage } from '../platform/messages.ts';
 import { blocker } from '../platform/ready.ts';
-import { profiles } from '../platform/settings.ts';
+import { translators } from '../platform/settings.ts';
 import { Check } from './fields.tsx';
 import { ms } from './format.ts';
 import { NONE, type Note, note } from './status.tsx';
@@ -26,7 +26,7 @@ export function useTrial() {
 
   /**
    * `before` runs first, inside the same click: Chrome only fetches a language
-   * pack on one. Checked against the stored profile, since that is what the
+   * pack on one. Checked against the stored translator, since that is what the
    * worker will use.
    */
   const run = async (src: string, dataUrl?: string,
@@ -35,7 +35,7 @@ export function useTrial() {
     setPreparing(true);
     try {
       await before?.(setTold);
-      const blocked = blocker((await profiles()).active);
+      const blocked = blocker((await translators()).translator);
       if (blocked) return setTold(note(blocked, 'bad'));
     } catch (e: any) {
       return setTold(note(String(e?.message || e), 'bad'));

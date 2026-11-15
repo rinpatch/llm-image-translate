@@ -7,7 +7,8 @@ import { apart, dominant, inkFor, inkOf, rgb } from '../core/color.ts';
 import { drawBlock, fillBox } from '../core/paint.ts';
 import { skewOf } from '../core/skew.ts';
 import { Cancelled, send } from '../backends/client.ts';
-import { ocrAdapter, translateAdapter } from '../backends/registry.ts';
+import { ppOcrBrowser as reader } from '../backends/ocr/ppocr/adapter.ts';
+import { translateAdapter } from '../backends/registry.ts';
 import { type EncodedImage, type Endpoint, type ModelStats, type TranslateAdapter }
   from '../backends/types.ts';
 import { detect } from '../platform/detect.ts';
@@ -205,11 +206,10 @@ export async function translateImage(
   const timings: Timings = {};
   const wholeRun = Date.now();
   const logFrom = mark();
-  const ocr = ocrAdapter(config.reader.adapter);
   const translator = translateAdapter(config.translator.adapter);
   let raster: Raster;
   try {
-    raster = await rasterize(src, ocr.capabilities.maxDim, signal, dataUrl);
+    raster = await rasterize(src, reader.capabilities.maxDim, signal, dataUrl);
   } catch (e: any) {
     if (signal.aborted) return cancelled();
     fail('could not load', src, e);
@@ -220,8 +220,8 @@ export async function translateImage(
   timings.decode_ms = raster.decode_ms;
   timings.scale_ms = raster.scale_ms;
   let started = Date.now();
-  const raw = await encoded(canvas, ocr.capabilities.encode);
-  const before = await asDataUrl(raw, ocr.capabilities.encode);
+  const raw = await encoded(canvas, reader.capabilities.encode);
+  const before = await asDataUrl(raw, reader.capabilities.encode);
   timings.reader_encode_ms = Date.now() - started;
   const image: EncodedImage = { dataUrl: before, width, height };
 
@@ -230,10 +230,11 @@ export async function translateImage(
   try {
     started = Date.now();
     tell({ stage: 'read' });
-    const reply = await send(toEndpoint(config.reader), ocr.build(image, config.target, config.source),
-      'the reader', signal, ({ tokens }) => tell({ stage: 'read', tokens }));
+    // No endpoint: send() hands an offscreen request to the reader in this browser.
+    const reply = await send({ baseUrl: '' }, reader.build(image, config.source), 'the reader',
+      signal);
     timings.read = stageOf(Date.now() - started, [reply.stats]);
-    spots = ocr.parse(reply.text, image);
+    spots = reader.parse(reply.text, image);
     blocks = group(spots, dividerFor(source, width, height));
     timings.blocks = blocks.length;
     log('read', spots.length, 'lines in', timings.read.ms, 'ms ->',
@@ -248,18 +249,11 @@ export async function translateImage(
     }
 
     const originals = blocks.map((b) => join(b.lines));
-    let translations: string[];
-    if (ocr.capabilities.alsoTranslates) {
-      // The reader answered both questions, so there is no translate stage to
-      // time — the cost of it is already inside the read.
-      translations = blocks.map((b) => join(b.translations || []));
-    } else {
-      started = Date.now();
-      const calls: ModelStats[] = [];
-      translations = await translateAll(toEndpoint(config.translator), translator, originals,
-        config.source, config.target, signal, calls, tell);
-      timings.translate = stageOf(Date.now() - started, calls);
-    }
+    started = Date.now();
+    const calls: ModelStats[] = [];
+    const translations = await translateAll(toEndpoint(config.translator), translator, originals,
+      config.source, config.target, signal, calls, tell);
+    timings.translate = stageOf(Date.now() - started, calls);
 
     started = Date.now();
     // Off the pixels, not the boxes: an axis-aligned box around a leaning line
@@ -311,9 +305,9 @@ export async function translateImage(
     timings.paint_ms = Date.now() - started;
 
     started = Date.now();
-    const painted = await encoded(canvas, ocr.capabilities.encode);
+    const painted = await encoded(canvas, reader.capabilities.encode);
     const after = binary instanceof Blob
-      ? painted : await asDataUrl(painted, ocr.capabilities.encode);
+      ? painted : await asDataUrl(painted, reader.capabilities.encode);
     timings.encode_ms = Date.now() - started;
     timings.total_ms = Date.now() - wholeRun;
     log('painted in', timings.paint_ms, 'ms, encoded in', timings.encode_ms,

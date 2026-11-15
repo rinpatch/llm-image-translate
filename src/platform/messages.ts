@@ -16,7 +16,7 @@ export interface TranslateImage {
    */
   binary?: Blob;
   /**
-   * Skip the cache. The settings page's trial run is asking how this profile
+   * Skip the cache. The settings page's trial run is asking how this translator
    * does now, which an answer from a minute ago does not tell it.
    */
   fresh?: boolean;
@@ -29,8 +29,7 @@ export type Message =
   | { type: 'ping' }
   | { type: 'metrics' }
   | { type: 'log' }
-  | { type: 'clearMetrics' }
-  | { type: 'chatgptModels' };
+  | { type: 'clearMetrics' };
 
 /** How far an image has got. */
 export interface Progress {
@@ -103,9 +102,8 @@ export type ImageResult =
 
 export interface PingResult {
   ok: boolean;
-  /** null when the endpoint answered, otherwise what went wrong with it. */
-  reader: string | null;
-  translator: string | null;
+  /** null when the translator answered, otherwise what went wrong. */
+  error: string | null;
 }
 
 export type Response = ImageResult | PingResult | PublicSettings | Report | Run[];

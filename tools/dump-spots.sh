@@ -3,7 +3,7 @@
 #
 # Writes test/fixtures/spots/<page>.json, which test/grouping.test.ts runs the
 # real group() over — so grouping can be changed and judged in node, without
-# the browser or the models. Re-run it when the reader or its prompt changes.
+# the browser or the models. Re-run it when the reader changes.
 #
 #     tools/dump-spots.sh [page-name ...]
 set -euo pipefail
@@ -38,7 +38,7 @@ for path in "${pages[@]}"; do
   name=$(basename "$path")
   printf '%-20s ' "$name"
   agent-browser eval "$(cat "$out/.bundle.js"); Dump.dump(
-    'http://127.0.0.1:$port/$path.png', 'http://127.0.0.1:8090').then(JSON.stringify)" \
+    'http://127.0.0.1:$port/$path.png').then(JSON.stringify)" \
     | python3 -c "import json,sys; print(json.dumps(json.loads(json.load(sys.stdin)), ensure_ascii=False, indent=1))" \
     > "$out/$name.json"
   python3 -c "

@@ -84,8 +84,13 @@ tools/dump-spots.sh                   # re-record every page
 tools/dump-spots.sh pages/tweets-thread manga-page
 ```
 
-Re-record when the reader, its prompt, or `dividerFor` changes — never to make a
-failing count pass. The counts in `PIECES` were each judged against a render.
+Re-record when the reader or `dividerFor` changes — never to make a failing
+count pass. The counts in `PIECES` were each judged against a render.
+
+The fixtures there now were recorded with HunyuanOCR, a vision model the
+extension no longer has. `dump-spots.sh` records with PP-OCR, so the first
+re-record changes every page's lines at once, and each count in `PIECES` has
+to be judged against a render again rather than carried over.
 
 `tools/ablate-grouping.mjs` deletes each of grouping's rules in turn and
 re-groups every page, which is how to tell whether a rule is still earning its
@@ -93,30 +98,25 @@ place. Every rule currently breaks at least one page when removed; one that
 breaks none is either dead or has no fixture arguing for it, and both are worth
 knowing before adding the next one.
 
-## Scoring a reader
+## Scoring the reader
 
-`tools/bench-readers.ts` runs the real `OcrAdapter`s over pages whose true boxes
-are known and prints what each one located, read, and how close its boxes were.
-It is node and HTTP only — no browser, no extension — so it is the cheap way to
-answer whether a different model or a different kind of reader is better.
+`tools/bench-readers.ts` runs the extension's PP-OCR over pages whose true boxes
+are known and prints what it located, read, and how close its boxes were. It
+drives a real Chrome, so it needs `npm run build` and
+`tools/fetch-ocr-models.sh` first, and takes a browser launch to get going.
 
 ```bash
-node tools/bench-readers.ts                       # every reader in tools/readers.json
-node tools/bench-readers.ts --reader local --runs 3
+node tools/bench-readers.ts
+node tools/bench-readers.ts --runs 3
 node tools/bench-readers.ts --json /tmp/gold.json
 node tools/bench-readers.ts --compare /tmp/gold.json
 ```
 
-A new model is a line in `tools/readers.json` — a name, an adapter id, a base
-URL, optionally a model and the environment variable holding its key. Nothing in
-the tool knows a prompt or a coordinate order, so what is measured is what the
-worker would do. A reader whose `keyEnv` is unset is skipped, not failed.
-
 The pages come from `tools/make-truth.py`, which draws them and writes the boxes
 it drew beside them — the truth is the generator's arithmetic, not somebody's
-tracing. They are drawn inside every adapter's `maxDim` so nothing is scaled and
-every reader is handed the same pixels; both a PNG and a JPEG are written, and
-the adapter's `encode` picks. Regenerate with:
+tracing. They are drawn inside the reader's `maxDim` so nothing is scaled. Both
+a PNG and a JPEG are written, from when readers differed in which they took.
+Regenerate with:
 
 ```bash
 uv run tools/make-truth.py
@@ -124,14 +124,14 @@ uv run tools/make-truth.py
 
 Two traps in there. Songti's face 0 is Songti SC **Black**, whose glyph set has
 holes — 聞, 語, 間 and a dozen more come out blank, which looks like a reader
-failure and is not. Face 1 is complete. And HunyuanOCR currently takes both
-pages 22/22, so the bench catches a regression but will not tell two good
-readers apart on counts alone; mean IoU is what separates them.
+failure and is not. Face 1 is complete. And a good reader takes both pages
+22/22, so the counts catch a regression but will not show a small improvement;
+mean IoU is what moves.
 
 ## The reader that runs in the browser
 
-The same two models as the server, in the extension: `ppocr-browser`, the
-reader a fresh install starts on. Nothing to start.
+`ppocr-browser`, the only reader there is. It runs in the extension, so there
+is nothing to start.
 
 ```bash
 npm install
@@ -185,10 +185,7 @@ agent-browser eval "(async () => {
 })()"
 ```
 
-`node tools/bench-readers.ts --reader pp-ocr` scores it against the same pages
-as everything else — that reader is `"kind": "browser"` in `tools/readers.json`
-and drives a real Chrome, so it needs `npm run build` and
-`tools/fetch-ocr-models.sh` first, and takes a browser launch to get going.
+`node tools/bench-readers.ts` scores it against known pages; see above.
 
 ## Chrome's own translator
 
@@ -287,13 +284,11 @@ through a message, and turning debug mode off throws them all away.
 
 ## Against the live models
 
-`./macos/install.sh` puts the translator on :8091. A HunyuanOCR reader, if
-there is one, is on :8090 and started by hand:
-`llama-server -hf prithivMLmods/HunyuanOCR-1.5-GGUF-Updated:Q8_0 --port 8090 -fa on --sleep-idle-seconds 60`.
-`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8090/v1/models` before
+`./macos/install.sh` puts the translator on :8091.
+`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8091/v1/models` before
 blaming the code.
 
-Both sleep after a minute idle, so the first translation after a pause costs
+It sleeps after a minute idle, so the first translation after a pause costs
 seconds more than the next one — real, and the reason the settings page reports
 medians. A test that asserts on a wall-clock number will fail on whichever run
 happens to land cold.

@@ -1,9 +1,7 @@
-import {
-  type EndpointSettings, type Profile, type Role, ROLES, SHIPPED, find, toEndpoint,
-} from './profiles.ts';
-import { keyScope, scopeOf } from './providers.ts';
+import { type EndpointSettings, toEndpoint } from './endpoint.ts';
+import { PROVIDERS, keyScope, provider, scopeOf, startOn } from './providers.ts';
 
-export { type EndpointSettings, type Role, ROLES, toEndpoint };
+export { type EndpointSettings, toEndpoint };
 
 /**
  * What the page is allowed to know. A content script runs in whatever site the
@@ -17,14 +15,12 @@ export interface PublicSettings {
   notes: boolean;
 }
 
-/** Endpoints and their keys. The worker is the only reader. */
+/** The translator and its key. The worker is the only reader. */
 export interface PrivateSettings {
-  /** The active profile's, flattened: nothing downstream cares which one it was. */
-  reader: EndpointSettings;
+  /** The card picked: an id from PROVIDERS. */
+  provider: string;
+  /** What that card runs, key filled in. */
   translator: EndpointSettings;
-  profile: string;
-  /** The active profile's name, which is how the history tells runs apart. */
-  profileName: string;
   debug: boolean;
 }
 
@@ -38,22 +34,19 @@ export const PUBLIC_DEFAULTS: PublicSettings = {
 };
 
 export const PRIVATE_DEFAULTS: PrivateSettings = {
-  reader: SHIPPED[0].reader,
-  translator: SHIPPED[0].translator,
-  profile: SHIPPED[0].id,
-  profileName: SHIPPED[0].name,
+  provider: PROVIDERS[0].id,
+  translator: startOn(PROVIDERS[0].id),
   debug: false,
 };
 
-/** The local booleans, which are stored under their own keys rather than on a profile. */
 const FLAGS = { debug: PRIVATE_DEFAULTS.debug };
 
 /**
- * Whether a storage change makes already-translated images stale. A profile
- * change does; metrics, written after every image, and the debug toggle do not.
+ * Whether a storage change makes already-translated images stale. A change of
+ * translator does; metrics, written after every image, and the debug toggle do not.
  */
 export const affectsResults = (changes: Record<string, unknown>) =>
-  'profiles' in changes || 'profile' in changes || 'cachePurge' in changes;
+  'provider' in changes || 'server' in changes || 'cachePurge' in changes;
 
 /** A storage event reaches the worker and every open page's process-local cache. */
 export const purgeResults = (): Promise<void> =>
@@ -84,54 +77,52 @@ export async function saveKey(scope: string, key: string): Promise<void> {
   await chrome.storage.local.set({ keys: all });
 }
 
-/**
- * The stored profiles, and which one is in use, keys filled in. Both pages and
- * the worker read this.
- */
-export async function profiles(): Promise<{ list: Profile[]; active: Profile }> {
-  const stored = await chrome.storage.local.get({ profiles: null, profile: '', keys: {} });
-  // A copy, because the keys are written onto it and SHIPPED is shared.
-  const list = structuredClone((stored.profiles || SHIPPED) as Profile[]);
-  for (const profile of list) {
-    for (const role of ROLES) {
-      const endpoint = profile[role];
-      endpoint.apiKey = (stored.keys as Keys)[scopeOf(endpoint)] || '';
-    }
-  }
-  // An id pointing at a deleted profile falls back rather than leaving the
-  // extension with no endpoints at all.
-  return { list, active: find(list, String(stored.profile)) || list[0] };
-}
-
 const withoutKey = ({ apiKey: _, ...rest }: EndpointSettings) => rest;
 
+export interface Translators {
+  /** The card picked. */
+  provider: string;
+  /** What the server card has, kept while another card is picked. */
+  server: EndpointSettings;
+  /** What the picked card runs. */
+  translator: EndpointSettings;
+}
+
+/**
+ * The card picked and what it runs, keys filled in. An install from before the
+ * cards has profiles instead: the one in use says which card, and the first on
+ * a server is the server card's.
+ */
+export async function translators(): Promise<Translators> {
+  const stored = await chrome.storage.local.get(
+    { provider: '', server: null, profiles: null, profile: '', keys: {} });
+  const old = (stored.profiles || []) as { id: string; translator: EndpointSettings }[];
+  const was = old.find((p) => p.id === stored.profile) || old[0];
+  const id = provider(String(stored.provider || was?.translator.provider || '')).id;
+  const fill = (e: EndpointSettings) =>
+    ({ ...e, apiKey: (stored.keys as Keys)[scopeOf(e)] || '' });
+  const server = fill({ ...startOn('server'), ...((stored.server as EndpointSettings | null)
+    || old.map((p) => p.translator).find((t) => t.provider === 'server')) });
+  return { provider: id, server, translator: id === 'server' ? server : fill(startOn(id)) };
+}
+
 /** Keys stay out: they are saved by server, with `saveKey`. */
-export const saveProfiles = (list: Profile[]): Promise<void> =>
-  chrome.storage.local.set({ profiles: list.map((p) => ({
-    ...p, reader: withoutKey(p.reader), translator: withoutKey(p.translator),
-  })) });
+export const saveServer = (endpoint: EndpointSettings): Promise<void> =>
+  chrome.storage.local.set({ server: withoutKey(endpoint) });
 
 /** Worker and popup only — never answer this to a content script. */
 export async function settings(): Promise<Settings> {
-  const [pub, { active }, priv] = await Promise.all([
+  const [pub, { provider, translator }, priv] = await Promise.all([
     publicSettings(),
-    profiles(),
+    translators(),
     chrome.storage.local.get(FLAGS),
   ]);
-  return {
-    ...pub,
-    debug: Boolean(priv.debug),
-    profile: active.id,
-    profileName: active.name,
-    reader: active.reader,
-    translator: active.translator,
-  };
+  return { ...pub, debug: Boolean(priv.debug), provider, translator };
 }
 
-// The endpoints and the profile's name are read off the active profile rather
-// than stored under their own keys, so writing them here would put a dead key in
-// storage.
-type Stored = Exclude<keyof Settings, 'reader' | 'translator' | 'profileName'>;
+// The translator is worked out from the card and the server card's endpoint,
+// so writing it here would put a dead key in storage.
+type Stored = Exclude<keyof Settings, 'translator'>;
 
 export function save<K extends Stored>(key: K, value: Settings[K]): Promise<void> {
   return areaFor(key).set({ [key]: value });

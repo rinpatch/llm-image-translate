@@ -68,16 +68,8 @@ export interface OcrAdapter {
     /** Longest side the image is scaled down to before it is sent. */
     maxDim: number;
     encode: 'png' | 'jpeg';
-    /**
-     * Whether the reply already carries translations, making a second model
-     * pointless. A reader that does this gets the target language in `build`
-     * and puts what it produced on each line's `translation`.
-     */
-    alsoTranslates: boolean;
-    /** Runs in this browser, so there is no endpoint to point at or test. */
-    inBrowser?: boolean;
   };
-  build(image: EncodedImage, target: string, source?: string): ModelRequest;
+  build(image: EncodedImage, source?: string): ModelRequest;
   parse(content: string, image: EncodedImage): TextLine[];
 }
 

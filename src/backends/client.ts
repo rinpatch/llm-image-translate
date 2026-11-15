@@ -293,8 +293,6 @@ export async function health(endpoint: Endpoint, what: string): Promise<string |
 export interface ListedModel {
   id: string;
   name?: string;
-  /** Whether it takes images, where the server says. OpenRouter and llama.cpp do. */
-  vision?: boolean;
   /** Served by llama.cpp, so /completion is there beside the OpenAI routes. */
   llamacpp?: boolean;
 }
@@ -308,23 +306,11 @@ export async function listModels(endpoint: Endpoint, signal?: AbortSignal):
     if (!r.ok) return null;
     const out = await r.json();
     if (!Array.isArray(out?.data)) return null;
-    // llama.cpp answers in Ollama's shape as well, and only that half says what
-    // a model can take.
-    const ollama = new Map<string, unknown>((Array.isArray(out.models) ? out.models : [])
-      .map((m: any) => [m?.model ?? m?.name, m?.capabilities]));
-    return out.data.filter((m: any) => typeof m?.id === 'string').map((m: any) => {
-      const modalities = m.architecture?.input_modalities;
-      const capabilities = ollama.get(m.id);
-      const vision = Array.isArray(modalities) ? modalities.includes('image')
-        : Array.isArray(capabilities) ? capabilities.includes('multimodal')
-          : undefined;
-      return {
-        id: m.id,
-        ...(typeof m.name === 'string' ? { name: m.name } : {}),
-        ...(vision === undefined ? {} : { vision }),
-        ...(m.owned_by === 'llamacpp' ? { llamacpp: true } : {}),
-      };
-    });
+    return out.data.filter((m: any) => typeof m?.id === 'string').map((m: any) => ({
+      id: m.id,
+      ...(typeof m.name === 'string' ? { name: m.name } : {}),
+      ...(m.owned_by === 'llamacpp' ? { llamacpp: true } : {}),
+    }));
   } catch {
     return null;
   }

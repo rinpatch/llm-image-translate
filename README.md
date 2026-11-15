@@ -11,7 +11,7 @@ to translate; click it again to get the original back, or to cancel a
 translation that is still running. The translated image is a real image, so
 you can save it.
 
-The popup picks the languages and the profile. Everything else is under
+The popup picks the languages and the translator. Everything else is under
 **Settings…**.
 
 ## How it works
@@ -26,8 +26,8 @@ for that. Translation can go to:
   [Setting up local translation](docs/local-translation.md).
 - **A hosted model** on OpenRouter — the best results, for a fraction of a cent
   per image.
-
-Each combination is a profile, and you can switch between them from the popup.
+- **A ChatGPT plan** — signed in from the settings page, and counted against
+  the plan's usage.
 
 ## Install
 

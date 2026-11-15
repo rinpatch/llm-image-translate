@@ -1,9 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 
-import { SHIPPED } from '../src/platform/profiles.ts';
-import { affectsResults, keys, profiles, publicSettings, save, saveKey, saveProfiles,
-  settings, toEndpoint } from '../src/platform/settings.ts';
+import { affectsResults, keys, publicSettings, save, saveKey, saveServer, settings,
+  toEndpoint, translators } from '../src/platform/settings.ts';
 
 /** Enough of chrome.storage to tell the two areas apart. */
 function stubStorage(sync: Record<string, unknown> = {}, local: Record<string, unknown> = {}) {
@@ -24,90 +23,88 @@ function stubStorage(sync: Record<string, unknown> = {}, local: Record<string, u
 }
 
 const endpoint = (baseUrl: string, extra = {}) =>
-  ({ provider: 'server', baseUrl, apiKey: '', model: '', adapter: 'hunyuan-spotting', ...extra });
+  ({ provider: 'server', baseUrl, apiKey: '', model: '', adapter: 'hunyuan-mt', ...extra });
 
-const profile = (id: string, extra = {}) => ({
-  id,
-  name: id,
-  reader: endpoint('http://127.0.0.1:8090'),
-  translator: endpoint('http://127.0.0.1:8091', { adapter: 'hunyuan-mt' }),
-  ...extra,
-});
-
-test('the page is told what it needs and nothing about the endpoints', async () => {
+test('the page is told what it needs and nothing about the translator', async () => {
   stubStorage({ target: 'Japanese' }, {
-    profiles: [profile('mine', { reader: endpoint('http://secret:8090') })],
-    profile: 'mine',
+    provider: 'server', server: endpoint('http://secret:8091'),
   });
   const forPage = await publicSettings();
   assert.deepEqual(forPage, { source: 'Auto', target: 'Japanese', images: true, notes: false });
-  assert.ok(!('reader' in forPage), 'no endpoint reaches a content script');
+  assert.ok(!('translator' in forPage), 'no endpoint reaches a content script');
 
   const everything = await settings();
-  assert.equal(everything.reader.baseUrl, 'http://secret:8090', 'the worker still sees it');
+  assert.equal(everything.translator.baseUrl, 'http://secret:8091', 'the worker still sees it');
   assert.equal(everything.target, 'Japanese');
-  assert.equal(everything.translator.baseUrl, 'http://127.0.0.1:8091');
 });
 
-test('purging the cache is a stale result, and a debug toggle is not', () => {
+test('a change of card or server is a stale result, and a debug toggle is not', () => {
+  assert.equal(affectsResults({ provider: {} }), true);
+  assert.equal(affectsResults({ server: {} }), true);
   assert.equal(affectsResults({ cachePurge: {} }), true,
     'purging reaches both the worker and page-side caches');
   assert.equal(affectsResults({ debug: {} }), false);
 });
 
 test('a key and a model reach the client only when they are set', () => {
-  assert.deepEqual(toEndpoint(endpoint('http://127.0.0.1:8090')),
-    { baseUrl: 'http://127.0.0.1:8090' }, 'a local server is asked for neither');
+  assert.deepEqual(toEndpoint(endpoint('http://127.0.0.1:8091')),
+    { baseUrl: 'http://127.0.0.1:8091' }, 'a local server is asked for neither');
   assert.deepEqual(toEndpoint(endpoint('https://openrouter.ai/api/v1',
-    { apiKey: 'sk-x', model: 'qwen' })),
+    { provider: 'openrouter', apiKey: 'sk-x', model: 'qwen' })),
     { baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'sk-x', model: 'qwen' });
 });
 
-test('an active id naming nothing falls back rather than leaving no endpoints', async () => {
-  stubStorage({}, { profiles: [profile('a'), profile('b')], profile: 'deleted' });
-  const { active } = await profiles();
-  assert.equal(active.id, 'a');
-});
-
-test('nothing stored yet reads as the shipped profiles', async () => {
+test('nothing stored yet is the browser\'s own translator', async () => {
   stubStorage();
-  const { list, active } = await profiles();
-  assert.deepEqual(list.map((p) => p.id), SHIPPED.map((p) => p.id));
-  assert.equal(active.id, SHIPPED[0].id);
+  const t = await translators();
+  assert.equal(t.provider, 'browser');
+  assert.equal(t.translator.adapter, 'chrome-translator');
+  assert.equal(t.server.baseUrl, 'http://127.0.0.1:8091', 'the server card starts on install.sh');
 });
 
-test('a preference syncs and a profile stays on the machine', async () => {
+test('the server card keeps its server while another card is picked', async () => {
+  stubStorage({}, { provider: 'openrouter', server: endpoint('http://box:9000') });
+  const t = await translators();
+  assert.equal(t.translator.provider, 'openrouter');
+  assert.equal(t.server.baseUrl, 'http://box:9000');
+});
+
+test('an install from before the cards keeps its card and its server', async () => {
+  const old = (id: string, translator: object) => ({ id, name: id,
+    reader: endpoint('http://127.0.0.1:8090', { adapter: 'hunyuan-spotting' }), translator });
+  stubStorage({}, {
+    profiles: [old('a', endpoint('http://box:9000', { model: 'm' })),
+      old('b', { ...endpoint('https://openrouter.ai/api/v1'), provider: 'openrouter' })],
+    profile: 'b',
+  });
+  const t = await translators();
+  assert.equal(t.provider, 'openrouter', 'the profile in use says which card');
+  assert.equal(t.server.baseUrl, 'http://box:9000', 'and the first on a server is that card\'s');
+  assert.equal(t.server.model, 'm');
+});
+
+test('a preference syncs and the translator stays on the machine', async () => {
   const areas = stubStorage();
   await save('target', 'Korean');
-  await saveProfiles([profile('mine', { reader: endpoint('http://127.0.0.1:9000') })]);
-  await save('profile', 'mine');
+  await save('provider', 'server');
+  await saveServer(endpoint('http://127.0.0.1:9000'));
   await save('debug', true);
   assert.deepEqual(areas.sync.store, { target: 'Korean' });
-  assert.deepEqual(Object.keys(areas.local.store).sort(), ['debug', 'profile', 'profiles']);
+  assert.deepEqual(Object.keys(areas.local.store).sort(), ['debug', 'provider', 'server']);
 });
 
-test('one key per server, shared by every profile on it', async () => {
-  stubStorage({}, {
-    profiles: [
-      profile('one', { reader: endpoint('https://openrouter.ai/api/v1') }),
-      profile('two', { translator: endpoint('https://openrouter.ai/api/v1/') }),
-    ],
-  });
+test('one key per server, however its URL is written', async () => {
+  stubStorage({}, { provider: 'server', server: endpoint('https://openrouter.ai/api/v1/') });
   await saveKey('https://openrouter.ai/api/v1', 'sk-1');
   assert.deepEqual(await keys(), { 'https://openrouter.ai/api': 'sk-1' });
-
-  const { list: [one, two] } = await profiles();
-  assert.equal(one.reader.apiKey, 'sk-1');
-  assert.equal(two.translator.apiKey, 'sk-1', 'both spellings of the URL are one server');
-  assert.equal(one.translator.apiKey, '', 'a local server is not handed it');
+  assert.equal((await translators()).server.apiKey, 'sk-1');
 
   await saveKey('https://openrouter.ai/api/v1', '');
   assert.deepEqual(await keys(), {}, 'clearing the field forgets the key');
 });
 
-test('saving a profile never writes its key into it', async () => {
+test('saving the server never writes its key into it', async () => {
   const areas = stubStorage();
-  await saveProfiles([profile('mine', { reader: endpoint('https://x', { apiKey: 'sk-x' }) })]);
-  assert.ok(!('apiKey' in (areas.local.store.profiles as any[])[0].reader));
+  await saveServer(endpoint('https://x', { apiKey: 'sk-x' }));
+  assert.ok(!('apiKey' in (areas.local.store.server as object)));
 });
-

@@ -9,7 +9,7 @@ import { Input, Row } from './fields.tsx';
 import { NONE, type Note, Status, note } from './status.tsx';
 
 /**
- * `token` is the endpoint's, so being signed in is whatever the profile says.
+ * `token` is the stored one, so being signed in is whatever storage says.
  * `div` for inside another label, as on the setup cards.
  */
 export function SignIn({ token, setKey, div }: {

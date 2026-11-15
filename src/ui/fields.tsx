@@ -1,6 +1,5 @@
 import { type ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { type Profile } from '../platform/profiles.ts';
 
 interface InputProps {
   value: string;
@@ -41,17 +40,6 @@ export function Names({ names, value, onPick, ...rest }: {
   return (
     <select {...rest} value={value} onChange={(e) => onPick(e.currentTarget.value)}>
       {names.map((name) => <option key={name} value={name}>{name}</option>)}
-    </select>
-  );
-}
-
-/** A select over profiles, by id. */
-export function ProfileSelect({ list, value, onPick }: {
-  list: readonly Profile[]; value: string; onPick: (id: string) => void;
-}) {
-  return (
-    <select value={value} onChange={(e) => onPick(e.currentTarget.value)}>
-      {list.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
     </select>
   );
 }

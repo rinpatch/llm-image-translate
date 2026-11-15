@@ -7,14 +7,7 @@
 #
 #     tools/render-fixtures.sh [out-dir] [target-language]
 #
-# The reader is PP-OCR in the browser and the translator the one on :8091,
-# the setup macos/install.sh leaves behind. READER_ADAPTER swaps
-# it for the run, which is how two readers are compared by eye rather than by
-# the counts tools/bench-readers.ts gives. READER_URL comes with it for a reader
-# that has an endpoint:
-#
-#     READER_ADAPTER=hunyuan-spotting READER_URL=http://127.0.0.1:8090 \
-#       tools/render-fixtures.sh /tmp/hunyuan
+# The translator is the one on :8091, which macos/install.sh leaves behind.
 #
 # The extension IDs its cached results by URL, and the profile goes with the
 # browser at the end, so every run starts cold.
@@ -39,15 +32,11 @@ sleep 1
 agent-browser close --all >/dev/null 2>&1 || true
 agent-browser --extension "$root/extension" open "chrome-extension://$id/options.html" >/dev/null
 agent-browser eval "chrome.storage.sync.set({target:'$target'}).then(()=>'ok')" >/dev/null
-# Not the default profile: Chrome for Testing never finishes downloading a
+# Not the default translator: Chrome for Testing never finishes downloading a
 # language pack, so Chrome's translator would fail every page.
-provider=$([ -n "${READER_URL:-}" ] && echo server || echo browser)
-agent-browser eval "chrome.storage.local.set({profile:'render',profiles:[{id:'render',
-  name:'render',
-  reader:{provider:'$provider',baseUrl:'${READER_URL:-}',apiKey:'',
-    model:'${READER_MODEL:-}',adapter:'${READER_ADAPTER:-ppocr-browser}'},
-  translator:{provider:'server',baseUrl:'http://127.0.0.1:8091',apiKey:'',model:'',
-    adapter:'hunyuan-mt'}}]}).then(()=>'ok')" >/dev/null
+agent-browser eval "chrome.storage.local.set({provider:'server',
+  server:{provider:'server',baseUrl:'http://127.0.0.1:8091',model:'',
+    adapter:'hunyuan-mt'}}).then(()=>'ok')" >/dev/null
 
 for page in test/fixtures/pages/*.png; do
   name=$(basename "$page" .png)

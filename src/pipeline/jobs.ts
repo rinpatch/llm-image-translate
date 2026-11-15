@@ -31,16 +31,15 @@ function digest(text: string): string {
 }
 
 /**
- * What a result depends on. The endpoints are in here because switching models
- * has to miss: the same image asked of a different reader is a different answer.
+ * What a result depends on. The translator is in here because switching has to
+ * miss: the same image asked of a different model is a different answer.
  */
 export function keyFor(request: TranslateImage, config: Settings): string {
-  const endpoints = [config.reader, config.translator]
-    .map((e) => `${e.baseUrl}|${e.model}|${e.adapter}`).join('|');
+  const { baseUrl, model, adapter } = config.translator;
   // A blob: URL means nothing outside the page that minted it, so those are
   // identified by their bytes instead.
   const image = request.dataUrl ? `bytes:${digest(request.dataUrl)}` : request.src;
-  return `${config.source}\n${config.target}\n${digest(endpoints)}\n${image}`;
+  return `${config.source}\n${config.target}\n${digest(`${baseUrl}|${model}|${adapter}`)}\n${image}`;
 }
 
 /**

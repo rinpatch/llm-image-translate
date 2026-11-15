@@ -221,9 +221,6 @@ export function group(lines: TextLine[], divided?: Divided): Block[] {
         vertical: upright,
         align: upright ? 'center' : alignOf(taken.map((l) => l.box)),
       };
-      if (taken.some((l) => l.translation !== undefined)) {
-        block.translations = taken.map((l) => l.translation ?? '');
-      }
       const pitch = pitchOf(block.boxes, upright);
       if (pitch !== undefined) block.pitch = pitch;
       blocks.push(block);

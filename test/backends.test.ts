@@ -2,8 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 
 import { send } from '../src/backends/client.ts';
-import { hunyuanSpotting } from '../src/backends/ocr/hunyuan.ts';
-import { jsonBoxes, jsonBoxesTranslating } from '../src/backends/ocr/json-boxes.ts';
 import { ppOcrBrowser } from '../src/backends/ocr/ppocr/adapter.ts';
 import { readsInBrowser } from '../src/backends/client.ts';
 import { chatLines } from '../src/backends/translate/chat-lines.ts';
@@ -13,29 +11,6 @@ import { translateGemma } from '../src/backends/translate/gemma.ts';
 import { type EncodedImage } from '../src/backends/types.ts';
 
 const image: EncodedImage = { dataUrl: 'data:image/png;base64,dGVzdA==', width: 800, height: 400 };
-
-test('the reader is asked for spotting, with the image first', () => {
-  const request = hunyuanSpotting.build(image, 'English');
-  assert.equal(request.kind, 'chat');
-  const content = (request.body.messages as any[])[0].content;
-  assert.equal(content[0].image_url.url, image.dataUrl);
-  assert.match(content[1].text, /检测并识别/);
-  assert.equal(request.body.temperature, 0);
-});
-
-test('text and its corners run together, one spot after another', () => {
-  const reply = '22:06(69,22),(169,39)発消息或按住説話(153,701),(839,735)'
-    + '深度思考(92,779),(647,812)';
-  const spots = hunyuanSpotting.parse(reply, { ...image, width: 1000, height: 1000 });
-  assert.equal(spots.length, 3);
-  assert.deepEqual(spots[0], { text: '22:06', box: [69, 22, 169, 39] });
-  assert.equal(spots[1].text, '発消息或按住説話');
-});
-
-test('spot coordinates are scaled off 1000 onto the raster', () => {
-  const lines = hunyuanSpotting.parse('包邮(100,250),(500,500)', image);
-  assert.deepEqual(lines, [{ text: '包邮', box: [80, 100, 400, 200] }]);
-});
 
 test('the translator prompt names both languages and their codes', () => {
   const request = translateGemma.build(['包邮', '顺丰发货'], 'Chinese', 'English');
@@ -65,7 +40,8 @@ test('the client addresses the endpoint and unwraps whichever reply shape', asyn
 
   globalThis.fetch = reply({ choices: [{ message: { content: 'read' } }] }) as typeof fetch;
   assert.equal(
-    (await send({ baseUrl: 'http://host/' }, hunyuanSpotting.build(image, 'English'), 'reader')).text, 'read');
+    (await send({ baseUrl: 'http://host/' }, chatLines.build(['x'], 'Chinese', 'English'), 'tr')).text,
+    'read');
   assert.equal(calls[0].url, 'http://host/v1/chat/completions', 'trailing slash does not double');
   assert.equal(calls[0].init.headers.Authorization, undefined, 'no key, no header');
   assert.equal(JSON.parse(calls[0].init.body).model, undefined, 'no model unless one is named');
@@ -83,12 +59,14 @@ test('the client addresses the endpoint and unwraps whichever reply shape', asyn
 
 test('a server that answers badly says so, in terms of what it was asked to be', async () => {
   globalThis.fetch = (async () => ({ ok: false, status: 503 })) as unknown as typeof fetch;
-  await assert.rejects(send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image, 'English'), 'the reader'),
-    /the reader answered 503/);
+  await assert.rejects(
+    send({ baseUrl: 'http://host' }, chatLines.build(['x'], 'Chinese', 'English'), 'the translator'),
+    /the translator answered 503/);
 
   globalThis.fetch = (async () => { throw new Error('ECONNREFUSED'); }) as unknown as typeof fetch;
-  await assert.rejects(send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image, 'English'), 'the reader'),
-    /cannot reach the reader at http:\/\/host\/v1\/chat\/completions/);
+  await assert.rejects(
+    send({ baseUrl: 'http://host' }, chatLines.build(['x'], 'Chinese', 'English'), 'the translator'),
+    /cannot reach the translator at http:\/\/host\/v1\/chat\/completions/);
 });
 
 test('a base written either way round reaches the same place', async () => {
@@ -99,7 +77,7 @@ test('a base written either way round reaches the same place', async () => {
   }) as unknown as typeof fetch;
   for (const baseUrl of ['http://127.0.0.1:8090', 'http://127.0.0.1:8090/v1',
                          'http://127.0.0.1:8090/v1/']) {
-    await send({ baseUrl }, hunyuanSpotting.build(image, 'English'), 'reader');
+    await send({ baseUrl }, chatLines.build(['x'], 'Chinese', 'English'), 'tr');
   }
   assert.deepEqual(new Set(seen), new Set(['http://127.0.0.1:8090/v1/chat/completions']));
 });
@@ -124,62 +102,13 @@ test('the numbered prompt keeps one line per line', () => {
     'a newline inside a line would be read back as a second line');
 });
 
-test('a 0-1000 grid is scaled onto the image, and junk is dropped', () => {
-  const lines = jsonBoxes.parse(
-    '[{"text":"ok","box":[125,250,500,750]},'
-    + '{"text":"backwards","box":[500,750,125,250]},'
-    + '{"text":"flat","box":[10,10,10,40]},'
-    + '{"text":"junk","box":[1,2]},'
-    + '{"text":"  ","box":[1,2,3,4]}]', image);
-  assert.deepEqual(lines, [
-    { text: 'ok', box: [100, 100, 400, 300] },
-    { text: 'backwards', box: [100, 100, 400, 300] },
-  ], 'a zero-width box, a malformed box and an empty string are all dropped');
-});
-
-test('an out-of-range coordinate is clamped without changing the coordinate system', () => {
-  const lines = jsonBoxes.parse(
-    '[{"text":"a","bbox_2d":[10,20,100,60]},'
-    + '{"text":"b","bbox_2d":[200,100,1400,900]}]', image);
-  assert.deepEqual(lines, [
-    { text: 'a', box: [8, 8, 80, 24] },
-    { text: 'b', box: [160, 40, 800, 360] },
-  ], 'one bad value must not make every box look like pixel coordinates');
-});
-
-test('the one-pass reader asks for the target language and reads it back per line', () => {
-  const request = jsonBoxesTranslating.build(image, 'German');
-  const prompt = (request.body.messages as any[])[0].content[1].text as string;
-  assert.match(prompt, /"translation"/);
-  assert.match(prompt, /"bbox_2d"/);
-  assert.match(prompt, /tight bounding box around only the visible glyphs/);
-  assert.match(prompt, /normalized independently to 0-1000/);
-  assert.match(prompt, /in German/);
-  assert.ok(jsonBoxesTranslating.capabilities.alsoTranslates);
-  assert.equal(jsonBoxes.capabilities.alsoTranslates, false);
-
-  const lines = jsonBoxesTranslating.parse(
-    '[{"text":"包邮","translation":"Free shipping","bbox_2d":[0,0,500,500]},'
-    + '{"text":"OK","bbox_2d":[500,500,1000,1000]}]', image);
-  assert.deepEqual(lines, [
-    { text: '包邮', box: [0, 0, 400, 200], translation: 'Free shipping' },
-    { text: 'OK', box: [400, 200, 800, 400], translation: '' },
-  ], 'a line the model left out is empty, which reads as untranslated');
-});
-
-test('a model that wraps its array in an object is still understood', () => {
-  const lines = jsonBoxes.parse('{"lines": [{"text":"ok","box":[1,2,3,4]}]}', image);
-  assert.equal(lines.length, 1);
-  assert.deepEqual(jsonBoxes.parse('no text found here', image), []);
-});
-
 test('giving up is not reported as the endpoint failing', async () => {
   const controller = new AbortController();
   globalThis.fetch = ((_url: string, init: any) => new Promise((_resolve, reject) => {
     init.signal.addEventListener('abort', () => reject(new Error('aborted')));
   })) as unknown as typeof fetch;
 
-  const job = send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image, 'English'), 'the reader',
+  const job = send({ baseUrl: 'http://host' }, chatLines.build(['x'], 'Chinese', 'English'), 'tr',
     controller.signal);
   controller.abort();
   await assert.rejects(job, (e: Error) => e.name === 'Cancelled');
@@ -190,7 +119,8 @@ test('a reply with no content at all is an empty string, not a crash', async () 
   for (const body of [{ choices: [{ message: { content: null } }] }, { choices: [] }, {}]) {
     globalThis.fetch = reply(body) as unknown as typeof fetch;
     assert.equal(
-      (await send({ baseUrl: 'http://host' }, hunyuanSpotting.build(image, 'English'), 'reader')).text, '');
+      (await send({ baseUrl: 'http://host' }, chatLines.build(['x'], 'Chinese', 'English'), 'tr'))
+        .text, '');
   }
 });
 
@@ -226,7 +156,7 @@ test('a reader in this browser is asked without a socket, and answers with lines
     };
   });
 
-  const reply = await send({ baseUrl: '' }, ppOcrBrowser.build(image, 'English'), 'the reader');
+  const reply = await send({ baseUrl: '' }, ppOcrBrowser.build(image), 'the reader');
   assert.equal(asked[0].image, image.dataUrl, 'the image is handed over, not posted');
 
   assert.deepEqual(ppOcrBrowser.parse(reply.text, image),
@@ -235,7 +165,7 @@ test('a reader in this browser is asked without a socket, and answers with lines
 });
 
 test('the browser reader brings in its Korean recogniser unless the page is known not to be Korean', () => {
-  const script = (source?: string) => ppOcrBrowser.build(image, 'English', source).body.script;
+  const script = (source?: string) => ppOcrBrowser.build(image, source).body.script;
   assert.equal(script('Korean'), 'korean');
   assert.equal(script('Auto'), 'compare');
   assert.equal(script(), 'compare');
@@ -244,7 +174,7 @@ test('the browser reader brings in its Korean recogniser unless the page is know
 
 test('a reader that cannot run here says so rather than posting somewhere', async () => {
   readsInBrowser(null);
-  await assert.rejects(send({ baseUrl: '' }, ppOcrBrowser.build(image, 'English'), 'the reader'),
+  await assert.rejects(send({ baseUrl: '' }, ppOcrBrowser.build(image), 'the reader'),
     /the reader cannot run here/);
 });
 
