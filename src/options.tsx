@@ -6,8 +6,8 @@ import { stagesOf } from './platform/metrics.ts';
 import { type PingResult } from './platform/messages.ts';
 import { SHIPPED, type Profile, copyOf, find, newId, uniqueName } from './platform/profiles.ts';
 import {
-  adapterFor, keyScope, knownModel, onePass, provider, providersFor,
-  startOn, twoPass,
+  EFFORTS, adapterFor, knownModel, onePass, provider, providersFor,
+  scopeOf, startOn, twoPass,
 } from './platform/providers.ts';
 import { hostOf, rolesUsed } from './platform/ready.ts';
 import {
@@ -16,6 +16,7 @@ import {
 } from './platform/settings.ts';
 import { Input, Names, ProfileSelect, Row, Toggle } from './ui/fields.tsx';
 import { PackStatus } from './ui/packs.tsx';
+import { SignIn } from './ui/signin.tsx';
 import {
   type Served, ModelField, isLlamacpp, servedNote, useAdoption, useServed,
 } from './ui/served.tsx';
@@ -155,8 +156,25 @@ function EndpointFields({ role, endpoint, fresh, edit, setKey, afterModel, child
         </Row>
       )}
       {said.text && <div class="served"><Status of={said} /></div>}
+      {p.id === 'chatgpt' && (
+        <Row label="Reasoning effort">
+          <select value={endpoint.effort || 'low'} onChange={(e) => {
+            const effort = e.currentTarget.value;
+            edit((endpoint) => { endpoint.effort = effort; });
+          }}>
+            {EFFORTS.map((one) => <option value={one}>{one}</option>)}
+          </select>
+        </Row>
+      )}
+      {p.id === 'chatgpt' && (
+        <Toggle label="Fast mode" on={Boolean(endpoint.fast)}
+          set={(on) => edit((endpoint) => { endpoint.fast = on; })}>
+          About 1.5× faster, and counts 2.5× against the plan's usage.
+        </Toggle>
+      )}
       {afterModel}
-      {p.key !== 'none' && <>
+      {p.key === 'signin' && <SignIn token={endpoint.apiKey} setKey={setKey} />}
+      {(p.key === 'required' || p.key === 'optional') && <>
         <Row label="API key">
           <Input type="password" autocomplete="off" value={endpoint.apiKey}
             placeholder={p.key === 'optional' ? 'Only if the server asks for one' : ''}
@@ -458,18 +476,18 @@ function Options() {
     replace(active.id, (profile) => {
       const endpoint = { ...profile[role] };
       change(endpoint);
-      endpoint.apiKey = keyring[keyScope(endpoint.baseUrl)] || '';
+      endpoint.apiKey = keyring[scopeOf(endpoint)] || '';
       return { ...profile, [role]: endpoint };
     });
 
   const setKey = (role: Role) => async (key: string) => {
-    const { baseUrl } = active[role];
-    await saveKey(baseUrl, key);
+    const scope = scopeOf(active[role]);
+    await saveKey(scope, key);
     setKeyring(await keys());
     setList((now) => now.map((profile) => {
       const copy = { ...profile };
       for (const r of ROLES) {
-        if (keyScope(profile[r].baseUrl) === keyScope(baseUrl)) copy[r] = { ...profile[r], apiKey: key };
+        if (scopeOf(profile[r]) === scope) copy[r] = { ...profile[r], apiKey: key };
       }
       return copy;
     }));

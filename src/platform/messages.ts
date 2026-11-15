@@ -29,7 +29,8 @@ export type Message =
   | { type: 'ping' }
   | { type: 'metrics' }
   | { type: 'log' }
-  | { type: 'clearMetrics' };
+  | { type: 'clearMetrics' }
+  | { type: 'chatgptModels' };
 
 export interface BlockReport {
   box: Box;

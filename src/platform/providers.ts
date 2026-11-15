@@ -1,3 +1,4 @@
+import { OPENAI } from '../backends/chatgpt.ts';
 import { type EndpointSettings, type Role } from './profiles.ts';
 
 // Reader adapters that also come in a translating variant. Stored as the adapter
@@ -34,13 +35,17 @@ export interface Provider {
   baseUrl: Partial<Record<Role, string>>;
   /** Whether the URL is the user's to change. */
   editUrl: boolean;
-  key: 'required' | 'optional' | 'none';
+  /** `signin` is an account signed into on the settings page, whose token stands in for a key. */
+  key: 'required' | 'optional' | 'none' | 'signin';
   /** Whether /models lists anything worth choosing from. llama.cpp lists its one. */
   lists: boolean;
   models: Partial<Record<Role, KnownModel[]>>;
 }
 
 export const OPENROUTER = 'https://openrouter.ai/api/v1';
+
+/** Reasoning efforts every ChatGPT plan model takes. Some go higher; none go lower. */
+export const EFFORTS = ['low', 'medium', 'high', 'xhigh'];
 
 export const PROVIDERS: Provider[] = [
   {
@@ -68,6 +73,30 @@ export const PROVIDERS: Provider[] = [
       ],
       translator: [
         { name: 'Hy-MT2 30B', model: 'tencent/hy-mt2-30b-a3b', adapter: 'hunyuan-mt' },
+      ],
+    },
+  },
+  {
+    id: 'chatgpt',
+    label: 'ChatGPT plan',
+    baseUrl: { translator: OPENAI },
+    editUrl: false,
+    key: 'signin',
+    // Asked of the worker, which keeps the token fresh.
+    lists: true,
+    models: {
+      // The plan's models as chatgpt.com/backend-api/codex/models lists them; the
+      // full list is searchable from the model field. Luna first: on a long page
+      // it was the quickest.
+      translator: [
+        { name: 'GPT-6-Luna', model: 'gpt-6-luna', adapter: 'chat-lines' },
+        { name: 'GPT-5.6-Luna', model: 'gpt-5.6-luna', adapter: 'chat-lines' },
+        { name: 'GPT-6.1-Sol', model: 'gpt-6.1-sol', adapter: 'chat-lines' },
+        { name: 'GPT-6-Sol', model: 'gpt-6-sol', adapter: 'chat-lines' },
+        { name: 'GPT-6.1 Terra', model: 'gpt-6.1-terra', adapter: 'chat-lines' },
+        { name: 'GPT-5.6-Terra', model: 'gpt-5.6-terra', adapter: 'chat-lines' },
+        { name: 'GPT-5.6-Sol', model: 'gpt-5.6-sol', adapter: 'chat-lines' },
+        { name: 'GPT-6-Astra', model: 'gpt-6-astra', adapter: 'chat-lines' },
       ],
     },
   },
@@ -127,6 +156,13 @@ export function adapterFor(
 // copies to drift apart.
 export const keyScope = (baseUrl: string): string =>
   baseUrl.trim().replace(/\/+$/, '').replace(/\/v1$/, '').toLowerCase();
+
+/** The ChatGPT sign-in's token, which is no URL, so no server's key can land on it. */
+export const CHATGPT_KEY = 'chatgpt';
+
+// The sign-in's token is for the same api.openai.com as an API key, and is not one.
+export const scopeOf = ({ provider, baseUrl }: { provider: string; baseUrl: string }): string =>
+  (provider === 'chatgpt' ? CHATGPT_KEY : keyScope(baseUrl));
 
 /** A fresh endpoint on `id`, with its first known model. */
 export function startOn(role: Role, id: string): EndpointSettings {

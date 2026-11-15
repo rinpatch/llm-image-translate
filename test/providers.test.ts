@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 
 import { OCR_ADAPTERS, TRANSLATE_ADAPTERS } from '../src/backends/registry.ts';
-import { SHIPPED } from '../src/platform/profiles.ts';
+import { PRESETS } from '../src/platform/profiles.ts';
 import {
   PROVIDERS, adapterFor, guessAdapter, keyScope, knownModel, onePass, startOn, twoPass,
 } from '../src/platform/providers.ts';
@@ -25,8 +25,8 @@ test('every one-pass variant is a real adapter that translates', () => {
   assert.equal(onePass('hunyuan-spotting'), undefined, 'no checkbox where there is no variant');
 });
 
-test('every shipped OpenRouter model shows up by name rather than as "another model"', () => {
-  for (const profile of SHIPPED) {
+test('every preset OpenRouter model shows up by name rather than as "another model"', () => {
+  for (const profile of PRESETS) {
     for (const role of ['reader', 'translator'] as const) {
       if (profile[role].provider !== 'openrouter') continue;
       assert.ok(knownModel(role, profile[role]), `${profile.id} ${role}`);

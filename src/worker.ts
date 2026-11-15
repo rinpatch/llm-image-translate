@@ -7,6 +7,7 @@ import { clear, entries, record, report } from './platform/metrics.ts';
 import { forget as forgetTraces } from './platform/traces.ts';
 import { fail, watchDebug } from './platform/log.ts';
 import { askOffscreen } from './platform/offscreen.ts';
+import { planModels, withFreshTokens } from './platform/chatgpt.ts';
 import { affectsResults, publicSettings, settings, toEndpoint } from './platform/settings.ts';
 
 watchDebug();
@@ -31,7 +32,7 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
 const jobs = new Map<string, AbortController>();
 
 async function run(request: Extract<Message, { type: 'translateImage' }>): Promise<ImageResult> {
-  const config = await settings();
+  const config = await withFreshTokens(await settings());
   const controller = new AbortController();
   jobs.set(request.jobId, controller);
   try {
@@ -64,7 +65,7 @@ async function run(request: Extract<Message, { type: 'translateImage' }>): Promi
 // Reported per endpoint rather than as one verdict: the settings page puts each
 // answer beside the field it belongs to.
 async function ping(): Promise<PingResult> {
-  const config = await settings();
+  const config = await withFreshTokens(await settings());
   // A reader that translates in the same pass never touches the other endpoint,
   // so whatever is in those fields is nobody's business.
   const ocr = ocrAdapter(config.reader.adapter);
@@ -92,6 +93,7 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
         case 'metrics': sendResponse(await report()); break;
         case 'log': sendResponse(await entries()); break;
         case 'clearMetrics': await clear(); sendResponse(await report()); break;
+        case 'chatgptModels': sendResponse(await planModels()); break;
         default: sendResponse({ ok: false, error: `unknown message ${(msg as any).type}` });
       }
     } catch (e: any) {

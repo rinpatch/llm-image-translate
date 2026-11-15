@@ -37,13 +37,25 @@ function headersFor(endpoint: Endpoint): Record<string, string> {
   return endpoint.apiKey ? { Authorization: `Bearer ${endpoint.apiKey}` } : {};
 }
 
+// A spent ChatGPT allowance is a 429 that is no use without the reason. OpenAI
+// and most servers give it in `error.message`, some in `detail`.
+async function whyNot(response: Response): Promise<string> {
+  try {
+    const out = await response.json();
+    const why = out?.detail?.message ?? out?.detail ?? out?.error?.message;
+    return typeof why === 'string' ? `: ${why.slice(0, 200)}` : '';
+  } catch {
+    return '';
+  }
+}
+
 async function post(
   endpoint: Endpoint,
   url: string,
   body: unknown,
   what: string,
   signal?: AbortSignal,
-): Promise<any> {
+): Promise<Response> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...headersFor(endpoint),
@@ -61,8 +73,76 @@ async function post(
     if (deadline.aborted) throw new Error(`${what} did not answer within ${TIMEOUT_MS / 1000}s`);
     throw new Error(`cannot reach ${what} at ${url}`);
   }
-  if (!response.ok) throw new Error(`${what} answered ${response.status}`);
-  return response.json();
+  if (!response.ok) throw new Error(`${what} answered ${response.status}${await whyNot(response)}`);
+  return response;
+}
+
+/**
+ * A chat completion's body as a Responses request, the only kind a ChatGPT
+ * sign-in can make. Sampling settings are left behind because the plan's
+ * models refuse them, and so is the token limit: reasoning spends from it, and a
+ * limit sized for the answer alone can leave no answer.
+ */
+function asResponses(body: Record<string, any>, { effort = 'low', fast }: Endpoint):
+  Record<string, unknown> {
+  const messages: { role: string; content: string }[] = body.messages || [];
+  return {
+    model: body.model,
+    instructions: messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n'),
+    input: messages.filter((m) => m.role !== 'system').map((m) => ({
+      role: m.role,
+      content: [{ type: m.role === 'assistant' ? 'output_text' : 'input_text', text: m.content }],
+    })),
+    reasoning: { effort },
+    ...(fast ? { service_tier: 'priority' } : {}),
+    store: false,
+    stream: true,
+  };
+}
+
+/** The finished response out of a server-sent event stream, shaped like a completion. */
+function fromStream(stream: string): any {
+  let done: any = null;
+  for (const line of stream.split('\n')) {
+    if (!line.startsWith('data:')) continue;
+    let event: any;
+    try { event = JSON.parse(line.slice(5)); } catch { continue; }
+    if (event.type === 'response.completed') done = event.response;
+    if (event.type === 'response.failed' || event.type === 'error') {
+      throw new Error(event.response?.error?.message || event.message || 'the model failed');
+    }
+  }
+  const text = (done?.output || [])
+    .filter((item: any) => item.type === 'message')
+    .flatMap((item: any) => item.content || [])
+    .filter((part: any) => part.type === 'output_text')
+    .map((part: any) => part.text)
+    .join('');
+  // Reasoning is counted in the output but done before the first text, so it is
+  // left out of the tokens that the time after that is divided by.
+  const usage = done?.usage;
+  const written = Number(usage?.output_tokens)
+    - Number(usage?.output_tokens_details?.reasoning_tokens || 0);
+  return {
+    choices: [{ message: { content: text } }],
+    usage: { completion_tokens: Number.isFinite(written) ? written : undefined },
+  };
+}
+
+/** The whole stream, and how long it took the first of the answer's text to arrive. */
+async function readStream(response: Response, started: number) {
+  const reader = response.body!.pipeThrough(new TextDecoderStream()).getReader();
+  let stream = '';
+  let first: number | undefined;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    stream += value;
+    if (first === undefined && value.includes('response.output_text.delta')) {
+      first = Date.now() - started;
+    }
+  }
+  return { stream, first };
 }
 
 // llama.cpp puts a `timings` block beside the answer; everyone else has `usage`
@@ -98,7 +178,18 @@ export async function send(
       stats: { wall_ms: Date.now() - started },
     };
   }
-  const out = await post(endpoint, PATHS[request.kind](endpoint.baseUrl), body, what, signal);
+  if (endpoint.responses && request.kind === 'chat') {
+    const url = `${apiRoot(endpoint.baseUrl)}/responses`;
+    const response = await post(endpoint, url, asResponses(body, endpoint), what, signal);
+    const { stream, first } = await readStream(response, started);
+    const out = fromStream(stream);
+    const wall_ms = Date.now() - started;
+    // OpenAI times nothing for us, so these are ours, network and queue included.
+    if (first !== undefined) out.timings = { prompt_ms: first, predicted_ms: wall_ms - first };
+    return { text: out.choices[0].message.content, stats: statsOf(out, wall_ms) };
+  }
+  const out = await (await post(endpoint, PATHS[request.kind](endpoint.baseUrl), body, what, signal))
+    .json();
   // A model that answers with nothing at all — a refusal, or a reasoning model
   // that spent its budget thinking — still has to come back as a string.
   const content = request.kind === 'chat'

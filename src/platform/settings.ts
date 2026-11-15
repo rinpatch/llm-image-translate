@@ -1,7 +1,7 @@
 import {
   type EndpointSettings, type Profile, type Role, ROLES, SHIPPED, find, toEndpoint,
 } from './profiles.ts';
-import { keyScope } from './providers.ts';
+import { keyScope, scopeOf } from './providers.ts';
 
 export { type EndpointSettings, type Role, ROLES, toEndpoint };
 
@@ -70,16 +70,17 @@ export async function publicSettings(): Promise<PublicSettings> {
 
 export type Keys = Record<string, string>;
 
-/** API keys by server, from `keyScope`. */
+/** API keys by server, from `scopeOf`. */
 export async function keys(): Promise<Keys> {
   const { keys: stored } = await chrome.storage.local.get({ keys: {} });
   return { ...(stored as Keys) };
 }
 
-export async function saveKey(baseUrl: string, key: string): Promise<void> {
+/** `scope` is a base URL or what `scopeOf` made of one. */
+export async function saveKey(scope: string, key: string): Promise<void> {
   const all = await keys();
-  if (key) all[keyScope(baseUrl)] = key;
-  else delete all[keyScope(baseUrl)];
+  if (key) all[keyScope(scope)] = key;
+  else delete all[keyScope(scope)];
   await chrome.storage.local.set({ keys: all });
 }
 
@@ -94,7 +95,7 @@ export async function profiles(): Promise<{ list: Profile[]; active: Profile }> 
   for (const profile of list) {
     for (const role of ROLES) {
       const endpoint = profile[role];
-      endpoint.apiKey = (stored.keys as Keys)[keyScope(endpoint.baseUrl)] || '';
+      endpoint.apiKey = (stored.keys as Keys)[scopeOf(endpoint)] || '';
     }
   }
   // An id pointing at a deleted profile falls back rather than leaving the

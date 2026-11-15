@@ -1,11 +1,13 @@
 // The first-run page, opened by the worker on install. It picks among a few
 // setups and runs the sample through whichever is chosen; anything finer is the
 // settings page's.
-import { render } from 'preact';
+import { type ComponentChildren, render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { LANGUAGES } from './core/language.ts';
-import { type EndpointSettings, type Profile, find } from './platform/profiles.ts';
-import { OPENROUTER, adapterFor, keyScope, provider, startOn } from './platform/providers.ts';
+import { type EndpointSettings, PRESETS, type Profile, find } from './platform/profiles.ts';
+import {
+  CHATGPT_KEY, OPENROUTER, adapterFor, keyScope, provider, startOn,
+} from './platform/providers.ts';
 import {
   type Keys, keys, profiles, publicSettings, save, saveKey, saveProfiles,
 } from './platform/settings.ts';
@@ -16,38 +18,41 @@ import {
 import {
   type Served, ModelField, isLlamacpp, servedNote, useAdoption, useServed,
 } from './ui/served.tsx';
+import { SignIn } from './ui/signin.tsx';
 import { NONE, type Note, Status, note } from './ui/status.tsx';
 import { TrialImage, useTrial } from './ui/trial.tsx';
 
 interface Choice {
   profile: string;
   title: string;
-  blurb: string;
-  guide?: { text: string; href: string };
+  blurb?: ComponentChildren;
 }
 
-// Its own profile rather than the shipped llama.cpp one, whose name says the
-// server is on this machine.
+// The one choice that is not a preset: its endpoint is whatever is typed in.
 const SERVER = 'server';
+
+const GUIDE = 'https://github.com/rinpatch/llm-image-translate/blob/main/docs/local-translation.md';
 
 const CHOICES: Choice[] = [
   {
     profile: 'browser-only',
     title: 'In this browser',
-    blurb: 'Free, and images never leave this computer. Literal translations; names '
-      + 'come out character by character.',
+    blurb: <>Uses Chrome's built-in <a href="https://developer.chrome.com/docs/ai/translator-api"
+      target="_blank">Translator API</a></>,
   },
   {
     profile: 'openrouter',
     title: 'OpenRouter',
-    blurb: 'The best translations, at about $0.001 an image.',
+  },
+  {
+    profile: 'chatgpt',
+    title: 'ChatGPT plan',
   },
   {
     profile: SERVER,
     title: 'OpenAI-compatible server',
-    blurb: 'Your own model translates; reading stays in this browser.',
-    guide: { text: 'Setting one up on a Mac',
-      href: 'https://claude.ai/artifact/NAJTC5Fz6gcvNCeHnPMV73' },
+    blurb: <>If you are interested in running a local model, check out
+      the <a href={GUIDE} target="_blank">guide</a>.</>,
   },
 ];
 
@@ -99,6 +104,13 @@ async function saveServer(translator: EndpointSettings, served: Served): Promise
   };
   const { list } = await profiles();
   await saveProfiles([...list.filter((p) => p.id !== SERVER), profile]);
+}
+
+/** Back in the list if it was never written, or was deleted on the settings page. */
+async function addPreset(id: string): Promise<void> {
+  const { list } = await profiles();
+  if (find(list, id)) return;
+  await saveProfiles([...list, structuredClone(find(PRESETS, id)!)]);
 }
 
 // Rows as divs: the card they sit in is already the radio's label.
@@ -217,6 +229,8 @@ function Welcome() {
     if (profile === SERVER) {
       setKept(true);
       await saveServer(server, served);
+    } else {
+      await addPreset(profile);
     }
     await save('profile', profile);
     forgetTrial();
@@ -228,7 +242,6 @@ function Welcome() {
         <img src="icons/128.png" alt="" />
         <div>
           <h1>LLM Image Translate</h1>
-          <p>Reads the text in an image and paints the translation over it.</p>
         </div>
       </header>
 
@@ -244,12 +257,10 @@ function Welcome() {
         </li>
 
         <li>
-          <h2>Pick the models</h2>
+          <h2>Pick the translation model</h2>
           <div id="choices">
             {list && CHOICES.map((choice) => {
               const isServer = choice.profile === SERVER;
-              // Deleted on the settings page, if this is a second visit.
-              if (!isServer && !find(list, choice.profile)) return null;
               const blocked = choice.profile === 'browser-only' && !hasTranslator();
               return (
                 <label class="choice" key={choice.profile}>
@@ -258,15 +269,24 @@ function Welcome() {
                     onChange={() => choose(choice.profile)} />
                   <div>
                     <b>{choice.title}</b>
-                    <p class="blurb">
-                      {choice.blurb}
-                      {blocked && ' Chrome\'s translator is turned off in this browser.'}
-                      {choice.guide && <> <a href={choice.guide.href} target="_blank">
-                        {`${choice.guide.text} →`}</a></>}
-                    </p>
+                    {(choice.blurb || blocked) && (
+                      <p class="blurb">
+                        {choice.blurb}
+                        {blocked && ' Chrome\'s translator is turned off in this browser.'}
+                      </p>
+                    )}
                     {choice.profile === 'openrouter' && (
                       <OpenRouterFields stored={keyring[keyScope(OPENROUTER)] || ''}
                         changed={forgetTrial} />
+                    )}
+                    {choice.profile === 'chatgpt' && (
+                      <div class="fields">
+                        <SignIn div token={keyring[CHATGPT_KEY] || ''} setKey={(key) => {
+                          setKeyring((k) => ({ ...k, [CHATGPT_KEY]: key }));
+                          // Signing in leaves no doubt which card was meant.
+                          if (key) choose('chatgpt'); else forgetTrial();
+                        }} />
+                      </div>
                     )}
                     {isServer && <ServerFields endpoint={server} served={served} andAdopt={andAdopt}
                       change={(patch) => setServer({ ...server, ...patch })} />}

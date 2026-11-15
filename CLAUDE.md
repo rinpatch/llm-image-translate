@@ -131,7 +131,7 @@ readers apart on counts alone; mean IoU is what separates them.
 ## The reader that runs in the browser
 
 The same two models as the server, in the extension: `ppocr-browser`, the
-reader the shipped **Local** profiles use. Nothing to start.
+reader a fresh install starts on. Nothing to start.
 
 ```bash
 npm install

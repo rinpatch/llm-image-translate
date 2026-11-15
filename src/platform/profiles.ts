@@ -1,3 +1,4 @@
+import { OPENAI } from '../backends/chatgpt.ts';
 import { type Endpoint } from '../backends/types.ts';
 import { OPENROUTER } from './providers.ts';
 
@@ -11,15 +12,23 @@ export interface EndpointSettings {
   /** Empty for a server that serves one model and does not ask which. */
   model: string;
   adapter: string;
+  /** The ChatGPT plan's reasoning effort. Unset is low. */
+  effort?: string;
+  /** The ChatGPT plan's fast mode. */
+  fast?: boolean;
 }
 
 export type Role = 'reader' | 'translator';
 export const ROLES: Role[] = ['reader', 'translator'];
 
-export const toEndpoint = ({ baseUrl, apiKey, model }: EndpointSettings): Endpoint => ({
+export const toEndpoint = (
+  { provider, baseUrl, apiKey, model, effort, fast }: EndpointSettings,
+): Endpoint => ({
   baseUrl,
   ...(apiKey ? { apiKey } : {}),
   ...(model ? { model } : {}),
+  ...(provider === 'chatgpt'
+    ? { responses: true, ...(effort ? { effort } : {}), ...(fast ? { fast } : {}) } : {}),
 });
 
 /**
@@ -37,62 +46,41 @@ const endpoint = (
   provider: string, baseUrl: string, adapter: string, model = '',
 ): EndpointSettings => ({ provider, baseUrl, apiKey: '', model, adapter });
 
-// Local reads in the browser: two ONNX graphs held open in an offscreen
-// document, so the only thing to start is the translator.
-//
+// Nothing to start and no key, so a fresh install has something that works
+// before the welcome page is done. Chrome's translator is far quicker than
+// Hy-MT2 and more literal — names come out read character by character.
+const IN_BROWSER: Profile = {
+  id: 'browser-only',
+  name: 'In this browser',
+  reader: endpoint('browser', '', 'ppocr-browser'),
+  translator: endpoint('browser', '', 'chrome-translator'),
+};
+
 // Scored against two generated pages whose true boxes are known — a clean comic
 // page and a noisy one with tilted, low-contrast and small text. Gemini 3.1
 // Flash Lite placed and read every line on both. Hy-MT2 is a translation model
 // rather than a chat model, and the only family tried that reads 雨宮静久 as
 // Amamiya Shizuku instead of inventing a reading.
-//
-// The one-pass pairing trades that reading for a round trip: the reader sees the
-// page while it translates, which no text-only translator does, but a general
-// model is the one naming the characters.
-export const SHIPPED: Profile[] = [
-  // First, so a fresh install opens on it: nothing to start at all. Chrome's
-  // translator is far quicker than Hy-MT2 and more literal — names come out read
-  // character by character — but the others all need a server or a key.
-  {
-    id: 'browser-only',
-    name: 'Local — Chrome\'s translator',
-    reader: endpoint('browser', '', 'ppocr-browser'),
-    translator: endpoint('browser', '', 'chrome-translator'),
-  },
-  {
-    id: 'llamacpp',
-    name: 'Local',
-    reader: endpoint('browser', '', 'ppocr-browser'),
-    translator: endpoint('server', 'http://127.0.0.1:8091', 'hunyuan-mt'),
-  },
-  {
-    id: 'llamacpp-gemma',
-    name: 'Local + TranslateGemma',
-    reader: endpoint('browser', '', 'ppocr-browser'),
-    translator: endpoint('server', 'http://127.0.0.1:8091', 'gemma-raw'),
-  },
-  {
-    id: 'openrouter',
-    name: 'OpenRouter — Gemini',
-    reader: endpoint('openrouter', OPENROUTER, 'json-boxes-yx', 'google/gemini-3.1-flash-lite'),
-    translator: endpoint('openrouter', OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
-  },
-  {
-    id: 'openrouter-one-pass',
-    name: 'OpenRouter — Gemini, one pass',
-    reader: endpoint('openrouter', OPENROUTER, 'json-boxes-yx-translate',
-      'google/gemini-3.1-flash-lite'),
-    // Unused while the reader translates, and there so that switching the reader
-    // adapter on this profile leaves something that works.
-    translator: endpoint('openrouter', OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
-  },
-  {
-    id: 'openrouter-open',
-    name: 'OpenRouter — Qwen3-VL',
-    reader: endpoint('openrouter', OPENROUTER, 'json-boxes', 'qwen/qwen3-vl-8b-instruct'),
-    translator: endpoint('openrouter', OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
-  },
-];
+const HOSTED: Profile = {
+  id: 'openrouter',
+  name: 'OpenRouter',
+  reader: endpoint('openrouter', OPENROUTER, 'json-boxes-yx', 'google/gemini-3.1-flash-lite'),
+  translator: endpoint('openrouter', OPENROUTER, 'hunyuan-mt', 'tencent/hy-mt2-30b-a3b'),
+};
+
+// The plan has no vision model to read with, so the browser reads.
+const CHATGPT: Profile = {
+  id: 'chatgpt',
+  name: 'ChatGPT plan',
+  reader: endpoint('browser', '', 'ppocr-browser'),
+  translator: endpoint('chatgpt', OPENAI, 'chat-lines', 'gpt-6-luna'),
+};
+
+/** What a fresh install has. The rest are added as the welcome page picks them. */
+export const SHIPPED: Profile[] = [IN_BROWSER];
+
+/** The setups the welcome page offers, written into the list when picked. */
+export const PRESETS: Profile[] = [IN_BROWSER, HOSTED, CHATGPT];
 
 /** Ids are only ever compared, never parsed. */
 export const newId = (): string =>

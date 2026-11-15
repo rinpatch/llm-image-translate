@@ -19,6 +19,7 @@ export function blocker(profile: Profile): string {
     const endpoint = profile[role];
     const p = provider(endpoint.provider);
     if (p.editUrl && !endpoint.baseUrl) return `The ${role} needs a server.`;
+    if (p.key === 'signin' && !endpoint.apiKey) return `The ${role} needs you signed in to ChatGPT.`;
     if (p.key === 'required' && !endpoint.apiKey) {
       return `The ${role} needs an API key for ${hostOf(endpoint.baseUrl)}.`;
     }

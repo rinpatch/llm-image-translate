@@ -20,7 +20,11 @@ export const isLlamacpp = (served: Served) => Boolean(served?.some((m) => m.llam
 export function useServed(endpoint: EndpointSettings, wanted: boolean): Served {
   const listable = Boolean(provider(endpoint.provider).lists && endpoint.baseUrl);
   // The model is left out: a different model on the same server is the same list.
-  return useAsync(() => (listable && wanted ? listModels(toEndpoint(endpoint)) : undefined),
+  return useAsync(() => (!listable || !wanted ? undefined
+    // The worker holds the refresh token, and the one this page has may have lapsed.
+    : endpoint.provider === 'chatgpt'
+      ? (endpoint.apiKey ? chrome.runtime.sendMessage({ type: 'chatgptModels' }) : undefined)
+      : listModels(toEndpoint(endpoint))),
     [endpoint.provider, endpoint.baseUrl, endpoint.apiKey, wanted]);
 }
 

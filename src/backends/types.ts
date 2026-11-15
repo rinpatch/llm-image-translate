@@ -5,6 +5,12 @@ export interface Endpoint {
   baseUrl: string;
   apiKey?: string;
   model?: string;
+  /** Speaks OpenAI's Responses API, streamed, instead of chat completions. */
+  responses?: boolean;
+  /** Reasoning effort, for a Responses endpoint. */
+  effort?: string;
+  /** OpenAI's priority tier, which Codex calls fast mode. */
+  fast?: boolean;
 }
 
 /**
