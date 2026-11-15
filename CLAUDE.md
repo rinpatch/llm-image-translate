@@ -216,11 +216,12 @@ not take `--load-extension` (see above). What works is puppeteer-core's
 // npm i puppeteer-core in the scratchpad, not here
 puppeteer.launch({
   executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-  headless: false, pipe: true, userDataDir: '<fresh dir>',
+  headless: false, pipe: true,
   enableExtensions: ['/Users/rin/sw/image-translate/extension'],
   ignoreDefaultArgs: true,
-  args: ['--remote-debugging-pipe', '--enable-unsafe-extension-debugging',
-    '--remote-debugging-port=9333', '--no-first-run'],
+  args: ['--user-data-dir=<fresh dir>', '--remote-debugging-pipe',
+    '--enable-unsafe-extension-debugging', '--remote-debugging-port=9333',
+    '--no-first-run'],
 });
 ```
 
@@ -231,8 +232,10 @@ Three traps:
 
 - **`ignoreDefaultArgs: true` is required.** Puppeteer's defaults include
   `--disable-component-update` and `--disable-background-networking`, and with
-  either one a download sits at "Downloading…" with no progress and no error.
-- **Use a fresh `userDataDir` after every rebuild.** A reused profile keeps
+  either one a download sits at "Downloading…" with no progress and no error. It
+  also drops the `--user-data-dir` that `userDataDir` would add, so the profile
+  goes in `args`; without it Chrome quietly runs on your default profile.
+- **Use a fresh `--user-data-dir` after every rebuild.** A reused profile keeps
   running the service worker it registered first, so the new build's options
   page talks to the old worker. `chrome.runtime.reload()` from a page unloads
   the extension for good.
