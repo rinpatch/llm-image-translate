@@ -59,4 +59,11 @@ export const chatLines: TranslateAdapter = {
     // again line by line stands a better chance than keeping nothing.
     return out.some((line) => line !== null) ? out : null;
   },
+
+  finished(partial: string): number {
+    // Drafts inside an unclosed <think> are not lines of the answer yet.
+    const end = partial.lastIndexOf('</think>');
+    if (end < 0 && partial.includes('<think>')) return 0;
+    return partial.slice(end + 1).match(/"text"\s*:\s*"(?:[^"\\]|\\.)*"/g)?.length ?? 0;
+  },
 };

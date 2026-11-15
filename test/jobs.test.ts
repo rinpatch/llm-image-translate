@@ -90,3 +90,24 @@ test('the work stops only when the last one waiting has given up', async () => {
   second.abort();
   assert.equal(inner!.aborted, true);
 });
+
+test('progress reaches everyone waiting, and a late joiner starts from the latest', async () => {
+  let tell: (p: any) => void;
+  let release: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  const work = async (_s: AbortSignal, report: (p: any) => void) => {
+    tell = report;
+    await gate;
+    return done;
+  };
+  const first: unknown[] = [];
+  const second: unknown[] = [];
+  const job = once('progress', never(), work, (p) => first.push(p));
+  tell!({ stage: 'read' });
+  once('progress', never(), work, (p) => second.push(p));
+  tell!({ stage: 'translate', done: 1, of: 2 });
+  release!();
+  await job;
+  assert.deepEqual(first, [{ stage: 'read' }, { stage: 'translate', done: 1, of: 2 }]);
+  assert.deepEqual(second, [{ stage: 'read' }, { stage: 'translate', done: 1, of: 2 }]);
+});

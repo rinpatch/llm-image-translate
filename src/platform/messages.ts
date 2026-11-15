@@ -32,6 +32,24 @@ export type Message =
   | { type: 'clearMetrics' }
   | { type: 'chatgptModels' };
 
+/** How far an image has got. */
+export interface Progress {
+  stage: 'read' | 'translate';
+  /** What the model has sent back so far, where it streams. */
+  tokens?: number;
+  /** Lines translated so far, out of `of`, where the reply can be counted. */
+  done?: number;
+  of?: number;
+}
+
+/** Sent from the worker to whoever asked for `jobId`, while it runs. */
+export interface ProgressMessage {
+  type: 'progress';
+  target: 'page';
+  jobId: string;
+  progress: Progress;
+}
+
 export interface BlockReport {
   box: Box;
   src: string;

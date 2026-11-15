@@ -2,7 +2,8 @@ import { BadgeLayer, type Status } from './content/badges.ts';
 import { type Ready, ResultCache } from './content/cache.ts';
 import { notesFor } from './content/notes.ts';
 import { restore, show } from './content/swap.ts';
-import { type ImageResult, type Message, type TranslateImage } from './platform/messages.ts';
+import { type ImageResult, type Message, type ProgressMessage, type TranslateImage }
+  from './platform/messages.ts';
 import { affectsResults, type PublicSettings } from './platform/settings.ts';
 
 const TITLES: Record<Status, string> = {
@@ -176,6 +177,13 @@ chrome.storage.local.onChanged.addListener((changes) => {
 // paid request for a picture nobody is looking at any more.
 addEventListener('pagehide', () => {
   for (const img of states.keys()) cancel(img);
+});
+
+chrome.runtime.onMessage.addListener((msg: ProgressMessage) => {
+  if (msg?.type !== 'progress') return;
+  for (const [img, state] of states) {
+    if (state.jobId === msg.jobId) layer.setProgress(img, msg.progress);
+  }
 });
 
 chrome.storage.sync.onChanged.addListener((changes) => {

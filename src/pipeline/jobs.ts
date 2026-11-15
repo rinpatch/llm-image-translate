@@ -1,5 +1,5 @@
 import { Lru } from '../core/lru.ts';
-import { type ImageResult, type TranslateImage } from '../platform/messages.ts';
+import { type ImageResult, type Progress, type TranslateImage } from '../platform/messages.ts';
 import { type Settings } from '../platform/settings.ts';
 
 // A translated PNG is megabytes, and a service worker is not where megabytes
@@ -13,6 +13,9 @@ interface Running {
   controller: AbortController;
   /** One per caller still waiting. The work stops when the last one leaves. */
   waiting: Set<AbortSignal>;
+  listeners: Set<(progress: Progress) => void>;
+  /** Handed to whoever joins late, so their badge does not start from nothing. */
+  last?: Progress;
 }
 
 const inFlight = new Map<string, Running>();
@@ -48,7 +51,8 @@ export function keyFor(request: TranslateImage, config: Settings): string {
 export function once(
   key: string,
   signal: AbortSignal,
-  work: (signal: AbortSignal) => Promise<ImageResult>,
+  work: (signal: AbortSignal, report: (progress: Progress) => void) => Promise<ImageResult>,
+  onProgress?: (progress: Progress) => void,
 ): Promise<ImageResult> {
   const done = results.get(key);
   if (done) return Promise.resolve(done);
@@ -56,8 +60,14 @@ export function once(
   let running = inFlight.get(key);
   if (!running) {
     const controller = new AbortController();
-    const started: Running = { controller, waiting: new Set(), job: null as never };
-    started.job = work(controller.signal)
+    const started: Running = {
+      controller, waiting: new Set(), listeners: new Set(), job: null as never,
+    };
+    const report = (progress: Progress) => {
+      started.last = progress;
+      for (const listener of started.listeners) listener(progress);
+    };
+    started.job = work(controller.signal, report)
       .then((result) => {
         // Failures are not cached: the endpoint may simply have been down.
         if (result.ok) results.set(key, result);
@@ -68,10 +78,15 @@ export function once(
     running = started;
   }
 
-  const { waiting, controller } = running;
+  const { waiting, controller, listeners } = running;
   waiting.add(signal);
+  if (onProgress) {
+    listeners.add(onProgress);
+    if (running.last) onProgress(running.last);
+  }
   signal.addEventListener('abort', () => {
     waiting.delete(signal);
+    if (onProgress) listeners.delete(onProgress);
     if (!waiting.size) controller.abort();
   }, { once: true });
   return running.job;

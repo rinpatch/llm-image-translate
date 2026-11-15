@@ -4,7 +4,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { notesFor } from '../content/notes.ts';
 import { stagesOf } from '../platform/metrics.ts';
-import { type ImageResult } from '../platform/messages.ts';
+import { sentence } from '../content/progress.ts';
+import { type ImageResult, type Progress, type ProgressMessage } from '../platform/messages.ts';
 import { blocker } from '../platform/ready.ts';
 import { profiles } from '../platform/settings.ts';
 import { Check } from './fields.tsx';
@@ -45,7 +46,13 @@ export function useTrial() {
     const jobId = crypto.randomUUID();
     setJob(jobId);
     const started = Date.now();
-    const tick = setInterval(() => setTold(note(`Translating… ${ms(Date.now() - started)}`)), 100);
+    let progress: Progress | null = null;
+    const hear = (msg: ProgressMessage) => {
+      if (msg?.type === 'progress' && msg.jobId === jobId) progress = msg.progress;
+    };
+    chrome.runtime.onMessage.addListener(hear);
+    const tick = setInterval(() => setTold(note(
+      `${progress ? sentence(progress) : 'Translating'}… ${ms(Date.now() - started)}`)), 100);
     setTold(note('Translating…'));
 
     let answer: ImageResult;
@@ -56,6 +63,7 @@ export function useTrial() {
       answer = { ok: false, error: String(e?.message || e) };
     } finally {
       clearInterval(tick);
+      chrome.runtime.onMessage.removeListener(hear);
       setJob('');
     }
 

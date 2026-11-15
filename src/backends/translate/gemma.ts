@@ -45,4 +45,6 @@ export const translateGemma: TranslateAdapter = {
     while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
     return lines.length === expected ? lines.map((l) => l.trim()) : null;
   },
+
+  finished: (partial: string): number => partial.trimStart().split('\n').length - 1,
 };

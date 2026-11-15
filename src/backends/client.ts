@@ -1,4 +1,5 @@
-import { type Endpoint, type ModelRequest, type ModelStats, type Reply } from './types.ts';
+import { type Endpoint, type ModelRequest, type ModelStats, type Reply, type Streamed }
+  from './types.ts';
 
 // A hung request holds the service worker awake for as long as it lasts, so
 // there is an outer limit even when nobody cancels.
@@ -100,18 +101,8 @@ function asResponses(body: Record<string, any>, { effort = 'low', fast }: Endpoi
   };
 }
 
-/** The finished response out of a server-sent event stream, shaped like a completion. */
-function fromStream(stream: string): any {
-  let done: any = null;
-  for (const line of stream.split('\n')) {
-    if (!line.startsWith('data:')) continue;
-    let event: any;
-    try { event = JSON.parse(line.slice(5)); } catch { continue; }
-    if (event.type === 'response.completed') done = event.response;
-    if (event.type === 'response.failed' || event.type === 'error') {
-      throw new Error(event.response?.error?.message || event.message || 'the model failed');
-    }
-  }
+/** A finished Responses answer, shaped like a completion. */
+function asCompletion(done: any): any {
   const text = (done?.output || [])
     .filter((item: any) => item.type === 'message')
     .flatMap((item: any) => item.content || [])
@@ -129,20 +120,38 @@ function fromStream(stream: string): any {
   };
 }
 
-/** The whole stream, and how long it took the first of the answer's text to arrive. */
-async function readStream(response: Response, started: number) {
+/** Every event of a server-sent stream, handed over as it arrives. */
+async function eachEvent(
+  response: Response,
+  what: string,
+  signal: AbortSignal | undefined,
+  on: (event: any) => void,
+): Promise<void> {
   const reader = response.body!.pipeThrough(new TextDecoderStream()).getReader();
-  let stream = '';
-  let first: number | undefined;
+  const take = (line: string) => {
+    if (!line.startsWith('data:')) return;
+    const data = line.slice(5).trim();
+    if (data === '[DONE]') return;
+    let event: any;
+    try { event = JSON.parse(data); } catch { return; }
+    on(event);
+  };
+  let pending = '';
   for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    stream += value;
-    if (first === undefined && value.includes('response.output_text.delta')) {
-      first = Date.now() - started;
+    let chunk: ReadableStreamReadResult<string>;
+    try {
+      chunk = await reader.read();
+    } catch {
+      if (signal?.aborted) throw new Cancelled();
+      throw new Error(`${what} stopped partway through its answer`);
     }
+    if (chunk.done) break;
+    // An event can be split across two reads.
+    const lines = (pending + chunk.value).split('\n');
+    pending = lines.pop()!;
+    lines.forEach(take);
   }
-  return { stream, first };
+  take(pending);
 }
 
 // llama.cpp puts a `timings` block beside the answer; everyone else has `usage`
@@ -161,12 +170,17 @@ function statsOf(out: any, wall_ms: number): ModelStats {
   return stats;
 }
 
-/** Posts what an adapter built and hands back the text the model produced. */
+/**
+ * Posts what an adapter built and hands back the text the model produced.
+ * With `onText` the reply is streamed and reported as it grows; without it a
+ * plain completion is asked for, which every server answers.
+ */
 export async function send(
   endpoint: Endpoint,
   request: ModelRequest,
   what: string,
   signal?: AbortSignal,
+  onText?: (sofar: Streamed) => void,
 ): Promise<Reply> {
   const body = endpoint.model ? { ...request.body, model: endpoint.model } : request.body;
   const started = Date.now();
@@ -181,15 +195,30 @@ export async function send(
   if (endpoint.responses && request.kind === 'chat') {
     const url = `${apiRoot(endpoint.baseUrl)}/responses`;
     const response = await post(endpoint, url, asResponses(body, endpoint), what, signal);
-    const { stream, first } = await readStream(response, started);
-    const out = fromStream(stream);
+    let done: any = null;
+    let first: number | undefined;
+    const sofar: Streamed = { text: '', tokens: 0 };
+    await eachEvent(response, what, signal, (event) => {
+      if (event.type === 'response.output_text.delta') {
+        first ??= Date.now() - started;
+        sofar.text += event.delta ?? '';
+        sofar.tokens += 1;
+        onText?.(sofar);
+      }
+      if (event.type === 'response.completed') done = event.response;
+      if (event.type === 'response.failed' || event.type === 'error') {
+        throw new Error(event.response?.error?.message || event.message || 'the model failed');
+      }
+    });
+    const out = asCompletion(done);
     const wall_ms = Date.now() - started;
     // OpenAI times nothing for us, so these are ours, network and queue included.
     if (first !== undefined) out.timings = { prompt_ms: first, predicted_ms: wall_ms - first };
     return { text: out.choices[0].message.content, stats: statsOf(out, wall_ms) };
   }
-  const out = await (await post(endpoint, PATHS[request.kind](endpoint.baseUrl), body, what, signal))
-    .json();
+  const url = PATHS[request.kind](endpoint.baseUrl);
+  if (onText) return streamed(endpoint, request.kind, url, body, what, started, onText, signal);
+  const out = await (await post(endpoint, url, body, what, signal)).json();
   // A model that answers with nothing at all — a refusal, or a reasoning model
   // that spent its budget thinking — still has to come back as a string.
   const content = request.kind === 'chat'
@@ -199,6 +228,54 @@ export async function send(
     text: typeof content === 'string' ? content : '',
     stats: statsOf(out, Date.now() - started),
   };
+}
+
+async function streamed(
+  endpoint: Endpoint,
+  kind: 'chat' | 'completion',
+  url: string,
+  body: Record<string, unknown>,
+  what: string,
+  started: number,
+  onText: (sofar: Streamed) => void,
+  signal?: AbortSignal,
+): Promise<Reply> {
+  // Without include_usage an OpenAI-compatible stream never says what it cost.
+  const asked = { ...body, stream: true,
+    ...(kind === 'chat' ? { stream_options: { include_usage: true } } : {}) };
+  const response = await post(endpoint, url, asked, what, signal);
+  const sofar: Streamed = { text: '', tokens: 0 };
+  let written = 0;
+  let first: number | undefined;
+  let usage: any;
+  let timings: any;
+  await eachEvent(response, what, signal, (event) => {
+    if (event.error) throw new Error(`${what} failed: ${event.error.message || event.error}`);
+    if (event.usage) usage = event.usage;
+    if (event.timings) timings = event.timings;
+    const delta = event.choices?.[0]?.delta;
+    const piece = kind === 'chat' ? delta?.content : event.content;
+    if (typeof piece === 'string' && piece) {
+      first ??= Date.now() - started;
+      sofar.text += piece;
+      written += 1;
+    } else if (!delta?.reasoning_content && !delta?.reasoning) {
+      return;
+    }
+    // A reasoning model's thinking is no part of the answer, but it is the model
+    // getting somewhere, and the only sign of life for the first long while.
+    sofar.tokens += 1;
+    onText(sofar);
+  });
+  const wall_ms = Date.now() - started;
+  // llama.cpp times itself in the last event. Anyone else is timed from here, as
+  // the Responses API is, and counted in events where it sent no usage.
+  const out = {
+    usage: usage ?? { completion_tokens: written },
+    timings: timings ?? (first !== undefined
+      ? { prompt_ms: first, predicted_ms: wall_ms - first } : undefined),
+  };
+  return { text: sofar.text, stats: statsOf(out, wall_ms) };
 }
 
 // /v1/models rather than llama.cpp's /health: every OpenAI-compatible server has

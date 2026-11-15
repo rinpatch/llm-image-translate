@@ -2,7 +2,8 @@ import { health, readsInBrowser } from './backends/client.ts';
 import { ocrAdapter, translateAdapter } from './backends/registry.ts';
 import { translateImage } from './pipeline/image.ts';
 import { forget, keyFor, once } from './pipeline/jobs.ts';
-import { type ImageResult, type Message, type PingResult } from './platform/messages.ts';
+import { type ImageResult, type Message, type PingResult, type Progress,
+  type ProgressMessage } from './platform/messages.ts';
 import { clear, entries, record, report } from './platform/metrics.ts';
 import { forget as forgetTraces } from './platform/traces.ts';
 import { fail, watchDebug } from './platform/log.ts';
@@ -31,15 +32,45 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
 // which request it is giving up on.
 const jobs = new Map<string, AbortController>();
 
-async function run(request: Extract<Message, { type: 'translateImage' }>): Promise<ImageResult> {
+// A streamed reply is a few events per token; the badge needs a fraction of that.
+const PROGRESS_MS = 150;
+
+/**
+ * Tells the asker how its image is getting on. A content script only hears
+ * chrome.tabs.sendMessage and an extension page only hears a broadcast, and
+ * either may have gone by now, which is no error.
+ */
+function progressTo(sender: chrome.runtime.MessageSender, jobId: string) {
+  const extensionPage = sender.url?.startsWith(chrome.runtime.getURL(''));
+  let sentAt = 0;
+  let last = '';
+  return (progress: Progress) => {
+    // Only the token count is thinned out; a finished line always goes.
+    const step = `${progress.stage}:${progress.done}`;
+    const now = Date.now();
+    if (step === last && now - sentAt < PROGRESS_MS) return;
+    sentAt = now;
+    last = step;
+    const message: ProgressMessage = { type: 'progress', target: 'page', jobId, progress };
+    (sender.tab?.id !== undefined && !extensionPage
+      ? chrome.tabs.sendMessage(sender.tab.id, message, { frameId: sender.frameId })
+      : chrome.runtime.sendMessage(message)).catch(() => {});
+  };
+}
+
+async function run(
+  request: Extract<Message, { type: 'translateImage' }>,
+  sender: chrome.runtime.MessageSender,
+): Promise<ImageResult> {
   const config = await withFreshTokens(await settings());
+  const onProgress = progressTo(sender, request.jobId);
   const controller = new AbortController();
   jobs.set(request.jobId, controller);
   try {
     // Timed inside the work rather than around it: a second click on the same
     // image is answered from the cache and never went near a model.
-    const work = async (signal: AbortSignal) => {
-      const result = await translateImage(request, config, signal);
+    const work = async (signal: AbortSignal, report: (progress: Progress) => void) => {
+      const result = await translateImage(request, config, signal, report);
       // A cancelled image is the page changing its mind, not an outcome worth
       // keeping; everything else goes in the history, failures most of all.
       if (result.ok || result.code !== 'cancelled') {
@@ -55,8 +86,8 @@ async function run(request: Extract<Message, { type: 'translateImage' }>): Promi
       return result;
     };
     return await (request.fresh
-      ? work(controller.signal)
-      : once(keyFor(request, config), controller.signal, work));
+      ? work(controller.signal, onProgress)
+      : once(keyFor(request, config), controller.signal, work, onProgress));
   } finally {
     jobs.delete(request.jobId);
   }
@@ -79,14 +110,14 @@ async function ping(): Promise<PingResult> {
   return { ok: !reader && !translator, reader, translator };
 }
 
-chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg: Message, sender, sendResponse) => {
   // Every extension context gets every message, so one addressed elsewhere has
   // to be left alone entirely — answering it would race the real recipient.
   if ((msg as any)?.target && (msg as any).target !== 'worker') return false;
   (async () => {
     try {
       switch (msg.type) {
-        case 'translateImage': sendResponse(await run(msg)); break;
+        case 'translateImage': sendResponse(await run(msg, sender)); break;
         case 'cancelImage': jobs.get(msg.jobId)?.abort(); sendResponse({ ok: true }); break;
         case 'settings': sendResponse(await publicSettings()); break;
         case 'ping': sendResponse(await ping()); break;

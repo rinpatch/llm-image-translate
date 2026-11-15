@@ -45,6 +45,15 @@ export interface Reply {
   stats: ModelStats;
 }
 
+/**
+ * A reply that is still arriving. `tokens` counts the pieces the server sent,
+ * which is a token each from llama.cpp and OpenAI, thinking included.
+ */
+export interface Streamed {
+  text: string;
+  tokens: number;
+}
+
 export interface EncodedImage {
   dataUrl: string;
   width: number;
@@ -90,4 +99,6 @@ export interface TranslateAdapter {
    * unusable and the batch is worth asking again one line at a time.
    */
   parse(content: string, expected: number): (string | null)[] | null;
+  /** How many lines of a reply that is still arriving are already whole. */
+  finished?(partial: string): number;
 }

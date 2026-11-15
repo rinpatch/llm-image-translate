@@ -269,3 +269,70 @@ test('Chrome\'s translator is handed language codes and the lines, in this brows
   assert.equal(chromeTranslator.parse('["one"]', 2), null, 'a count that does not match is no answer');
   readsInBrowser(null);
 });
+
+const sse = (...events: unknown[]) =>
+  events.map((e) => `data: ${typeof e === 'string' ? e : JSON.stringify(e)}\n\n`).join('');
+
+/** A body that arrives in pieces cut at arbitrary places, as a network delivers it. */
+function trickle(text: string, size = 7): Response {
+  const bytes = new TextEncoder().encode(text);
+  return new Response(new ReadableStream({
+    start(c) {
+      for (let i = 0; i < bytes.length; i += size) c.enqueue(bytes.slice(i, i + size));
+      c.close();
+    },
+  }));
+}
+
+test('with a listener the reply is streamed, and reported as it grows', async () => {
+  let body: any;
+  globalThis.fetch = (async (_url: string, init: any) => {
+    body = JSON.parse(init.body);
+    return trickle(sse(
+      { choices: [{ delta: { reasoning_content: 'hmm' } }] },
+      { choices: [{ delta: { content: '[{"i": 1, "text": "Free' } }] },
+      { choices: [{ delta: { content: ' shipping"}]' } }] },
+      { choices: [], usage: { completion_tokens: 9 } },
+      '[DONE]'));
+  }) as typeof fetch;
+
+  const seen: [string, number][] = [];
+  const reply = await send({ baseUrl: 'http://host' }, chatLines.build(['全场包邮'], 'Chinese', 'English'),
+    'the translator', undefined, (s) => seen.push([s.text, s.tokens]));
+  assert.equal(body.stream, true);
+  assert.deepEqual(body.stream_options, { include_usage: true });
+  assert.deepEqual(chatLines.parse(reply.text, 1), ['Free shipping']);
+  assert.deepEqual(seen.map(([, n]) => n), [1, 2, 3], 'the thinking counts as a sign of life');
+  assert.equal(seen[0][0], '', 'but is not part of the text');
+  assert.equal(reply.stats.tokens, 9, 'the server’s own count wins over ours');
+  assert.equal(typeof reply.stats.ttft_ms, 'number');
+});
+
+test('llama.cpp’s raw completion streams too, and times itself at the end', async () => {
+  globalThis.fetch = (async () => trickle(sse(
+    { content: 'Free ', stop: false },
+    { content: 'shipping', stop: false },
+    { content: '', stop: true, timings: { prompt_ms: 40, predicted_ms: 100, predicted_n: 2 } },
+  ))) as unknown as typeof fetch;
+  const reply = await send({ baseUrl: 'http://host' }, translateGemma.build(['包邮'], 'Chinese', 'English'),
+    'the translator', undefined, () => {});
+  assert.equal(reply.text, 'Free shipping');
+  assert.deepEqual(reply.stats, { wall_ms: reply.stats.wall_ms, ttft_ms: 40, tokens: 2, gen_ms: 100 });
+});
+
+test('an error sent inside the stream fails the call', async () => {
+  globalThis.fetch = (async () => trickle(sse({ error: { message: 'context too long' } }))) as
+    unknown as typeof fetch;
+  await assert.rejects(send({ baseUrl: 'http://host' }, chatLines.build(['x'], 'Chinese', 'English'),
+    'the translator', undefined, () => {}), /context too long/);
+});
+
+test('each adapter can tell how many lines of a half-arrived reply are whole', () => {
+  assert.equal(chatLines.finished!('[{"i": 1, "text": "Free \\"ship\\""}, {"i": 2, "text": "SF'), 1);
+  assert.equal(chatLines.finished!('<think>{"i": 1, "text": "draft"}'), 0,
+    'a draft in the thinking is not a line');
+  assert.equal(chatLines.finished!('<think>x</think>[{"i": 1, "text": "a"}'), 1);
+  assert.equal(hunyuanMt.finished!('1. Free shipping\n2. SF Ex'), 1,
+    'the last line is not whole until its newline');
+  assert.equal(translateGemma.finished!('\nFree shipping\nSF Ex'), 1);
+});

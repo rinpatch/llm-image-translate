@@ -13,7 +13,7 @@ import { type EncodedImage, type Endpoint, type ModelStats, type TranslateAdapte
 import { detect } from '../platform/detect.ts';
 import { log, fail, mark, since } from '../platform/log.ts';
 import { type Settings, toEndpoint } from '../platform/settings.ts';
-import { type BlockReport, type ImageResult, type Stage, type Timings,
+import { type BlockReport, type ImageResult, type Progress, type Stage, type Timings,
   type TranslateImage } from '../platform/messages.ts';
 import { keep, type TracedBlock } from '../platform/traces.ts';
 
@@ -103,21 +103,37 @@ async function translateAll(
   target: string,
   signal: AbortSignal,
   calls: ModelStats[],
+  report: (progress: Progress) => void,
 ): Promise<string[]> {
   if (!texts.length) return [];
   const source = await detectedSource(texts, sourceSetting, detect);
   log('translating', texts.length, 'block(s)', `${source} -> ${target}`,
     adapter.capabilities.batch ? 'in one request' : 'one at a time');
-  const ask = async (batch: string[], maxTokens?: number) => {
+  const of = texts.length;
+  // Summed over every call, the retries running side by side included.
+  let tokens = 0;
+  let answered = 0;
+  const ask = async (batch: string[], maxTokens?: number, counting?: boolean) => {
+    let mine = 0;
     const reply = await send(endpoint, adapter.build(batch, source, target, maxTokens),
-      'the translator', signal);
+      'the translator', signal, (sofar) => {
+        tokens += sofar.tokens - mine;
+        mine = sofar.tokens;
+        // A reply the adapter cannot count partway leaves the line count unsaid
+        // rather than stuck at nought.
+        const done = !counting ? answered
+          : adapter.finished ? Math.min(of, adapter.finished(sofar.text)) : undefined;
+        report({ stage: 'translate', tokens, done, of });
+      });
     calls.push(reply.stats);
     return adapter.parse(reply.text, batch.length);
   };
 
+  report({ stage: 'translate', of });
   // The whole page in one request: the lines are context for each other.
-  const batched = adapter.capabilities.batch ? await ask(texts) : null;
+  const batched = adapter.capabilities.batch ? await ask(texts, undefined, true) : null;
   const out: (string | null)[] = batched || texts.map(() => null);
+  answered = out.filter((line) => line !== null).length;
 
   // Whatever the batch did not answer for is asked again on its own. An adapter
   // that numbers its lines loses only the lines that went wrong; one that cannot
@@ -125,8 +141,12 @@ async function translateAll(
   const missing = out.map((line, i) => (line === null ? i : -1)).filter((i) => i >= 0);
   if (missing.length) {
     log(`asking again for ${missing.length} of ${texts.length} line(s)`);
-    await pool(missing, RETRY_CONCURRENCY,
-      async (at) => (await ask([texts[at]], 256))?.[0] ?? '', out as string[]);
+    await pool(missing, RETRY_CONCURRENCY, async (at) => {
+      const line = (await ask([texts[at]], 256))?.[0] ?? '';
+      answered += 1;
+      report({ stage: 'translate', tokens, done: answered, of });
+      return line;
+    }, out as string[]);
   }
   return out.map((line) => line ?? '');
 }
@@ -180,6 +200,7 @@ export async function translateImage(
   { src, dataUrl, binary }: TranslateImage,
   config: Settings,
   signal: AbortSignal,
+  tell: (progress: Progress) => void = () => {},
 ): Promise<ImageResult> {
   const timings: Timings = {};
   const wholeRun = Date.now();
@@ -208,8 +229,9 @@ export async function translateImage(
   let spots: TextLine[] = [];
   try {
     started = Date.now();
+    tell({ stage: 'read' });
     const reply = await send(toEndpoint(config.reader), ocr.build(image, config.target, config.source),
-      'the reader', signal);
+      'the reader', signal, ({ tokens }) => tell({ stage: 'read', tokens }));
     timings.read = stageOf(Date.now() - started, [reply.stats]);
     spots = ocr.parse(reply.text, image);
     blocks = group(spots, dividerFor(source, width, height));
@@ -235,7 +257,7 @@ export async function translateImage(
       started = Date.now();
       const calls: ModelStats[] = [];
       translations = await translateAll(toEndpoint(config.translator), translator, originals,
-        config.source, config.target, signal, calls);
+        config.source, config.target, signal, calls, tell);
       timings.translate = stageOf(Date.now() - started, calls);
     }
 

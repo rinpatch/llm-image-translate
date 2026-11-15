@@ -47,4 +47,8 @@ export const hunyuanMt: TranslateAdapter = {
     // One line in with no numbering back: whatever came back is the answer.
     return expected === 1 && reply ? [reply] : null;
   },
+
+  // The last line is not whole until the newline after it arrives.
+  finished: (partial: string): number => partial.split('\n').slice(0, -1)
+    .filter((line) => /^\s*\d+[.)]\s*\S/.test(line)).length,
 };

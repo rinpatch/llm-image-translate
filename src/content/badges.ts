@@ -1,4 +1,6 @@
 // A badge per <img>, in the shape videospeed puts one on a <video>.
+import { type Progress } from '../platform/messages.ts';
+import { fraction, label, sentence } from './progress.ts';
 
 const MIN_SIDE = 96;
 const SYNC_MS = 400;
@@ -17,6 +19,12 @@ const STYLE = `
 }
 .badge:hover, .badge.on, .badge.busy { opacity: .95; }
 .badge.on { background: #2b6cb0; }
+.badge.wide {
+  width: auto; padding: 0 7px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  background-image: linear-gradient(to right,
+    rgba(43, 108, 176, .9) var(--done, 0%), transparent var(--done, 0%));
+}
 .badge.bad { background: #c0392b; opacity: .95; }
 `;
 
@@ -26,6 +34,8 @@ interface Controller {
   badge: HTMLButtonElement;
   status: Status;
   title: string;
+  /** How far a translation has got, while one is running. */
+  progress: Progress | null;
   offscreen: boolean;
   /** Laid over the image and kept on it, beneath the badge. */
   overlay: HTMLElement | null;
@@ -123,8 +133,16 @@ export class BadgeLayer {
     if (!c) return;
     c.status = status;
     c.title = title;
+    c.progress = null;
     this.render(img);
     this.place(img);
+  }
+
+  setProgress(img: HTMLImageElement, progress: Progress): void {
+    const c = this.controllers.get(img);
+    if (!c || c.status !== 'working') return;
+    c.progress = progress;
+    this.render(img);
   }
 
   setOverlay(img: HTMLImageElement, overlay: HTMLElement | null): void {
@@ -193,7 +211,7 @@ export class BadgeLayer {
     });
     this.surface!.append(badge);
     this.controllers.set(img,
-      { badge, status: 'idle', title: '', offscreen: false, overlay: null });
+      { badge, status: 'idle', title: '', progress: null, offscreen: false, overlay: null });
     this.visibility?.observe(img);
     this.sizes?.observe(img);
     this.place(img);
@@ -238,12 +256,16 @@ export class BadgeLayer {
   private render(img: HTMLImageElement): void {
     const c = this.controllers.get(img);
     if (!c) return;
-    const { badge, status } = c;
+    const { badge, status, progress } = c;
     badge.classList.toggle('busy', status === 'working');
     badge.classList.toggle('on', status === 'shown');
     badge.classList.toggle('bad', status === 'error');
-    badge.textContent = ({ working: '…', error: '!' } as Record<string, string>)[status] || 'T';
-    badge.title = c.title;
+    badge.classList.toggle('wide', Boolean(progress));
+    const filled = progress && fraction(progress);
+    badge.style.setProperty('--done', `${Math.round((filled || 0) * 100)}%`);
+    badge.textContent = progress ? label(progress)
+      : ({ working: '…', error: '!' } as Record<string, string>)[status] || 'T';
+    badge.title = progress ? `${sentence(progress)}. Click to stop.` : c.title;
   }
 
   private modifier = (e: KeyboardEvent): void => this.arm(e.metaKey);
