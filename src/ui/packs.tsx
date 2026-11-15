@@ -29,16 +29,34 @@ export const fetchingNote = (fraction?: number, pack = '') =>
   note(`Downloading${pack ? ` the ${pack} pack` : ''}…`
     + (fraction === undefined ? '' : ` ${Math.round(fraction * 100)}%`));
 
-/** Has to be called from a click handler, or Chrome refuses to download. */
+// Chrome reports its first progress within a few seconds of the click. Helium
+// never fetches the pack at all: no progress, no error, a promise that never
+// settles. It calls itself Google Chrome, so waiting is the only way to tell.
+const STALL_MS = 20_000;
+
+export const stalledNote = note(
+  'Nothing is downloading. Helium and some other Chromium builds never fetch '
+    + 'Chrome\'s translator; choose another one.', 'bad');
+
+/** Has to be called from a click handler, or Chrome refuses to download.
+ *  `stalled` fires if no progress has come by `STALL_MS`; the wait goes on. */
 export async function downloadPack(
   source: string, target: string, progress: (fraction: number) => void,
+  stalled: () => void = () => {},
 ): Promise<void> {
   if (!api) throw new Error('This browser has no built-in translator.');
-  await api.create({
-    ...pair(source, target),
-    monitor: (m: EventTarget) =>
-      m.addEventListener('downloadprogress', (e: any) => progress(e.loaded)),
-  });
+  const timer = setTimeout(stalled, STALL_MS);
+  try {
+    await api.create({
+      ...pair(source, target),
+      monitor: (m: EventTarget) => m.addEventListener('downloadprogress', (e: any) => {
+        clearTimeout(timer);
+        progress(e.loaded);
+      }),
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Where one pair stands, and the button that fetches it. `stamp` asks again
@@ -56,7 +74,8 @@ export function PackStatus({ source, target, stamp = 0 }: {
     setDownloading(true);
     setProgress(fetchingNote());
     try {
-      await downloadPack(source, target, (done) => setProgress(fetchingNote(done)));
+      await downloadPack(source, target, (done) => setProgress(fetchingNote(done)),
+        () => setProgress(stalledNote));
       setProgress(null);
     } catch (e: any) {
       setProgress(note(String(e?.message || e), 'bad'));

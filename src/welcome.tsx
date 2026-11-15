@@ -11,7 +11,7 @@ import {
 } from './platform/settings.ts';
 import { Input, Names, Row } from './ui/fields.tsx';
 import {
-  PackStatus, downloadPack, fetchingNote, hasTranslator, packState,
+  PackStatus, downloadPack, fetchingNote, hasTranslator, packState, stalledNote,
 } from './ui/packs.tsx';
 import {
   type Served, ModelField, isLlamacpp, servedNote, useAdoption, useServed,
@@ -148,7 +148,8 @@ function Trial({ chosen, target, notes, stamp, fetchedPack }: {
   const fetchPack = async (say: (n: Note) => void) => {
     if (chosen !== 'browser-only' || await packState(SAMPLE, target) === 'available') return;
     say(fetchingNote(undefined, SAMPLE));
-    await downloadPack(SAMPLE, target, (done) => say(fetchingNote(done, SAMPLE)));
+    await downloadPack(SAMPLE, target, (done) => say(fetchingNote(done, SAMPLE)),
+      () => say(stalledNote));
     fetchedPack();
   };
 

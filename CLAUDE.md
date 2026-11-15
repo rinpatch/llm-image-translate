@@ -201,6 +201,11 @@ again for every origin, even when it already holds the pack: on the extension's
 origin a pack fetched for another site still says `downloadable`, and
 "downloading" it takes ~100 ms.
 
+Helium cannot use it at all. Its component updater fetches only CRLSet and
+Widevine, so a pack never arrives: no progress event, no error, a `create()`
+that never settles. `downloadPack` says so after 20 s without progress; Chrome
+sends its first one in about 4.
+
 Chrome for Testing cannot test this. Its language packs never finish
 downloading, headless or headed. Stable Chrome fetches one in ~10 s, but it will
 not take `--load-extension` (see above). What works is puppeteer-core's
