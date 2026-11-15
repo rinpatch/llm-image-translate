@@ -18,32 +18,19 @@ const Stat = ({ value, caption }: { value: string; caption: string }) => (
 
 function Summary({ report }: { report: ProfileReport | undefined }) {
   if (!report) return <div id="summary"><p class="blurb">Nothing translated yet.</p></div>;
-  const total = report.stages.reduce((n, stage) => n + stage.ms, 0);
   return (
-    <>
-      <div id="summary">
-        <div class="strip">
-          <Stat value={String(report.runs)} caption={report.runs === 1 ? 'image' : 'images'} />
-          {report.runs > 0 && <>
-            <Stat value={ms(report.total_ms)} caption="median, end to end" />
-            <Stat value={ms(report.slowest_ms)} caption="slowest" />
-            <Stat value={String(report.blocks)} caption="blocks an image" />
-          </>}
-          {report.failed > 0 &&
-            <Stat value={String(report.failed)} caption={report.failed === 1 ? 'failure' : 'failures'} />}
-        </div>
+    <div id="summary">
+      <div class="strip">
+        <Stat value={String(report.runs)} caption={report.runs === 1 ? 'image' : 'images'} />
+        {report.runs > 0 && <>
+          <Stat value={ms(report.total_ms)} caption="median, end to end" />
+          <Stat value={ms(report.slowest_ms)} caption="slowest" />
+          <Stat value={String(report.blocks)} caption="blocks an image" />
+        </>}
+        {report.failed > 0 &&
+          <Stat value={String(report.failed)} caption={report.failed === 1 ? 'failure' : 'failures'} />}
       </div>
-      {/* A translator that has only ever failed has no stages to draw. */}
-      {report.runs > 0 && (
-        <section id="breakdown">
-          <h2>Where the time goes</h2>
-          <div id="stages">
-            <Bar stages={report.stages} scale={total} tall />
-            <Legend stages={report.stages} />
-          </div>
-        </section>
-      )}
-    </>
+    </div>
   );
 }
 
