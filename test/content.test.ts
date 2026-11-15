@@ -16,6 +16,9 @@ function adopt(dom: JSDOM): void {
     any[name] = w[name];
   }
   any.addEventListener = w.addEventListener.bind(w);
+  any.getComputedStyle = w.getComputedStyle.bind(w);
+  // jsdom does no layout, so nothing is ever under a point.
+  w.document.elementsFromPoint = () => [];
   any.removeEventListener = w.removeEventListener.bind(w);
 }
 
@@ -158,6 +161,37 @@ test('a badge keeps out of the way until the modifier is held', () => {
   dom.window.dispatchEvent(new dom.window.Event('blur'));
   assert.equal(badge().style.display, 'none', 'cmd-tabbing away puts it back');
 
+  layer.stop();
+  dom.window.close();
+});
+
+test('a badge stays under a lightbox that covers its image, and shows on the lightbox image', () => {
+  const dom = new JSDOM(`<img id="page">
+    <div id="box" style="position: fixed; z-index: 12"><img id="big"></div>`,
+  { url: 'https://example.com' });
+  adopt(dom);
+  any.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
+  any.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+
+  const doc = dom.window.document;
+  const page = doc.querySelector('#page') as HTMLImageElement;
+  const big = doc.querySelector('#big') as HTMLImageElement;
+  for (const img of [page, big]) {
+    img.getBoundingClientRect = () => ({ width: 300, height: 600, left: 0, top: 0 }) as DOMRect;
+  }
+  doc.elementsFromPoint = () => [big, doc.querySelector('#box')!, doc.body];
+
+  const layer = new BadgeLayer(() => {});
+  layer.start();
+  layer.setStatus(page, 'shown', '');
+  layer.setStatus(big, 'shown', '');
+  assert.equal(layer.controllers.get(page)!.badge.style.display, 'none');
+  assert.equal(layer.controllers.get(big)!.badge.style.display, '');
+
+  big.getBoundingClientRect = () => ({ width: 300, height: 600, left: 0, top: -200, bottom: 400 }) as DOMRect;
+  dom.window.dispatchEvent(new dom.window.Event('resize'));
+  assert.equal(layer.controllers.get(big)!.badge.style.top, '6px',
+    'a page scrolled past its top keeps its badge on screen');
   layer.stop();
   dom.window.close();
 });

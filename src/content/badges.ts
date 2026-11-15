@@ -99,6 +99,9 @@ export class BadgeLayer {
     // nothing fires for that, so badge positions are refreshed on a slow tick.
     this.ticker = setInterval(() => this.sync(), SYNC_MS);
     addEventListener('resize', this.sync, { passive: true });
+    // Capture, because scroll does not bubble and a lightbox scrolls its own
+    // box rather than the page.
+    addEventListener('scroll', this.scrolled, { capture: true, passive: true });
     // Capture, because a page that handles the key itself would otherwise stop
     // this from ever hearing it.
     addEventListener('keydown', this.modifier, true);
@@ -112,6 +115,7 @@ export class BadgeLayer {
     if (this.ticker) clearInterval(this.ticker);
     this.ticker = null;
     removeEventListener('resize', this.sync);
+    removeEventListener('scroll', this.scrolled, { capture: true });
     removeEventListener('keydown', this.modifier, true);
     removeEventListener('keyup', this.modifier, true);
     removeEventListener('blur', this.disarm);
@@ -165,7 +169,7 @@ export class BadgeLayer {
     if (this.host?.isConnected) return;
     this.host = document.createElement('div');
     this.host.style.cssText =
-      'all:initial;position:absolute;top:0;left:0;width:0;height:0;z-index:2';
+      'all:initial;position:absolute;top:0;left:0;width:0;height:0;z-index:2147483647';
     const root = this.host.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
     style.textContent = STYLE;
@@ -231,26 +235,47 @@ export class BadgeLayer {
     const c = this.controllers.get(img);
     if (!c || !this.host?.isConnected) return;
     const rect = img.getBoundingClientRect();
+    // Kept to the top of the visible part of the image, so a tall page scrolled
+    // past its top edge still has a badge on screen.
+    const y = Math.min(Math.max(rect.top, 0), rect.bottom - 32);
     // An image that has been acted on keeps its badge: it is the only way back
     // to the original, and the only way to call a slow translation off.
     const idle = c.status === 'idle';
     const hidden = (idle && !this.armed)
-      || rect.width < MIN_SIDE || rect.height < MIN_SIDE || c.offscreen;
+      || rect.width < MIN_SIDE || rect.height < MIN_SIDE || c.offscreen
+      || this.covered(img, rect.left + 16, y + 16);
     c.badge.style.display = hidden ? 'none' : '';
     if (c.overlay) c.overlay.style.display = hidden ? 'none' : '';
     if (hidden) return;
-    // Both rects are viewport-relative and the host sits in the page, so the
-    // difference holds while scrolling; only layout changes disturb it.
     const origin = this.host.getBoundingClientRect();
     const left = rect.left - origin.left;
     const top = rect.top - origin.top;
     c.badge.style.left = `${left + 6}px`;
-    c.badge.style.top = `${top + 6}px`;
+    c.badge.style.top = `${y - origin.top + 6}px`;
     if (c.overlay) {
       Object.assign(c.overlay.style, {
         left: `${left}px`, top: `${top}px`, width: `${rect.width}px`, height: `${rect.height}px`,
       });
     }
+  }
+
+  /**
+   * Whether a lightbox or modal is over the image. The badges sit above
+   * everything so that a lightbox's own image gets one, which means the page's
+   * images behind it would otherwise poke their badges through it.
+   */
+  private covered(img: HTMLImageElement, x: number, y: number): boolean {
+    const hit = document.elementsFromPoint(x, y)
+      .find((el) => el !== this.host);
+    // A see-through div laid over the image, as Instagram does, shares an
+    // ancestor with it before reaching anything fixed, so it does not count.
+    // Sticky is not counted either: pixiv's viewer has a clear sticky bar
+    // across its top, over the very spot a scrolled page's badge sits.
+    for (let el = hit || null; el; el = el.parentElement) {
+      if (el.contains(img)) return false;
+      if (getComputedStyle(el).position === 'fixed') return true;
+    }
+    return false;
   }
 
   private render(img: HTMLImageElement): void {
@@ -277,6 +302,16 @@ export class BadgeLayer {
     this.armed = armed;
     for (const img of this.controllers.keys()) this.place(img);
   }
+
+  private frame = 0;
+
+  private scrolled = (): void => {
+    if (this.frame) return;
+    this.frame = requestAnimationFrame(() => {
+      this.frame = 0;
+      this.sync();
+    });
+  };
 
   private sync = (): void => {
     for (const img of this.controllers.keys()) {
