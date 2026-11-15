@@ -8,6 +8,7 @@ import {
   type EndpointSettings, type Settings, purgeResults, save, settings,
 } from './platform/settings.ts';
 import { Choices } from './ui/choices.tsx';
+import { Display } from './ui/display.tsx';
 import { Names, Row, Toggle } from './ui/fields.tsx';
 import { Bar, Legend } from './ui/stages.tsx';
 import { NONE, type Note, Status, note } from './ui/status.tsx';
@@ -183,13 +184,11 @@ function Options() {
 
       <section>
         <h2>Pages</h2>
+        <Row div label="Show translations">
+          <Display notes={stored.notes} onPick={flag('notes')} />
+        </Row>
         <Toggle on={stored.images} set={flag('images')} label="Show a badge on images">
           The badge appears while ⌘ is held (Super on Windows and Linux).
-        </Toggle>
-        <Toggle on={stored.notes} set={flag('notes')}
-          label="Show translations as Danbooru-style notes">
-          Leaves the image as it is and puts a box over each piece of text; hover one to read
-          its translation.
         </Toggle>
         <Toggle on={stored.debug} set={flag('debug')} label="Debug mode">
           Logs every stage to the console and keeps the last few images

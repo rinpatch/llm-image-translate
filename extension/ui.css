@@ -182,3 +182,11 @@ footer { margin-top: calc(var(--step) * 7); font-size: 12px; }
 .packs li select { width: auto; }
 
 .custom { margin-top: calc(var(--step) * 6); }
+
+/* The two ways a translation shows, side by side with a picture of each. */
+.display { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--step) * 2);
+           margin-bottom: calc(var(--step) * 3); }
+.display .choice { margin: 0; padding: calc(var(--step) * 3); }
+.display svg { display: block; width: 100%; height: auto;
+               margin-bottom: calc(var(--step) * 2); border-radius: 2px; }
+@media (max-width: 480px) { .display { grid-template-columns: 1fr; } }

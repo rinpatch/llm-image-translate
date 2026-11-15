@@ -8,6 +8,7 @@ import { type PingResult } from './platform/messages.ts';
 import { blocker } from './platform/ready.ts';
 import { publicSettings, save } from './platform/settings.ts';
 import { Choices } from './ui/choices.tsx';
+import { Display } from './ui/display.tsx';
 import { Names } from './ui/fields.tsx';
 import { downloadPack, fetchingNote, packState, stalledNote } from './ui/packs.tsx';
 import { NONE, type Note, Status, note } from './ui/status.tsx';
@@ -22,12 +23,18 @@ function Welcome() {
   const translator = useTranslator();
   const active = translator.translator;
   const [target, setTarget] = useState('English');
+  const [notes, setNotes] = useState(false);
   const [packStamp, setPackStamp] = useState(0);
   const [checking, setChecking] = useState(false);
   const [told, setTold] = useState<Note>(NONE);
   const [screen, setScreen] = useState<'setup' | 'use'>('setup');
 
-  useEffect(() => { publicSettings().then((s) => setTarget(s.target)); }, []);
+  useEffect(() => {
+    publicSettings().then((s) => {
+      setTarget(s.target);
+      setNotes(s.notes);
+    });
+  }, []);
   // Anything changed since the last check makes its verdict out of date.
   useEffect(() => setTold(NONE), [active, target]);
 
@@ -114,6 +121,14 @@ function Welcome() {
         <li>
           <h2>Pick the translation model</h2>
           <Choices translator={translator} target={target} packStamp={packStamp} />
+        </li>
+
+        <li>
+          <h2>Show translations</h2>
+          <Display notes={notes} onPick={(on) => {
+            setNotes(on);
+            save('notes', on);
+          }} />
         </li>
       </ol>
 
