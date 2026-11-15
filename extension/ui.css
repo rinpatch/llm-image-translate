@@ -115,8 +115,13 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
                  font-weight: 600; }
 button.primary:hover { filter: brightness(1.1); }
 button.primary[disabled] { opacity: .6; filter: none; }
+button.link { background: none; border: none; padding: 0; color: var(--accent);
+              font-size: inherit; text-decoration: underline; }
+button.link:hover { text-decoration: none; }
 
 .buttons { display: flex; gap: calc(var(--step) * 2); }
+.signed { display: flex; flex-wrap: wrap; align-items: baseline; gap: calc(var(--step) * 2);
+          font-size: 12px; }
 
 a { color: var(--accent); }
 

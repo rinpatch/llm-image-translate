@@ -53,9 +53,9 @@ export function SignIn({ token, setKey, div }: {
     return (
       <div class="field">
         <span>Account</span>
-        <div class="buttons">
+        <div class="signed">
           <Status span of={note(`Signed in${email ? ` as ${email}` : ''}`, 'ok')} />
-          <button type="button" onClick={async () => { await signOut(); setKey(''); }}>
+          <button type="button" class="link" onClick={async () => { await signOut(); setKey(''); }}>
             Sign out
           </button>
         </div>
