@@ -71,6 +71,22 @@ test('the server card keeps its server while another card is picked', async () =
   assert.equal(t.server.baseUrl, 'http://box:9000');
 });
 
+test('the OpenRouter card runs the model picked on it, with the adapter its name wants', async () => {
+  stubStorage({}, { provider: 'openrouter', openrouterModel: 'qwen/qwen4-max' });
+  let t = (await translators()).translator;
+  assert.deepEqual([t.model, t.adapter], ['qwen/qwen4-max', 'chat-lines']);
+
+  stubStorage({}, { provider: 'openrouter', openrouterModel: 'tencent/hy-mt2-7b' });
+  t = (await translators()).translator;
+  assert.deepEqual([t.model, t.adapter], ['tencent/hy-mt2-7b', 'hunyuan-mt']);
+
+  stubStorage({}, { provider: 'openrouter' });
+  t = (await translators()).translator;
+  assert.deepEqual([t.model, t.adapter], ['tencent/hy-mt2-30b-a3b', 'hunyuan-mt'],
+    'nothing picked is its own');
+  assert.equal(affectsResults({ openrouterModel: 'x' }), true);
+});
+
 test('an install from before the cards keeps its card and its server', async () => {
   const old = (id: string, translator: object) => ({ id, name: id,
     reader: endpoint('http://127.0.0.1:8090', { adapter: 'hunyuan-spotting' }), translator });

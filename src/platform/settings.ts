@@ -47,7 +47,8 @@ const FLAGS = { debug: PRIVATE_DEFAULTS.debug };
  * translator does; metrics, written after every image, and the debug toggle do not.
  */
 export const affectsResults = (changes: Record<string, unknown>) =>
-  'provider' in changes || 'server' in changes || 'cachePurge' in changes;
+  'provider' in changes || 'server' in changes || 'openrouterModel' in changes
+  || 'cachePurge' in changes;
 
 /** A storage event reaches the worker and every open page's process-local cache. */
 export const purgeResults = (): Promise<void> =>
@@ -84,6 +85,8 @@ export interface Translators {
   provider: string;
   /** What the server card has, kept while another card is picked. */
   server: EndpointSettings;
+  /** The model picked on the OpenRouter card. Empty for its own. */
+  openrouterModel: string;
   /** What the picked card runs. */
   translator: EndpointSettings;
 }
@@ -95,7 +98,9 @@ export interface Translators {
  */
 export async function translators(): Promise<Translators> {
   const [stored, saved] = await Promise.all([
-    chrome.storage.local.get({ provider: '', server: null, profiles: null, profile: '' }),
+    chrome.storage.local.get({
+      provider: '', server: null, openrouterModel: '', profiles: null, profile: '',
+    }),
     keys(),
   ]);
   const old = (stored.profiles || []) as { id: string; translator: EndpointSettings }[];
@@ -105,12 +110,20 @@ export async function translators(): Promise<Translators> {
     ({ ...e, apiKey: saved[scopeOf(e)] || '' });
   const server = fill({ ...startOn('server'), ...((stored.server as EndpointSettings | null)
     || old.map((p) => p.translator).find((t) => t.provider === 'server')) });
-  return { provider: id, server, translator: id === 'server' ? server : fill(startOn(id)) };
+  const openrouterModel = String(stored.openrouterModel || '');
+  return {
+    provider: id, server, openrouterModel,
+    translator: id === 'server' ? server
+      : fill(startOn(id, id === 'openrouter' ? openrouterModel : '')),
+  };
 }
 
 /** Keys stay out: they are saved by server, with `saveKey`. */
 export const saveServer = (endpoint: EndpointSettings): Promise<void> =>
   chrome.storage.local.set({ server: withoutKey(endpoint) });
+
+export const saveOpenrouterModel = (model: string): Promise<void> =>
+  chrome.storage.local.set({ openrouterModel: model });
 
 /** Worker and popup only — never answer this to a content script. */
 export async function settings(): Promise<Settings> {

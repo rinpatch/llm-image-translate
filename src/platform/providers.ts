@@ -95,14 +95,14 @@ export const CHATGPT_KEY = 'chatgpt';
 export const scopeOf = ({ provider, baseUrl }: { provider: string; baseUrl: string }): string =>
   (provider === 'chatgpt' ? CHATGPT_KEY : keyScope(baseUrl));
 
-/** A fresh endpoint on `id`, with its model. */
-export function startOn(id: string): EndpointSettings {
+/** A fresh endpoint on `id`, with its model, or `model` where one was picked instead. */
+export function startOn(id: string, model = ''): EndpointSettings {
   const p = provider(id);
   return {
     provider: p.id,
     baseUrl: p.baseUrl,
     apiKey: '',
-    model: p.known?.model || '',
-    adapter: p.known?.adapter || guessAdapter('', false),
+    model: model || p.known?.model || '',
+    adapter: (!model && p.known?.adapter) || guessAdapter(model, false),
   };
 }

@@ -3,11 +3,13 @@
 import { type ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { LANGUAGES } from '../core/language.ts';
+import { listModels } from '../backends/client.ts';
 import { type EndpointSettings } from '../platform/endpoint.ts';
 import {
   CHATGPT_KEY, OPENROUTER, PROVIDERS, guessAdapter, keyScope, provider, scopeOf,
 } from '../platform/providers.ts';
-import { NameBox } from './combobox.tsx';
+import { useAsync } from './async.ts';
+import { Combobox, NameBox } from './combobox.tsx';
 import { Input, Row } from './fields.tsx';
 import { PackStatus, hasTranslator } from './packs.tsx';
 import {
@@ -60,6 +62,21 @@ export function Packs({ target, stamp = 0 }: { target: string; stamp?: number })
   );
 }
 
+/** OpenRouter's whole catalog, fetched once the card is picked. Empty is its own model. */
+function OpenRouterModel({ model, setModel, wanted }: {
+  model: string; setModel: (model: string) => void; wanted: boolean;
+}) {
+  const own = provider('openrouter').known!.model;
+  // The list is public, so no key is needed to see it.
+  const listed = useAsync(() => (wanted ? listModels({ baseUrl: OPENROUTER }) : undefined),
+    [wanted]);
+  return (
+    <Combobox id="openrouter-model" free value={model || own}
+      onPick={(m) => setModel(m === own ? '' : m)} placeholder={own}
+      options={(listed || []).map((m) => ({ value: m.id, label: m.name }))} />
+  );
+}
+
 // Rows as divs: the card they sit in is already the radio's label.
 function ServerFields({ endpoint, served, change, setKey, andAdopt }: {
   endpoint: EndpointSettings; served: Served; change: (patch: Partial<EndpointSettings>) => void;
@@ -93,7 +110,9 @@ interface Props {
 export const Choices = (props: Props) => (props.translator.server ? <Cards {...props} /> : null);
 
 function Cards({ translator, target, packStamp }: Props) {
-  const { provider: chosen, setProvider, setServer, keyring, setKey } = translator;
+  const {
+    provider: chosen, setProvider, setServer, openrouterModel, setOpenrouterModel, keyring, setKey,
+  } = translator;
   const server = translator.server!;
   const served = useServed(server, chosen === 'server');
   const llamacpp = isLlamacpp(served);
@@ -136,6 +155,10 @@ function Cards({ translator, target, packStamp }: Props) {
                       <Input type="password" value={keyring[keyScope(OPENROUTER)] || ''}
                         autocomplete="off" placeholder="sk-or-…"
                         onCommit={(key) => setKey(keyScope(OPENROUTER), key.trim())} />
+                    </Row>
+                    <Row div label="Model">
+                      <OpenRouterModel model={openrouterModel} setModel={setOpenrouterModel}
+                        wanted={chosen === 'openrouter'} />
                     </Row>
                   </div>
                 )}
