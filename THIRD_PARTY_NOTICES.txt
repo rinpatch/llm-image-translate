@@ -1,5 +1,6 @@
-Third-party code and models shipped with this extension. The extension's own
-code is under the MIT licence in LICENSE.
+Third-party code and models shipped with this extension. The extension as a
+whole is under the GNU General Public License version 3, in LICENSE; its source
+is at https://github.com/rinpatch/llm-image-translate.
 
 ================================================================================
 ONNX Runtime Web 1.30.0
@@ -241,6 +242,23 @@ PP-OCRv6 models
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+================================================================================
+AOT-GAN inpainting model, from manga-image-translator
+  vendor/ocr/aot-inpaint.onnx
+
+  Copyright (c) zyddnys and the manga-image-translator contributors.
+  https://github.com/zyddnys/manga-image-translator
+
+  Under the GNU General Public License version 3, the text of which is in
+  LICENSE.
+
+  Converted to ONNX from the project's published checkpoint,
+  https://github.com/zyddnys/manga-image-translator/releases/download/beta-0.3/inpainting.ckpt
+  (SHA-256 878d541c68648969bc1b042a6e997f3a58e49b6c07c5636ad55130736977149f),
+  with the network definition in manga_translator/inpainting/inpainting_aot.py
+  at commit a9ef04da0adda877413afe40b7656aebe22dc4be. The conversion is
+  tools/fetch-inpaint-model.sh in this extension's source.
 
 ================================================================================
 Code ONNX Runtime is built from

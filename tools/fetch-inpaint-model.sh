@@ -3,8 +3,8 @@
 #
 #     tools/fetch-inpaint-model.sh && npm run build
 #
-# Optional. Without it a block over artwork is painted out with a flat colour,
-# as every block is over a plain background anyway.
+# A development build runs without it, painting the glyphs out in the paper's
+# colour; scripts/package.sh refuses to make a release without it.
 #
 # The weights are manga-image-translator's AOT-GAN, trained on manga pages. They
 # are published only as a PyTorch checkpoint, so it is exported to ONNX here,

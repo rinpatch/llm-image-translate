@@ -8,7 +8,7 @@
 # The other keeps it: it fixes the extension ID, so someone replacing the folder
 # with a newer one keeps their settings and language packs.
 #
-# The OCR weights and ONNX Runtime's wasm go in both. The store forbids running
+# The OCR and inpainting weights and ONNX Runtime's wasm go in both. The store forbids running
 # downloaded code, so the wasm has to ship, and the weights are small enough
 # that fetching them later would only cost the reader working offline.
 set -euo pipefail
@@ -26,12 +26,13 @@ stage=$out/$name-$version
 rm -rf "$stage" "$stage.zip" "$stage-store.zip"
 mkdir -p "$out"
 
+# A build runs without the inpainter, but a release without it would quietly
+# paint every block flat.
+[ -f extension/vendor/ocr/aot-inpaint.onnx ] || {
+  echo "no inpainter in extension/vendor/ocr — run tools/fetch-inpaint-model.sh" >&2; exit 1; }
+
 # _metadata is Chrome's, written into the folder when it loads it unpacked.
-# The inpainter stays out until its licence is settled: it comes from
-# manga-image-translator, which is GPL-3.0, and the weights say nothing of
-# their own. Without it a release fills every block flat, as before.
-rsync -a --exclude _metadata --exclude .DS_Store --exclude aot-inpaint.onnx \
-  extension/ "$stage/"
+rsync -a --exclude _metadata --exclude .DS_Store extension/ "$stage/"
 cp LICENSE THIRD_PARTY_NOTICES.txt "$stage/"
 
 (cd "$out" && zip -qrX "$stage.zip" "$name-$version")

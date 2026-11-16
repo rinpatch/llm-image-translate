@@ -196,8 +196,9 @@ agent-browser eval "(async () => {
 
 Every block's words are inpainted away: manga-image-translator's AOT-GAN,
 22 MB, trained on manga pages. `tools/fetch-inpaint-model.sh` exports it from
-their checkpoint, which needs torch through uv. It's optional, and the release
-zips leave it out (see `scripts/package.sh`).
+their checkpoint, which needs torch through uv. A development build runs
+without it. `scripts/package.sh` refuses to make a release without it, since
+a release without it would quietly fall back to the flat fill.
 
 Inpainting only the blocks that looked like they sat on art was tried first,
 and it missed: grey screentone on a black-and-white page lies on the line

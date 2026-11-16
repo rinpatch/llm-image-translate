@@ -2,7 +2,7 @@
   "name": "llm-image-translate",
   "version": "0.1.0",
   "private": true,
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
     "test": "npm run check && node --test test/",
