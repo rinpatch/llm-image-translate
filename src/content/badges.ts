@@ -270,13 +270,12 @@ export class BadgeLayer {
     // Kept to the top of the visible part of the image, so a tall page scrolled
     // past its top edge still has a badge on screen.
     const y = Math.min(Math.max(rect.top, 0), rect.bottom - 32);
-    // An image that has been acted on keeps its badge: it is the only way back
-    // to the original, and the only way to call a slow translation off.
-    const idle = c.status === 'idle';
-    const hidden = (idle && !this.armed)
-      || rect.width < MIN_SIDE || rect.height < MIN_SIDE || c.offscreen
+    const hidden = rect.width < MIN_SIDE || rect.height < MIN_SIDE || c.offscreen
       || this.covered(img, rect.left + 16, y + 16);
-    c.badge.style.display = hidden ? 'none' : '';
+    // A running translation shows its progress and is called off by its badge,
+    // and a failed one says so. Anything else waits for the modifier.
+    const asked = this.armed || c.status === 'working' || c.status === 'error';
+    c.badge.style.display = hidden || !asked ? 'none' : '';
     if (c.overlay) c.overlay.style.display = hidden ? 'none' : '';
     if (hidden) return;
     const origin = this.host.getBoundingClientRect();

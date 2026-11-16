@@ -151,11 +151,15 @@ test('a badge keeps out of the way until the modifier is held', () => {
   key('keyup', false);
   assert.equal(badge().style.display, 'none');
 
-  // Once an image has been acted on, its badge is the way back.
+  layer.setStatus(img, 'working', 'Translating…');
+  assert.equal(badge().style.display, '', 'a running translation keeps its badge');
+  layer.setStatus(img, 'error', 'Translation failed');
+  assert.equal(badge().style.display, '', 'and so does a failed one');
   layer.setStatus(img, 'shown', 'Show the original image');
-  assert.equal(badge().style.display, '', 'a translated image keeps its badge');
-  layer.setStatus(img, 'idle', 'Translate the text in this image');
-  assert.equal(badge().style.display, 'none', 'and gives it up again when it is idle');
+  assert.equal(badge().style.display, 'none', 'a translated image gives it up');
+  key('keydown', true);
+  assert.equal(badge().style.display, '', 'until the modifier brings it back');
+  key('keyup', false);
 
   key('keydown', true);
   dom.window.dispatchEvent(new dom.window.Event('blur'));
@@ -183,8 +187,8 @@ test('a badge stays under a lightbox that covers its image, and shows on the lig
 
   const layer = new BadgeLayer(() => {});
   layer.start();
-  layer.setStatus(page, 'shown', '');
-  layer.setStatus(big, 'shown', '');
+  layer.setStatus(page, 'working', '');
+  layer.setStatus(big, 'working', '');
   assert.equal(layer.controllers.get(page)!.badge.style.display, 'none');
   assert.equal(layer.controllers.get(big)!.badge.style.display, '');
 
