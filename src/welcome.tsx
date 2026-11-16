@@ -10,6 +10,7 @@ import { publicSettings, save } from './platform/settings.ts';
 import { Choices } from './ui/choices.tsx';
 import { Display } from './ui/display.tsx';
 import { NameBox } from './ui/combobox.tsx';
+import { Hero } from './ui/hero.tsx';
 import { downloadPack, fetchingNote, packState, stalledNote } from './ui/packs.tsx';
 import { NONE, type Note, Status, note } from './ui/status.tsx';
 import { useTranslator } from './ui/translator.ts';
@@ -67,19 +68,10 @@ function Welcome() {
     }
   };
 
-  const hero = (
-    <header class="hero">
-      <img src="icons/128.png" alt="" />
-      <div>
-        <h1>LLM Image Translate</h1>
-      </div>
-    </header>
-  );
-
   if (screen === 'use') {
     return (
       <>
-        {hero}
+        <Hero />
         <section class="use">
           <h2>Try it out</h2>
           <p>Hold <kbd>{MODIFIER}</kbd> over the image and click the <b>T</b> that appears,
@@ -106,7 +98,7 @@ function Welcome() {
 
   return (
     <>
-      {hero}
+      <Hero />
 
       <ol class="steps">
         <li>

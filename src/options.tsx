@@ -11,6 +11,7 @@ import { Choices } from './ui/choices.tsx';
 import { Display } from './ui/display.tsx';
 import { NameBox } from './ui/combobox.tsx';
 import { Row, Toggle } from './ui/fields.tsx';
+import { Hero } from './ui/hero.tsx';
 import { Bar, Legend } from './ui/stages.tsx';
 import { NONE, type Note, Status, note } from './ui/status.tsx';
 import { TrialImage, totalOf, useTrial } from './ui/trial.tsx';
@@ -163,7 +164,7 @@ function Options() {
 
   return (
     <>
-      <h1>LLM Image Translate</h1>
+      <Hero />
 
       <section>
         <h2>Languages</h2>
