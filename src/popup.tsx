@@ -2,9 +2,12 @@ import { render } from 'preact';
 import { useState } from 'preact/hooks';
 import { LANGUAGES } from './core/language.ts';
 import { PROVIDERS } from './platform/providers.ts';
-import { publicSettings, save, translators } from './platform/settings.ts';
+import {
+  autoSites, publicSettings, save, setAuto, siteOf, translators,
+} from './platform/settings.ts';
 import { useAsync } from './ui/async.ts';
 import { NameBox } from './ui/combobox.tsx';
+import { Check } from './ui/fields.tsx';
 
 type Picked = Partial<Record<'provider' | 'source' | 'target', string>>;
 
@@ -12,6 +15,13 @@ function Popup() {
   const stored = useAsync(() => Promise.all([publicSettings(), translators()])
     .then(([s, t]) => ({ provider: t.provider, source: s.source, target: s.target })), []);
   const [picked, setPicked] = useState<Picked>({});
+  const here = useAsync(() => Promise.all([
+    chrome.tabs.query({ active: true, currentWindow: true }), autoSites(),
+  ]).then(([[tab], sites]) => {
+    const site = siteOf(tab?.url);
+    return { site, on: sites.includes(site) };
+  }), []);
+  const [auto, setAutoHere] = useState<boolean>();
   const value = (key: keyof Picked) => picked[key] ?? stored?.[key] ?? '';
   const pick = (key: keyof Picked) => (name: string) => {
     setPicked({ ...picked, [key]: name });
@@ -41,6 +51,13 @@ function Popup() {
         <span>Translate into</span>
         <NameBox names={LANGUAGES} value={value('target')} onPick={pick('target')} />
       </label>
+      {here?.site && (
+        <Check label={`Translate images on ${here.site} automatically`} checked={auto ?? here.on}
+          onCheck={(on) => {
+            setAutoHere(on);
+            setAuto(here.site, on);
+          }} />
+      )}
       <footer class="rule">
         <a href="#" onClick={(e) => open(e, () => chrome.runtime.openOptionsPage())}>Settings…</a>
         <a href="#" onClick={(e) => open(e, () =>

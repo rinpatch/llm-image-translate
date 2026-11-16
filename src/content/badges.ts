@@ -55,9 +55,13 @@ export class BadgeLayer {
   private armed = false;
 
   private onActivate: (img: HTMLImageElement) => void;
+  private onSight: (img: HTMLImageElement, near: boolean) => void;
 
-  constructor(onActivate: (img: HTMLImageElement) => void) {
+  /** `onSight` hears an image with a badge come within reach of the screen, or leave it. */
+  constructor(onActivate: (img: HTMLImageElement) => void,
+    onSight: (img: HTMLImageElement, near: boolean) => void = () => {}) {
     this.onActivate = onActivate;
+    this.onSight = onSight;
   }
 
   start(): void {
@@ -70,6 +74,7 @@ export class BadgeLayer {
         if (!c) continue;
         c.offscreen = !entry.isIntersecting;
         this.place(entry.target as HTMLImageElement);
+        this.onSight(entry.target as HTMLImageElement, entry.isIntersecting);
       }
     }, { rootMargin: '200px' });
 
@@ -125,6 +130,11 @@ export class BadgeLayer {
     this.sizes?.disconnect();
     this.mutations = this.visibility = null;
     this.sizes = null;
+  }
+
+  /** The images with badges that are on screen or nearly. */
+  near(): HTMLImageElement[] {
+    return [...this.controllers].filter(([, c]) => !c.offscreen).map(([img]) => img);
   }
 
   rescan(): void {

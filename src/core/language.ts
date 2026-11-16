@@ -59,6 +59,24 @@ export async function detectedSource(
   return name[0].toUpperCase() + name.slice(1);
 }
 
+/**
+ * The language to translate an image from when nobody asked for it, or null to
+ * leave it alone: it is already in the target, or Auto cannot tell what it is.
+ * A source that was set still wins otherwise, since a Japanese line with no
+ * kana looks Chinese to the scripts.
+ */
+export async function autoSource(
+  texts: string[],
+  configured: string,
+  target: string,
+  detect: Detect,
+): Promise<string | null> {
+  const seen = await detectedSource(texts, 'Auto', detect).catch(() => null);
+  if (seen && seen.toLowerCase() === target.trim().toLowerCase()) return null;
+  if (configured && configured.toLowerCase() !== 'auto') return configured;
+  return seen;
+}
+
 /** A reason to leave the block alone, or null when the translation looks real. */
 export function untranslated(source: string, result: string, target: string): string | null {
   if (!result) return 'no translation came back';

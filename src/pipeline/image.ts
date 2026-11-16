@@ -2,7 +2,7 @@ import { toBase64 } from '../core/base64.ts';
 import { type Box, type Block, type TextLine } from '../core/geometry.ts';
 import { group, join } from '../core/grouping.ts';
 import { dividerFor } from '../core/rules.ts';
-import { detectedSource, untranslated } from '../core/language.ts';
+import { autoSource, detectedSource, untranslated } from '../core/language.ts';
 import { apart, dominant, inkFor, inkOf, rgb } from '../core/color.ts';
 import { drawBlock, fillBox } from '../core/paint.ts';
 import { skewOf } from '../core/skew.ts';
@@ -106,7 +106,7 @@ async function translateAll(
   endpoint: Endpoint,
   adapter: TranslateAdapter,
   texts: string[],
-  sourceSetting: string,
+  source: string,
   target: string,
   signal: AbortSignal,
   calls: ModelStats[],
@@ -114,7 +114,6 @@ async function translateAll(
   onLine: (index: number, line: string) => void = () => {},
 ): Promise<string[]> {
   if (!texts.length) return [];
-  const source = await detectedSource(texts, sourceSetting, detect);
   log('translating', texts.length, 'block(s)', `${source} -> ${target}`,
     adapter.capabilities.batch ? 'in one request' : 'one at a time');
   const of = texts.length;
@@ -214,7 +213,7 @@ function traced(
 }
 
 export async function translateImage(
-  { src, dataUrl, binary, stream }: TranslateImage,
+  { src, dataUrl, binary, stream, auto }: TranslateImage,
   config: Settings,
   signal: AbortSignal,
   tell: (progress: Progress) => void = () => {},
@@ -265,6 +264,14 @@ export async function translateImage(
     }
 
     const originals = blocks.map((b) => join(b.lines));
+    const from = auto
+      ? await autoSource(originals, config.source, config.target, detect)
+      : await detectedSource(originals, config.source, detect);
+    if (!from) {
+      log('left alone: already in', config.target, 'or no telling what it is in');
+      timings.total_ms = Date.now() - wholeRun;
+      return { ok: true, image: null, blocks: [], timings, skipped: 'not foreign' };
+    }
 
     // Ahead of the translation, which only decides whether a block is drawn at
     // all, so that the blocks can be painted as their lines come in.
@@ -342,7 +349,7 @@ export async function translateImage(
     let translations: string[];
     try {
       translations = await translateAll(toEndpoint(config.translator), translator, originals,
-        config.source, config.target, signal, calls, tell, onLine);
+        from, config.target, signal, calls, tell, onLine);
     } finally {
       streaming = false;
       clearTimeout(repaint);

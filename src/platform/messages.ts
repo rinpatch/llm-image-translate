@@ -25,6 +25,12 @@ export interface TranslateImage {
    * from the blocks alone, or as an image painted again every so often.
    */
   stream?: 'notes' | 'image';
+  /**
+   * Started by the page rather than a click, on a site set to translate on its
+   * own. It waits its turn behind the others, and an image already in the
+   * target language is skipped rather than sent.
+   */
+  auto?: boolean;
 }
 
 export type Message =
@@ -113,7 +119,9 @@ export type ImageResult =
   | { ok: true; image: ImageBytes | null; original?: string; blocks: BlockReport[];
       /** The size the reader saw, which is what the blocks' boxes are measured in. */
       width?: number; height?: number;
-      timings: Timings; /** The id it was kept under, in debug mode. */ trace?: string }
+      timings: Timings; /** The id it was kept under, in debug mode. */ trace?: string;
+      /** Why an `auto` image was left alone. Not cached: a click should still translate it. */
+      skipped?: string }
   | Failure;
 
 export interface PingResult {

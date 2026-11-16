@@ -27,6 +27,9 @@ export interface PrivateSettings {
 
 export type Settings = PublicSettings & PrivateSettings;
 
+/** What a page is told: the public settings, and whether its own site translates on its own. */
+export type PageSettings = PublicSettings & { auto: boolean };
+
 export const PUBLIC_DEFAULTS: PublicSettings = {
   source: 'Auto',
   target: 'English',
@@ -124,6 +127,27 @@ export const saveServer = (endpoint: EndpointSettings): Promise<void> =>
 
 export const saveOpenrouterModel = (model: string): Promise<void> =>
   chrome.storage.local.set({ openrouterModel: model });
+
+/** The site a page is on, as the auto list keeps it. Empty for anything not on the web. */
+export function siteOf(url: string | undefined): string {
+  try {
+    const { protocol, hostname } = new URL(url || '');
+    return /^https?:$/.test(protocol) ? hostname : '';
+  } catch {
+    return '';
+  }
+}
+
+/** The sites whose images are translated without a click. */
+export async function autoSites(): Promise<string[]> {
+  const { autoSites: sites } = await chrome.storage.local.get({ autoSites: [] });
+  return Array.isArray(sites) ? sites : [];
+}
+
+export async function setAuto(site: string, on: boolean): Promise<void> {
+  const sites = (await autoSites()).filter((s) => s !== site);
+  await chrome.storage.local.set({ autoSites: on ? [...sites, site] : sites });
+}
 
 /** Worker and popup only — never answer this to a content script. */
 export async function settings(): Promise<Settings> {

@@ -4,7 +4,7 @@ import { notesFor } from './content/notes.ts';
 import { restore, show } from './content/swap.ts';
 import { type ImageResult, type Message, type ProgressMessage, type SoFar, type TranslateImage }
   from './platform/messages.ts';
-import { affectsResults, type PublicSettings } from './platform/settings.ts';
+import { affectsResults, type PageSettings } from './platform/settings.ts';
 
 const TITLES: Record<Status, string> = {
   idle: 'Translate the text in this image',
@@ -22,13 +22,21 @@ interface State {
   jobId: string | null;
   /** The blob URL of the part-translated image on show while the rest comes in. */
   partial: string | null;
+  /** The running job was started by the page, not a click. */
+  auto: boolean;
+  /** The worker has begun on it, rather than holding it in the queue. */
+  started: boolean;
+  /** The page has tried it once and found nothing to do, or failed: it is not tried again. */
+  tried: boolean;
 }
 
 const states = new Map<HTMLImageElement, State>();
 const cache = new ResultCache();
-const layer = new BadgeLayer(onActivate);
+const layer = new BadgeLayer(onActivate, onSight);
 
-let config: PublicSettings = { images: true, notes: false, source: 'Auto', target: 'English' };
+let config: PageSettings = {
+  images: true, notes: false, source: 'Auto', target: 'English', auto: false,
+};
 
 // Reloading the extension leaves this script running in the page with a dead
 // chrome.runtime. sendMessage then throws where it stands rather than rejecting,
@@ -53,10 +61,18 @@ function setStatus(img: HTMLImageElement, status: Status, detail?: string): void
   layer.setStatus(img, status, detail || TITLES[status]);
 }
 
-async function onActivate(img: HTMLImageElement): Promise<void> {
-  const state = states.get(img)
-    || { status: 'idle' as Status, translated: null, jobId: null, partial: null };
-  states.set(img, state);
+function stateOf(img: HTMLImageElement): State {
+  let state = states.get(img);
+  if (!state) {
+    state = { status: 'idle', translated: null, jobId: null, partial: null,
+              auto: false, started: false, tried: false };
+    states.set(img, state);
+  }
+  return state;
+}
+
+function onActivate(img: HTMLImageElement): void {
+  const state = stateOf(img);
   // A second click on a working badge is the only way to say "never mind".
   if (state.status === 'working') {
     cancel(img);
@@ -71,6 +87,39 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
     return;
   }
 
+  translate(img, false);
+}
+
+function onSight(img: HTMLImageElement, near: boolean): void {
+  const state = states.get(img);
+  if (near) {
+    if (config.auto && (!state || (state.status === 'idle' && !state.tried))) translate(img, true);
+    return;
+  }
+  // Still queued, so nothing has been spent on it yet. One the worker has begun
+  // is left to finish, and is there to look at when it is scrolled back to.
+  if (state?.jobId && state.auto && !state.started) cancel(img);
+}
+
+/** On this site's say-so: every image near the screen, or none of the queued ones. */
+function autoChanged(): void {
+  if (config.auto) {
+    for (const img of layer.near()) onSight(img, true);
+    return;
+  }
+  for (const [img, state] of states) if (state.jobId && state.auto && !state.started) cancel(img);
+}
+
+/** Left as it was, with its badge back out of the way, and not tried again by the page. */
+function leaveAlone(img: HTMLImageElement, state: State): void {
+  state.tried = true;
+  setStatus(img, 'idle');
+}
+
+async function translate(img: HTMLImageElement, auto: boolean): Promise<void> {
+  const state = stateOf(img);
+  state.auto = auto;
+  state.started = false;
   setStatus(img, 'working');
 
   const src = img.currentSrc || img.src;
@@ -80,14 +129,15 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
   // The empty Blob is the question "can this browser carry bytes?" — the worker
   // answers with an image rather than a base64 string wherever it survives.
   const message: TranslateImage = { type: 'translateImage', jobId, src, binary: new Blob([]),
-    stream: config.notes ? 'notes' : 'image' };
+    stream: config.notes ? 'notes' : 'image', ...(auto ? { auto } : {}) };
   // A blob: URL belongs to the page that made it and means nothing in the
   // worker, so those images are read here and sent over as bytes.
   if (src.startsWith('blob:')) {
     try {
       message.dataUrl = await blobToDataUrl(src);
     } catch {
-      setStatus(img, 'error', 'Could not read this image');
+      if (auto) leaveAlone(img, state);
+      else setStatus(img, 'error', 'Could not read this image');
       return;
     }
   }
@@ -102,7 +152,14 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
       state.jobId = null;
       dropSoFar(img, state);
       console.error(`[translate] ${answer.code || 'failed'} — ${answer.error}`);
-      setStatus(img, 'error', answer.error || TITLES.error);
+      // A badge gone red on every picture nobody asked about is worse than none.
+      if (auto && answer.code !== 'reloaded') leaveAlone(img, state);
+      else setStatus(img, 'error', answer.error || TITLES.error);
+      return;
+    }
+    if (answer.skipped) {
+      state.jobId = null;
+      leaveAlone(img, state);
       return;
     }
     res = cache.set(key, answer);
@@ -110,7 +167,8 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
   state.jobId = null;
 
   if (!res.blocks.length) {
-    setStatus(img, 'empty');
+    if (auto) leaveAlone(img, state);
+    else setStatus(img, 'empty');
     return;
   }
 
@@ -180,9 +238,11 @@ function invalidate(): void {
     cancel(img);
     if (state.status === 'shown') conceal(img);
     state.translated = null;
+    state.tried = false;
     setStatus(img, 'idle');
   }
   cache.clear();
+  autoChanged();
 }
 
 function blobToDataUrl(src: string): Promise<string> {
@@ -194,7 +254,7 @@ function blobToDataUrl(src: string): Promise<string> {
   }));
 }
 
-send<PublicSettings>({ type: 'settings' }).then((loaded) => {
+send<PageSettings>({ type: 'settings' }).then((loaded) => {
   if (loaded && !('error' in loaded)) config = loaded;
   if (config.images) layer.start();
 });
@@ -204,6 +264,14 @@ send<PublicSettings>({ type: 'settings' }).then((loaded) => {
 // business.
 chrome.storage.local.onChanged.addListener((changes) => {
   if (affectsResults(changes)) invalidate();
+  // Whether this site is on the list is the worker's to say.
+  if (changes.autoSites) {
+    send<PageSettings>({ type: 'settings' }).then((loaded) => {
+      if (!loaded || 'error' in loaded || loaded.auto === config.auto) return;
+      config.auto = loaded.auto;
+      autoChanged();
+    });
+  }
 });
 
 // Leaving the page does not stop the worker, which may be halfway through a
@@ -216,6 +284,7 @@ chrome.runtime.onMessage.addListener((msg: ProgressMessage) => {
   if (msg?.type !== 'progress') return;
   for (const [img, state] of states) {
     if (state.jobId !== msg.jobId) continue;
+    state.started = true;
     if (msg.progress.partial) showSoFar(img, state, msg.progress.partial);
     else layer.setProgress(img, msg.progress);
   }
@@ -224,6 +293,11 @@ chrome.runtime.onMessage.addListener((msg: ProgressMessage) => {
 chrome.storage.sync.onChanged.addListener((changes) => {
   if (changes.source) config.source = String(changes.source.newValue);
   if (changes.target) config.target = String(changes.target.newValue);
+  // What was already in the old target may not be in the new one.
+  if (changes.source || changes.target) {
+    for (const state of states.values()) state.tried = false;
+    autoChanged();
+  }
   if (changes.notes) {
     config.notes = Boolean(changes.notes.newValue);
     for (const [img, state] of states) {

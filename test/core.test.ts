@@ -3,7 +3,7 @@ import assert from 'node:assert';
 
 import { type Box } from '../src/core/geometry.ts';
 import { alignOf, group, join } from '../src/core/grouping.ts';
-import { detectedSource, sourceLanguage, untranslated, type Detection }
+import { autoSource, detectedSource, sourceLanguage, untranslated, type Detection }
   from '../src/core/language.ts';
 import { apart, dominant, inkOf } from '../src/core/color.ts';
 import { decodeLoop, encodeLoop, fromBase64, toBase64 } from '../src/core/base64.ts';
@@ -130,6 +130,21 @@ test('latin text falls back to the platform detector', async () => {
   const unsure = detector({ isReliable: false, languages: [{ language: 'ms', percentage: 48 }] });
   await assert.rejects(detectedSource(['Hi'], 'Auto', unsure), /choose one in Translate from/,
     'uncertain Latin text is not assumed to be English');
+});
+
+test('an image nobody asked for is left alone when it is in the target or cannot be placed', async () => {
+  const detector = (result: Detection) => async () => result;
+  const english = detector({ isReliable: true, languages: [{ language: 'en', percentage: 98 }] });
+  const unsure = detector({ isReliable: false, languages: [] });
+
+  assert.equal(await autoSource(['Free shipping'], 'Auto', 'English', english), null);
+  assert.equal(await autoSource(['Free shipping'], 'Japanese', 'English', english), null,
+    'a set source does not make an English image Japanese');
+  assert.equal(await autoSource(['全场包邮'], 'Auto', 'English', unsure), 'Chinese');
+  assert.equal(await autoSource(['全场包邮'], 'Japanese', 'English', unsure), 'Japanese',
+    'kanji alone look Chinese, so the set source wins');
+  assert.equal(await autoSource(['OK'], 'Auto', 'English', unsure), null);
+  assert.equal(await autoSource(['OK'], 'French', 'English', unsure), 'French');
 });
 
 test('a reply in the wrong script means the model rewrote instead of translating', () => {

@@ -1,5 +1,6 @@
 import { health, readsInBrowser } from './backends/client.ts';
 import { translateAdapter } from './backends/registry.ts';
+import { Gate } from './core/gate.ts';
 import { translateImage } from './pipeline/image.ts';
 import { forget, keyFor, once } from './pipeline/jobs.ts';
 import { type ImageResult, type Message, type PingResult, type Progress,
@@ -10,7 +11,9 @@ import { fail, watchDebug } from './platform/log.ts';
 import { askOffscreen } from './platform/offscreen.ts';
 import { withFreshTokens } from './platform/chatgpt.ts';
 import { provider } from './platform/providers.ts';
-import { affectsResults, publicSettings, settings, toEndpoint } from './platform/settings.ts';
+import {
+  type PageSettings, affectsResults, autoSites, publicSettings, settings, siteOf, toEndpoint,
+} from './platform/settings.ts';
 
 watchDebug();
 // How backends/ reaches a reader that runs here instead of over a socket.
@@ -32,6 +35,10 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
 // One controller per request the page made, so a page that gives up can say
 // which request it is giving up on.
 const jobs = new Map<string, AbortController>();
+
+// Images a page started on its own take turns, so a long feed does not put
+// dozens of requests in front of the one somebody clicked, which skips the queue.
+const autoGate = new Gate(2);
 
 // A streamed reply is a few events per token; the badge needs a fraction of that.
 const PROGRESS_MS = 150;
@@ -74,10 +81,25 @@ async function run(
     // Timed inside the work rather than around it: a second click on the same
     // image is answered from the cache and never went near a model.
     const work = async (signal: AbortSignal, report: (progress: Progress) => void) => {
-      const result = await translateImage(request, config, signal, report);
+      let release = () => {};
+      if (request.auto) {
+        try {
+          release = await autoGate.enter(signal);
+        } catch {
+          return { ok: false, code: 'cancelled', error: 'cancelled' } as ImageResult;
+        }
+      }
+      let result: ImageResult;
+      try {
+        result = await translateImage(request, config, signal, report);
+      } finally {
+        release();
+      }
       // A cancelled image is the page changing its mind, not an outcome worth
-      // keeping; everything else goes in the history, failures most of all.
-      if (result.ok || result.code !== 'cancelled') {
+      // keeping; everything else goes in the history, failures most of all. An
+      // image the page tried on its own and found nothing to do with is neither.
+      const nothing = result.ok && (result.skipped || !result.blocks.length);
+      if ((result.ok || result.code !== 'cancelled') && !(request.auto && nothing)) {
         await record({
           url: request.src,
           profile: provider(config.provider).label,
@@ -114,7 +136,13 @@ chrome.runtime.onMessage.addListener((msg: Message, sender, sendResponse) => {
       switch (msg.type) {
         case 'translateImage': sendResponse(await run(msg, sender)); break;
         case 'cancelImage': jobs.get(msg.jobId)?.abort(); sendResponse({ ok: true }); break;
-        case 'settings': sendResponse(await publicSettings()); break;
+        case 'settings': {
+          const site = siteOf(sender.tab?.url);
+          const page: PageSettings = { ...await publicSettings(),
+            auto: Boolean(site) && (await autoSites()).includes(site) };
+          sendResponse(page);
+          break;
+        }
         case 'ping': sendResponse(await ping()); break;
         case 'metrics': sendResponse(await report()); break;
         case 'log': sendResponse(await entries()); break;

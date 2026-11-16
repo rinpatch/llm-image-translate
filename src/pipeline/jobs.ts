@@ -39,7 +39,9 @@ export function keyFor(request: TranslateImage, config: Settings): string {
   // A blob: URL means nothing outside the page that minted it, so those are
   // identified by their bytes instead.
   const image = request.dataUrl ? `bytes:${digest(request.dataUrl)}` : request.src;
-  return `${config.source}\n${config.target}\n${digest(`${baseUrl}|${model}|${adapter}`)}\n${image}`;
+  // An auto request can come back skipped, which is no answer to a click.
+  const asked = request.auto ? '\nauto' : '';
+  return `${config.source}\n${config.target}\n${digest(`${baseUrl}|${model}|${adapter}`)}\n${image}${asked}`;
 }
 
 /**
@@ -69,7 +71,7 @@ export function once(
     started.job = work(controller.signal, report)
       .then((result) => {
         // Failures are not cached: the endpoint may simply have been down.
-        if (result.ok) results.set(key, result);
+        if (result.ok && !result.skipped) results.set(key, result);
         return result;
       })
       .finally(() => inFlight.delete(key));
