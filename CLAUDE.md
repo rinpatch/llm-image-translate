@@ -163,11 +163,16 @@ Everything the Python package gets from OpenCV is in
 resizing and the crops through a canvas. The first two are pure and
 `test/ppocr.test.ts` runs them in node.
 
-Two things to know before changing it:
+Three things to know before changing it:
 
 **Sessions are built one at a time.** The WebGPU backend refuses to create a
 second session while one is being created, and doing it in a `Promise.all`
 fails with `another WebGPU EP inference session is being created`.
+
+**Reads go one at a time.** Two reads at once lock the offscreen document up,
+warm or cold, and every extension page shares its process, so the settings page
+hangs too. `read()` in `src/offscreen.ts` chains them; translating every image on
+a site is what first started two together.
 
 **ONNX Runtime has to be told where its WebAssembly is.** The bundle is one
 file, so there is no script URL for it to work its own location out from;

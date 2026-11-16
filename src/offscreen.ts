@@ -14,13 +14,22 @@ const reader = new Reader({
   providers: ['webgpu', 'wasm'],
 });
 
-async function read(dataUrl: string, script?: Script) {
-  const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob());
-  try {
-    return await reader.read(bitmap, script);
-  } finally {
-    bitmap.close();
-  }
+// One read at a time. Two at once lock this document up, warm or cold, and take
+// every extension page in the process down with it; the GPU would only take
+// them in turn anyway.
+let reading: Promise<unknown> = Promise.resolve();
+
+function read(dataUrl: string, script?: Script) {
+  const run = reading.then(async () => {
+    const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob());
+    try {
+      return await reader.read(bitmap, script);
+    } finally {
+      bitmap.close();
+    }
+  });
+  reading = run.catch(() => {});
+  return run;
 }
 
 // The Translator API, which TypeScript's DOM types do not have yet.
