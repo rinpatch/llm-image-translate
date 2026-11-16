@@ -69,7 +69,13 @@ export function Combobox({ options, value, onPick, free, placeholder, id, ...res
         aria-activedescendant={open && items[active] ? `${list}-${active}` : undefined}
         placeholder={placeholder} value={query ?? value}
         onFocus={(e) => e.currentTarget.select()}
-        onClick={() => (open ? close() : show())}
+        onClick={(e) => {
+          if (open) return close();
+          // Focus selects too, but the field keeps focus after a pick, and a
+          // second look would otherwise type onto the end of the value.
+          e.currentTarget.select();
+          show();
+        }}
         onInput={(e) => {
           setQuery(e.currentTarget.value);
           show(0);
