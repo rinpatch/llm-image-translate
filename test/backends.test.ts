@@ -266,3 +266,13 @@ test('each adapter can tell how many lines of a half-arrived reply are whole', (
     'the last line is not whole until its newline');
   assert.equal(translateGemma.finished!('\nFree shipping\nSF Ex'), 1);
 });
+
+test('a half-arrived reply hands over its whole lines in their places', () => {
+  assert.deepEqual(chatLines.partial!('[{"i": 2, "text": "SF"}, {"i": 1, "text": "Fr', 3),
+    [null, 'SF', null]);
+  assert.deepEqual(chatLines.partial!('<think>[{"i": 1, "text": "draft"}]', 2), [null, null],
+    'a draft in the thinking is not a line');
+  assert.deepEqual(hunyuanMt.partial!('2. SF Express\n1. Free ship', 2), [null, 'SF Express']);
+  assert.equal(translateGemma.partial, undefined,
+    'a line placed by position alone is not placed until the count is in');
+});

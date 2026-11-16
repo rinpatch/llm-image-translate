@@ -46,12 +46,15 @@ function progressTo(sender: chrome.runtime.MessageSender, jobId: string) {
   let sentAt = 0;
   let last = '';
   return (progress: Progress) => {
-    // Only the token count is thinned out; a finished line always goes.
+    // Only the token count is thinned out; a finished line always goes, and so
+    // does a partial, which the pipeline has already spaced out.
     const step = `${progress.stage}:${progress.done}`;
     const now = Date.now();
-    if (step === last && now - sentAt < PROGRESS_MS) return;
-    sentAt = now;
-    last = step;
+    if (!progress.partial) {
+      if (step === last && now - sentAt < PROGRESS_MS) return;
+      sentAt = now;
+      last = step;
+    }
     const message: ProgressMessage = { type: 'progress', target: 'page', jobId, progress };
     (sender.tab?.id !== undefined && !extensionPage
       ? chrome.tabs.sendMessage(sender.tab.id, message, { frameId: sender.frameId })

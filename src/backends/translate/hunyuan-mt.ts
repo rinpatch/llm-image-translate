@@ -51,4 +51,8 @@ export const hunyuanMt: TranslateAdapter = {
   // The last line is not whole until the newline after it arrives.
   finished: (partial: string): number => partial.split('\n').slice(0, -1)
     .filter((line) => /^\s*\d+[.)]\s*\S/.test(line)).length,
+
+  partial: (content: string, expected: number): (string | null)[] =>
+    hunyuanMt.parse(content.slice(0, content.lastIndexOf('\n') + 1), expected)
+      || Array(expected).fill(null),
 };

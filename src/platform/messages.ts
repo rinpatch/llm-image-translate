@@ -20,6 +20,11 @@ export interface TranslateImage {
    * does now, which an answer from a minute ago does not tell it.
    */
   fresh?: boolean;
+  /**
+   * Show blocks as their lines are translated: as notes, which the page draws
+   * from the blocks alone, or as an image painted again every so often.
+   */
+  stream?: 'notes' | 'image';
 }
 
 export type Message =
@@ -39,6 +44,17 @@ export interface Progress {
   /** Lines translated so far, out of `of`, where the reply can be counted. */
   done?: number;
   of?: number;
+  /** The blocks translated so far, where the page asked for them. */
+  partial?: SoFar;
+}
+
+export interface SoFar {
+  blocks: BlockReport[];
+  /** The size the reader saw, which the boxes are measured in. */
+  width: number;
+  height: number;
+  /** The source with those blocks painted in, when streaming an image. */
+  image?: ImageBytes;
 }
 
 /** Sent from the worker to whoever asked for `jobId`, while it runs. */

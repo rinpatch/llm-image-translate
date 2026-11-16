@@ -93,4 +93,10 @@ export interface TranslateAdapter {
   parse(content: string, expected: number): (string | null)[] | null;
   /** How many lines of a reply that is still arriving are already whole. */
   finished?(partial: string): number;
+  /**
+   * The lines of a reply still arriving that are already whole, each where
+   * parse would put it. Left out where a line's place is only known once the
+   * whole reply is in.
+   */
+  partial?(content: string, expected: number): (string | null)[];
 }

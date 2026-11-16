@@ -1,8 +1,8 @@
 import { BadgeLayer, type Status } from './content/badges.ts';
-import { type Ready, ResultCache } from './content/cache.ts';
+import { blobUrl, type Ready, ResultCache } from './content/cache.ts';
 import { notesFor } from './content/notes.ts';
 import { restore, show } from './content/swap.ts';
-import { type ImageResult, type Message, type ProgressMessage, type TranslateImage }
+import { type ImageResult, type Message, type ProgressMessage, type SoFar, type TranslateImage }
   from './platform/messages.ts';
 import { affectsResults, type PublicSettings } from './platform/settings.ts';
 
@@ -20,6 +20,8 @@ interface State {
   translated: Ready | null;
   /** Set while the worker is busy, so the page can call that work off. */
   jobId: string | null;
+  /** The blob URL of the part-translated image on show while the rest comes in. */
+  partial: string | null;
 }
 
 const states = new Map<HTMLImageElement, State>();
@@ -53,7 +55,7 @@ function setStatus(img: HTMLImageElement, status: Status, detail?: string): void
 
 async function onActivate(img: HTMLImageElement): Promise<void> {
   const state = states.get(img)
-    || { status: 'idle' as Status, translated: null, jobId: null };
+    || { status: 'idle' as Status, translated: null, jobId: null, partial: null };
   states.set(img, state);
   // A second click on a working badge is the only way to say "never mind".
   if (state.status === 'working') {
@@ -77,7 +79,8 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
   state.jobId = jobId;
   // The empty Blob is the question "can this browser carry bytes?" — the worker
   // answers with an image rather than a base64 string wherever it survives.
-  const message: TranslateImage = { type: 'translateImage', jobId, src, binary: new Blob([]) };
+  const message: TranslateImage = { type: 'translateImage', jobId, src, binary: new Blob([]),
+    stream: config.notes ? 'notes' : 'image' };
   // A blob: URL belongs to the page that made it and means nothing in the
   // worker, so those images are read here and sent over as bytes.
   if (src.startsWith('blob:')) {
@@ -97,6 +100,7 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
     if (state.jobId !== jobId) return;
     if (!answer.ok) {
       state.jobId = null;
+      dropSoFar(img, state);
       console.error(`[translate] ${answer.code || 'failed'} — ${answer.error}`);
       setStatus(img, 'error', answer.error || TITLES.error);
       return;
@@ -118,15 +122,41 @@ async function onActivate(img: HTMLImageElement): Promise<void> {
       + 'its content security policy may block blob: URLs');
   }, { once: true });
   present(img, res);
+  // After present, so the image does not go back to the original in between.
+  if (state.partial) URL.revokeObjectURL(state.partial);
+  state.partial = null;
   setStatus(img, 'shown');
 }
 
+// Each takes down the other, since what streamed in may have been the other
+// kind if notes was switched partway.
 function present(img: HTMLImageElement, res: Ready): void {
   if (config.notes && res.width && res.height) {
+    restore(img);
     layer.setOverlay(img, notesFor(res.blocks, res.width, res.height));
   } else {
+    layer.setOverlay(img, null);
     show(img, res.image!);
   }
+}
+
+function showSoFar(img: HTMLImageElement, state: State,
+  { blocks, width, height, image }: SoFar): void {
+  if (!image) {
+    layer.setOverlay(img, notesFor(blocks, width, height));
+    return;
+  }
+  const url = blobUrl(image);
+  show(img, url);
+  // Already drawn, so taking the URL away does not blank it.
+  if (state.partial) URL.revokeObjectURL(state.partial);
+  state.partial = url;
+}
+
+function dropSoFar(img: HTMLImageElement, state: State): void {
+  conceal(img);
+  if (state.partial) URL.revokeObjectURL(state.partial);
+  state.partial = null;
 }
 
 function conceal(img: HTMLImageElement): void {
@@ -139,12 +169,15 @@ function cancel(img: HTMLImageElement): void {
   if (!state?.jobId) return;
   send({ type: 'cancelImage', jobId: state.jobId });
   state.jobId = null;
+  if (!state.translated) dropSoFar(img, state);
   setStatus(img, state.translated ? 'hidden' : 'idle');
 }
 
 /** Back to untranslated: the blob URLs are about to be revoked under them. */
 function invalidate(): void {
   for (const [img, state] of states) {
+    // Asked with the settings that just went.
+    cancel(img);
     if (state.status === 'shown') conceal(img);
     state.translated = null;
     setStatus(img, 'idle');
@@ -182,7 +215,9 @@ addEventListener('pagehide', () => {
 chrome.runtime.onMessage.addListener((msg: ProgressMessage) => {
   if (msg?.type !== 'progress') return;
   for (const [img, state] of states) {
-    if (state.jobId === msg.jobId) layer.setProgress(img, msg.progress);
+    if (state.jobId !== msg.jobId) continue;
+    if (msg.progress.partial) showSoFar(img, state, msg.progress.partial);
+    else layer.setProgress(img, msg.progress);
   }
 });
 

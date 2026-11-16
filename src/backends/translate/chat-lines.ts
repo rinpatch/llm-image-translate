@@ -66,4 +66,11 @@ export const chatLines: TranslateAdapter = {
     if (end < 0 && partial.includes('<think>')) return 0;
     return partial.slice(end + 1).match(/"text"\s*:\s*"(?:[^"\\]|\\.)*"/g)?.length ?? 0;
   },
+
+  // An unclosed array is skipped over and the whole objects inside it are kept,
+  // so this is parse as it stands.
+  partial(content: string, expected: number): (string | null)[] {
+    return (chatLines.finished!(content) && chatLines.parse(content, expected))
+      || Array(expected).fill(null);
+  },
 };

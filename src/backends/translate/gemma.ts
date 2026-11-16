@@ -47,4 +47,6 @@ export const translateGemma: TranslateAdapter = {
   },
 
   finished: (partial: string): number => partial.trimStart().split('\n').length - 1,
+  // No partial: a line's place is only its position, and one merged line moves
+  // every line after it, which is not known until the count comes up short.
 };

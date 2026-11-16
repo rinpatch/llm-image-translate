@@ -22,6 +22,8 @@ interface Raster {
   canvas: OffscreenCanvas;
   ctx: OffscreenCanvasRenderingContext2D;
   source: Uint8ClampedArray;
+  /** The source as drawn, to start each painting again from. */
+  pixels: ImageData;
   width: number;
   height: number;
   fetch_ms: number;
@@ -55,9 +57,9 @@ async function rasterize(
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
-  const source = ctx.getImageData(0, 0, width, height).data;
+  const pixels = ctx.getImageData(0, 0, width, height);
   const scale_ms = Date.now() - started;
-  return { canvas, ctx, source, width, height, fetch_ms, decode_ms, scale_ms };
+  return { canvas, ctx, source: pixels.data, pixels, width, height, fetch_ms, decode_ms, scale_ms };
 }
 
 const encoded = (canvas: OffscreenCanvas, encode: 'png' | 'jpeg'): Promise<Blob> =>
@@ -77,6 +79,10 @@ const LEGIBLE = 150;
 // Retries go out a few at a time. Serially they are slow enough to time a page
 // out; all at once they are a burst at whatever rate limit the endpoint has.
 const RETRY_CONCURRENCY = 3;
+
+// Encoding a page-sized PNG takes a good part of this, so painting on every
+// line would spend the worker on pictures nobody has time to look at.
+const REPAINT_MS = 500;
 
 const cancelled = (): ImageResult => ({ ok: false, code: 'cancelled', error: 'cancelled' });
 
@@ -105,6 +111,7 @@ async function translateAll(
   signal: AbortSignal,
   calls: ModelStats[],
   report: (progress: Progress) => void,
+  onLine: (index: number, line: string) => void = () => {},
 ): Promise<string[]> {
   if (!texts.length) return [];
   const source = await detectedSource(texts, sourceSetting, detect);
@@ -116,6 +123,7 @@ async function translateAll(
   let answered = 0;
   const ask = async (batch: string[], maxTokens?: number, counting?: boolean) => {
     let mine = 0;
+    let whole = 0;
     const reply = await send(endpoint, adapter.build(batch, source, target, maxTokens),
       'the translator', signal, (sofar) => {
         tokens += sofar.tokens - mine;
@@ -125,6 +133,13 @@ async function translateAll(
         const done = !counting ? answered
           : adapter.finished ? Math.min(of, adapter.finished(sofar.text)) : undefined;
         report({ stage: 'translate', tokens, done, of });
+        // Only a batch counts, and a batch is the whole page, so its lines are
+        // numbered as the page's are.
+        if (done && done > whole && adapter.partial) {
+          whole = done;
+          adapter.partial(sofar.text, batch.length)
+            .forEach((line, i) => { if (line !== null) onLine(i, line); });
+        }
       });
     calls.push(reply.stats);
     return adapter.parse(reply.text, batch.length);
@@ -145,6 +160,7 @@ async function translateAll(
     await pool(missing, RETRY_CONCURRENCY, async (at) => {
       const line = (await ask([texts[at]], 256))?.[0] ?? '';
       answered += 1;
+      onLine(at, line);
       report({ stage: 'translate', tokens, done: answered, of });
       return line;
     }, out as string[]);
@@ -198,7 +214,7 @@ function traced(
 }
 
 export async function translateImage(
-  { src, dataUrl, binary }: TranslateImage,
+  { src, dataUrl, binary, stream }: TranslateImage,
   config: Settings,
   signal: AbortSignal,
   tell: (progress: Progress) => void = () => {},
@@ -249,20 +265,15 @@ export async function translateImage(
     }
 
     const originals = blocks.map((b) => join(b.lines));
-    started = Date.now();
-    const calls: ModelStats[] = [];
-    const translations = await translateAll(toEndpoint(config.translator), translator, originals,
-      config.source, config.target, signal, calls, tell);
-    timings.translate = stageOf(Date.now() - started, calls);
 
+    // Ahead of the translation, which only decides whether a block is drawn at
+    // all, so that the blocks can be painted as their lines come in.
     started = Date.now();
     // Off the pixels, not the boxes: an axis-aligned box around a leaning line
     // knows how tall it had to be but not which way the page turned.
     const angles = blocks.map((block) => (block.vertical
       ? 0 : skewOf(source, width, height, block.box)));
-    const appearances = blocks.map((block, i) => {
-      const skipped = untranslated(originals[i], translations[i], config.target);
-      if (skipped) return { skipped, background: '', ink: '' };
+    const looks = blocks.map((block) => {
       const fill = dominant(source, width, height, block.box);
       // The words keep the colour they had: a grey footer stays grey, a pink
       // sound effect stays pink. It reads over the restored background for the
@@ -270,44 +281,85 @@ export async function translateImage(
       // was measured against.
       const written = inkOf(source, width, height, block.box);
       const ink = apart(written, fill) >= LEGIBLE ? rgb(written) : inkFor(fill);
-      return { skipped: null, background: rgb(fill), ink };
+      return { background: rgb(fill), ink };
     });
     const boxes: Box[] = blocks.map(({ box: [x0, y0, x1, y1] }) => [
       Math.max(0, x0 - 2), Math.max(0, y0 - 2), Math.min(width, x1 + 2), Math.min(height, y1 + 2)]);
     timings.layout_ms = Date.now() - started;
-    log('laid out', blocks.length, 'blocks in', timings.layout_ms, 'ms;',
-      appearances.filter((a) => a.skipped).length, 'skipped');
-    started = Date.now();
 
-    blocks.forEach((_, i) => {
-      if (appearances[i].skipped) return;
-      fillBox(ctx, boxes[i], appearances[i].background);
-    });
+    const reportOf = (translations: (string | undefined)[]): BlockReport[] =>
+      translations.flatMap((translation, i) => (translation === undefined ? [] : [{
+        box: boxes[i], src: originals[i], translation,
+        skipped: untranslated(originals[i], translation, config.target),
+      }]));
 
-    const report: BlockReport[] = [];
-    blocks.forEach((block, i) => {
-      const appearance = appearances[i];
-      if (appearance.skipped) {
-        report.push({ box: boxes[i], src: originals[i], translation: translations[i] || '',
-          skipped: appearance.skipped });
+    // From the source every time: a box filled for one block can cover the
+    // words of another, so fills all go down before any words do.
+    const paint = (translations: (string | undefined)[]) => {
+      ctx.putImageData(raster.pixels, 0, 0);
+      const drawn = translations.flatMap((translation, i) => (translation === undefined
+        || untranslated(originals[i], translation, config.target) ? [] : [i]));
+      for (const i of drawn) fillBox(ctx, boxes[i], looks[i].background);
+      for (const i of drawn) {
+        drawBlock(ctx, boxes[i], translations[i]!, {
+          ink: looks[i].ink,
+          outline: looks[i].background,
+          align: blocks[i].align,
+          pitch: blocks[i].pitch,
+          angle: angles[i],
+        });
+      }
+    };
+    const forPage = async (blob: Blob) => (binary instanceof Blob
+      ? blob : asDataUrl(blob, reader.capabilities.encode));
+
+    const sofar: (string | undefined)[] = Array(blocks.length);
+    let streaming = Boolean(stream);
+    let repaint: ReturnType<typeof setTimeout> | undefined;
+    let painting = Promise.resolve();
+    const showSoFar = async () => {
+      repaint = undefined;
+      const report = reportOf(sofar);
+      paint(sofar);
+      const image = await forPage(await encoded(canvas, reader.capabilities.encode));
+      // The finished image may already be on its way, and this would cover it.
+      if (streaming) tell({ stage: 'translate', partial: { blocks: report, width, height, image } });
+    };
+    const onLine = (i: number, line: string) => {
+      if (!streaming || sofar[i] === line) return;
+      sofar[i] = line;
+      if (stream === 'notes') {
+        tell({ stage: 'translate', partial: { blocks: reportOf(sofar), width, height } });
         return;
       }
-      drawBlock(ctx, boxes[i], translations[i], {
-        ink: appearance.ink,
-        outline: appearance.background,
-        align: block.align,
-        pitch: block.pitch,
-        angle: angles[i],
-      });
-      report.push({ box: boxes[i], src: originals[i], translation: translations[i],
-        skipped: null });
-    });
+      repaint ??= setTimeout(() => {
+        painting = painting.then(showSoFar).catch((e) => fail('could not paint so far', e));
+      }, REPAINT_MS);
+    };
+
+    started = Date.now();
+    const calls: ModelStats[] = [];
+    let translations: string[];
+    try {
+      translations = await translateAll(toEndpoint(config.translator), translator, originals,
+        config.source, config.target, signal, calls, tell, onLine);
+    } finally {
+      streaming = false;
+      clearTimeout(repaint);
+    }
+    timings.translate = stageOf(Date.now() - started, calls);
+    // It paints on the same canvas.
+    await painting;
+
+    const report = reportOf(translations);
+    log('laid out', blocks.length, 'blocks in', timings.layout_ms, 'ms;',
+      report.filter((r) => r.skipped).length, 'skipped');
+    started = Date.now();
+    paint(translations);
     timings.paint_ms = Date.now() - started;
 
     started = Date.now();
-    const painted = await encoded(canvas, reader.capabilities.encode);
-    const after = binary instanceof Blob
-      ? painted : await asDataUrl(painted, reader.capabilities.encode);
+    const after = await forPage(await encoded(canvas, reader.capabilities.encode));
     timings.encode_ms = Date.now() - started;
     timings.total_ms = Date.now() - wholeRun;
     log('painted in', timings.paint_ms, 'ms, encoded in', timings.encode_ms,
@@ -318,7 +370,7 @@ export async function translateImage(
         id: trace, at: Date.now(), url: src,
         image: raw, width, height,
         spots: spots.map((line) => ({ text: line.text, box: line.box })),
-        grouped: traced(blocks, spots, originals, translations, appearances, angles, boxes),
+        grouped: traced(blocks, spots, originals, translations, report, angles, boxes),
         logged: since(logFrom),
         timings,
       });

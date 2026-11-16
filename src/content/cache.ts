@@ -42,7 +42,7 @@ export class ResultCache {
   }
 }
 
-function blobUrl(image: ImageBytes): string {
+export function blobUrl(image: ImageBytes): string {
   if (image instanceof Blob) return URL.createObjectURL(image);
   const [header, encoded] = image.split(',', 2);
   const bytes = fromBase64(encoded);
