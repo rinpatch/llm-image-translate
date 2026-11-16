@@ -9,7 +9,8 @@ import {
 } from './platform/settings.ts';
 import { Choices } from './ui/choices.tsx';
 import { Display } from './ui/display.tsx';
-import { Names, Row, Toggle } from './ui/fields.tsx';
+import { NameBox } from './ui/combobox.tsx';
+import { Row, Toggle } from './ui/fields.tsx';
 import { Bar, Legend } from './ui/stages.tsx';
 import { NONE, type Note, Status, note } from './ui/status.tsx';
 import { TrialImage, totalOf, useTrial } from './ui/trial.tsx';
@@ -167,10 +168,10 @@ function Options() {
       <section>
         <h2>Languages</h2>
         <Row label="Translate from">
-          <Names names={['Auto', ...LANGUAGES]} value={stored.source} onPick={pick('source')} />
+          <NameBox names={['Auto', ...LANGUAGES]} value={stored.source} onPick={pick('source')} />
         </Row>
         <Row label="Translate into">
-          <Names names={LANGUAGES} value={stored.target} onPick={pick('target')} />
+          <NameBox names={LANGUAGES} value={stored.target} onPick={pick('target')} />
         </Row>
       </section>
 

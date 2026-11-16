@@ -4,7 +4,7 @@ import { LANGUAGES } from './core/language.ts';
 import { PROVIDERS } from './platform/providers.ts';
 import { publicSettings, save, translators } from './platform/settings.ts';
 import { useAsync } from './ui/async.ts';
-import { Names } from './ui/fields.tsx';
+import { NameBox } from './ui/combobox.tsx';
 
 type Picked = Partial<Record<'provider' | 'source' | 'target', string>>;
 
@@ -35,11 +35,11 @@ function Popup() {
       {value('provider') === 'chatgpt' && <p class="blurb">Using ChatGPT plan</p>}
       <label>
         <span>Translate from</span>
-        <Names names={['Auto', ...LANGUAGES]} value={value('source')} onPick={pick('source')} />
+        <NameBox names={['Auto', ...LANGUAGES]} value={value('source')} onPick={pick('source')} />
       </label>
       <label>
         <span>Translate into</span>
-        <Names names={LANGUAGES} value={value('target')} onPick={pick('target')} />
+        <NameBox names={LANGUAGES} value={value('target')} onPick={pick('target')} />
       </label>
       <footer class="rule">
         <a href="#" onClick={(e) => open(e, () => chrome.runtime.openOptionsPage())}>Settings…</a>

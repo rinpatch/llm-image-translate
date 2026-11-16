@@ -7,7 +7,8 @@ import { type EndpointSettings } from '../platform/endpoint.ts';
 import {
   CHATGPT_KEY, OPENROUTER, PROVIDERS, guessAdapter, keyScope, provider, scopeOf,
 } from '../platform/providers.ts';
-import { Input, Names, Row } from './fields.tsx';
+import { NameBox } from './combobox.tsx';
+import { Input, Row } from './fields.tsx';
 import { PackStatus, hasTranslator } from './packs.tsx';
 import {
   type Served, ModelField, isLlamacpp, servedNote, useAdoption, useServed,
@@ -37,7 +38,8 @@ function PackRow({ name, others, target, stamp }: {
   const [other, setOther] = useState(others?.[0] || '');
   return (
     <li>
-      {name ? <span>{name}</span> : <Names names={others!} value={other} onPick={setOther} />}
+      {name ? <span>{name}</span>
+        : <NameBox aria-label="Another language" names={others!} value={other} onPick={setOther} />}
       <PackStatus source={name ?? other} target={target} stamp={stamp} />
     </li>
   );

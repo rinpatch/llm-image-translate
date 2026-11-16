@@ -6,7 +6,6 @@ interface InputProps {
   onCommit: (value: string) => void;
   type?: 'text' | 'url' | 'password';
   id?: string;
-  list?: string;
   placeholder?: string;
   autocomplete?: string;
   spellcheck?: boolean;
@@ -23,7 +22,8 @@ export function Input({ value, onCommit, ...rest }: InputProps) {
   useEffect(() => setDraft(value), [value]);
   return (
     <input
-      // Preact's types tie `list` to the text type alone, which HTML does not.
+      // Preact's input types are a union per `type`, which a `type` prop that
+      // is itself a union cannot be checked against.
       {...(rest as object)}
       value={draft}
       onInput={(e) => setDraft(e.currentTarget.value)}

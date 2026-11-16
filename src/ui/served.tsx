@@ -4,7 +4,7 @@ import { type ListedModel, listModels } from '../backends/client.ts';
 import { type EndpointSettings, toEndpoint } from '../platform/endpoint.ts';
 import { guessAdapter } from '../platform/providers.ts';
 import { useAsync } from './async.ts';
-import { Input } from './fields.tsx';
+import { Combobox } from './combobox.tsx';
 import { NONE, type Note, note } from './status.tsx';
 
 export type Served = ListedModel[] | null | undefined;
@@ -73,20 +73,15 @@ export function servedNote(endpoint: EndpointSettings, served: Served): Note {
   return NONE;
 }
 
-/** A model id, with what the server serves as suggestions. */
+/** A model id, picked from what the server serves or typed in. */
 export function ModelField({ id, endpoint, served, fallback, onCommit }: {
   id: string; endpoint: EndpointSettings; served: Served;
   fallback: string; onCommit: (model: string) => void;
 }) {
   const one = inUse(endpoint, served);
   return (
-    <>
-      <Input type="text" id={id} list={`${id}-list`} autocomplete="off" spellcheck={false}
-        value={endpoint.model} placeholder={one && !endpoint.model ? one.id : fallback}
-        onCommit={onCommit} />
-      <datalist id={`${id}-list`}>
-        {(served || []).map((m) => <option value={m.id}>{m.name || m.id}</option>)}
-      </datalist>
-    </>
+    <Combobox id={id} free value={endpoint.model}
+      placeholder={one && !endpoint.model ? one.id : fallback} onPick={onCommit}
+      options={(served || []).map((m) => ({ value: m.id, label: m.name || undefined }))} />
   );
 }

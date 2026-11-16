@@ -85,6 +85,25 @@ input, select {
   box-sizing: border-box;
 }
 
+/* A select that can be typed into: src/ui/combobox.tsx. */
+.combo { position: relative; }
+.combo input { padding-right: 24px; cursor: default; }
+.combo input:focus { cursor: text; }
+.combo .chevrons { position: absolute; right: 6px; top: 50%; width: 14px; height: 14px;
+                   margin-top: -7px; pointer-events: none; fill: none; stroke: var(--muted);
+                   stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.combo ul { position: absolute; z-index: 10; top: calc(100% + 4px); left: 0; right: 0;
+            max-height: 224px; overflow-y: auto; margin: 0; padding: 4px; list-style: none;
+            background: var(--field); border: 1px solid var(--line); border-radius: var(--radius);
+            box-shadow: 0 4px 16px rgb(0 0 0 / .12); box-sizing: border-box; }
+.combo li { position: relative; padding: 4px 8px 4px 24px; border-radius: 3px; cursor: default;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo li[aria-selected=true] { background: var(--sunken); }
+.combo li.current::before { content: ""; position: absolute; left: 9px; top: 50%; width: 4px;
+                            height: 8px; margin-top: -6px; border: solid var(--accent);
+                            border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+.combo li.empty { color: var(--muted); padding-left: 8px; }
+
 /* Chrome draws no focus ring at all on a styled field, and a settings page you
    cannot tab through is a settings page half the keyboard cannot reach. */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -196,7 +215,6 @@ footer { margin-top: calc(var(--step) * 7); font-size: 12px; }
             padding: calc(var(--step) * 2) 0; border-bottom: 1px solid var(--line); }
 .packs li > :first-child { flex: 0 0 140px; }
 .packs li .status { flex: 1; min-height: 0; }
-.packs li select { width: auto; }
 
 .custom { margin-top: calc(var(--step) * 6); }
 

@@ -9,7 +9,7 @@ import { blocker } from './platform/ready.ts';
 import { publicSettings, save } from './platform/settings.ts';
 import { Choices } from './ui/choices.tsx';
 import { Display } from './ui/display.tsx';
-import { Names } from './ui/fields.tsx';
+import { NameBox } from './ui/combobox.tsx';
 import { downloadPack, fetchingNote, packState, stalledNote } from './ui/packs.tsx';
 import { NONE, type Note, Status, note } from './ui/status.tsx';
 import { useTranslator } from './ui/translator.ts';
@@ -111,7 +111,7 @@ function Welcome() {
       <ol class="steps">
         <li>
           <h2>Translate into</h2>
-          <Names id="target" aria-label="Translate into" names={LANGUAGES} value={target}
+          <NameBox id="target" aria-label="Translate into" names={LANGUAGES} value={target}
             onPick={(name) => {
               setTarget(name);
               save('target', name);
