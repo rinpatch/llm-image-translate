@@ -19,18 +19,188 @@ export interface Style {
   pitch?: number;
   /** How far the source leaned, in radians. */
   angle?: number;
+  /** The source ran in columns, so CJK goes back in columns. */
+  vertical?: boolean;
 }
+
+// Han and kana. Hangul is left out: Korean comics are lettered across.
+const HAN_KANA = '\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff';
+const CJK = new RegExp(`[${HAN_KANA}]`);
+// One CJK character, or a run of anything else that is not a space.
+const UNIT = new RegExp(`[${HAN_KANA}]|[^\\s${HAN_KANA}]+`, 'g');
+// Neither may start a line, so each rides on the unit before it.
+const CLOSING = /^[，。、！？：；）」』》〉】〕…‥—～·ー,.!?:;)\]}ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮ々]/;
+// Nor may these end one, so each waits for the unit after it.
+const OPENING = /^[（「『《〈【〔(\[{]/;
+
+/**
+ * What a line may break between: each CJK character on its own, a run of
+ * anything else as one word. Chinese and Japanese have no spaces, so splitting
+ * on whitespace alone made a whole sentence one unbreakable word.
+ */
+export function units(text: string): string[] {
+  const raw = text.trim().match(UNIT) || [];
+  // A full-width mark sits outside the CJK ranges, so it arrives glued to
+  // nothing or to a Latin run; split it off so the rules below can place it.
+  const pieces = raw.flatMap((u) => (CJK.test(u) ? [u] : u.split(/(?=[，。、！？：；）」』》（「『《…—])|(?<=[，。、！？：；）」』》（「『《…—])/u)))
+    .filter(Boolean);
+  const out: string[] = [];
+  let pending = '';
+  for (const piece of pieces) {
+    if (OPENING.test(piece) && piece.length === 1) { pending += piece; continue; }
+    if (CLOSING.test(piece) && out.length && !pending) { out[out.length - 1] += piece; continue; }
+    out.push(pending + piece);
+    pending = '';
+  }
+  if (pending) out.push(pending);
+  return out;
+}
+
+// A space goes between two units only where the source had words to space.
+const spaced = (a: string, b: string) => !CJK.test(a.slice(-1)) && !CJK.test(b[0])
+  && !CLOSING.test(b) && !OPENING.test(a.slice(-1));
 
 export function wrap(ctx: TextCanvas, text: string, width: number): string[] {
   const lines: string[] = [];
   let current = '';
-  for (const word of text.split(/\s+/)) {
-    const trial = current ? `${current} ${word}` : word;
+  let last = '';
+  for (const unit of units(text)) {
+    const trial = current ? current + (spaced(last, unit) ? ' ' : '') + unit : unit;
     if (!current || ctx.measureText(trial).width <= width) current = trial;
-    else { lines.push(current); current = word; }
+    else { lines.push(current); current = unit; }
+    last = unit;
   }
   if (current) lines.push(current);
   return lines;
+}
+
+/**
+ * Most of the text is Han or kana, so it can stand in columns. A Latin word
+ * counts once, or a brand name in a Chinese sentence would outvote it.
+ */
+export function columnar(text: string): boolean {
+  const words = text.replace(/[\p{P}\p{S}]/gu, ' ').match(UNIT) || [];
+  return words.filter((w) => CJK.test(w)).length * 2 > words.length;
+}
+
+// Upright stand-ins for the marks that lie wrong in a column: the commas and
+// stops move to the top right of their cell, and brackets turn to open
+// downward. Fonts that cover CJK carry these.
+const VERTICAL_FORMS: Record<string, string> = {
+  '，': '︐', '、': '︑', '。': '︒', '：': '︓', '；': '︔', '！': '︕', '？': '︖',
+  '「': '﹁', '」': '﹂', '『': '﹃', '』': '﹄', '（': '︵', '）': '︶',
+  '《': '︽', '》': '︾', '〈': '︿', '〉': '﹀', '【': '︻', '】': '︼', '〔': '︹', '〕': '︺',
+  '…': '︙', '‥': '︰', '—': '︱', '～': '≀', 'ー': '丨',
+  ',': '︐', '!': '︕', '?': '︖', ':': '︓', ';': '︔', '(': '︵', ')': '︶',
+};
+
+/** One cell of a column: a character upright, or a Latin run on its side. */
+interface Cell { text: string; turned: boolean }
+
+function cellsOf(text: string): Cell[] {
+  const cells: Cell[] = [];
+  for (const unit of units(text)) {
+    // A unit is a character plus whatever marks rode along with it; in a
+    // column each gets its own cell again.
+    for (const piece of unit.match(/[^\x21-\x7e]|[\x21-\x7e]+/g) || []) {
+      const vertical = VERTICAL_FORMS[piece];
+      if (vertical) cells.push({ text: vertical, turned: false });
+      // Two digits stand side by side in one cell, as a date or a count does
+      // in print; anything longer would be a sliver, so it lies on its side.
+      else if (/^[\x21-\x7e]+$/.test(piece) && piece.length > 2) cells.push({ text: piece, turned: true });
+      else cells.push({ text: piece, turned: false });
+    }
+  }
+  return cells;
+}
+
+// Columns sit further apart than lines do, as they do in lettered comics.
+const COLUMN_GAP = 0.25;
+
+function columnsOf(ctx: TextCanvas, cells: Cell[], size: number, height: number): Cell[][] {
+  const advance = (c: Cell) => (c.turned ? ctx.measureText(c.text).width : size);
+  const columns: Cell[][] = [];
+  let column: Cell[] = [];
+  let used = 0;
+  for (const cell of cells) {
+    const a = advance(cell);
+    // Never start a column on a mark that closes; the column runs over instead.
+    const closes = CLOSING.test(cell.text) || /^[︐︑︒︓︔︕︖﹂﹄︶︾﹀︼︺︙︰]$/.test(cell.text);
+    if (column.length && used + a > height && !closes) {
+      columns.push(column); column = []; used = 0;
+    }
+    column.push(cell);
+    used += a;
+  }
+  if (column.length) columns.push(column);
+  return columns;
+}
+
+/**
+ * CJK set back in columns, right to left, each read top to bottom. Canvas has
+ * no writing-mode, so every character is placed by hand.
+ */
+function drawColumns(ctx: TextCanvas, box: Box, text: string, style: Style): void {
+  const [x0, y0, x1, y1] = box;
+  const width = x1 - x0;
+  const height = y1 - y0;
+  const cells = cellsOf(text);
+  const advance = (c: Cell, size: number) => (c.turned ? ctx.measureText(c.text).width : size);
+  const tall = (column: Cell[], size: number) => column.reduce((n, c) => n + advance(c, size), 0);
+
+  // The source's pitch here is from one column to the next, so it caps the
+  // size across the box rather than down it.
+  let low = 6;
+  let high = Math.max(7, style.pitch ? Math.min(width, style.pitch / (1 + COLUMN_GAP)) : width);
+  let best: { size: number; columns: Cell[][] } | null = null;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    ctx.font = `${mid}px ${FONT}`;
+    const columns = columnsOf(ctx, cells, mid, height);
+    const across = columns.length * mid + (columns.length - 1) * mid * COLUMN_GAP;
+    const fits = across <= width && columns.every((c) => tall(c, mid) <= height);
+    if (fits) { best = { size: mid, columns }; low = mid + 1; } else high = mid - 1;
+  }
+  if (!best) {
+    ctx.font = `6px ${FONT}`;
+    best = { size: 6, columns: columnsOf(ctx, cells, 6, height) };
+  }
+
+  const { size, columns } = best;
+  ctx.font = `${size}px ${FONT}`;
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = Math.max(1, size / 6);
+  ctx.strokeStyle = style.outline || 'transparent';
+  ctx.fillStyle = style.ink;
+  const draw = (t: string, x: number, y: number) => {
+    if (style.outline) ctx.strokeText(t, x, y);
+    ctx.fillText(t, x, y);
+  };
+
+  // The whole set is centred in the box; columns start level at the top, as
+  // they do in a speech bubble.
+  const step = size * (1 + COLUMN_GAP);
+  const across = columns.length * size + (columns.length - 1) * size * COLUMN_GAP;
+  const top = y0 + (height - Math.max(...columns.map((c) => tall(c, size)))) / 2;
+  let middle = (x0 + x1) / 2 + across / 2 - size / 2;
+  for (const column of columns) {
+    let y = top;
+    for (const cell of column) {
+      const w = ctx.measureText(cell.text).width;
+      if (cell.turned) {
+        ctx.save();
+        ctx.translate(middle, y);
+        ctx.rotate(Math.PI / 2);
+        draw(cell.text, 0, 0);
+        ctx.restore();
+        y += w;
+      } else {
+        draw(cell.text, middle - w / 2, y + size / 2);
+        y += size;
+      }
+    }
+    middle -= step;
+  }
 }
 
 /** Paints over a box, which is how the source glyphs are taken off the page. */
@@ -41,6 +211,7 @@ export function fillBox(ctx: TextCanvas, [x0, y0, x1, y1]: Box, fill: string): v
 
 export function drawBlock(ctx: TextCanvas, box: Box, text: string, style: Style): void {
   if (!text.trim()) return;
+  if (style.vertical && columnar(text)) { drawColumns(ctx, box, text, style); return; }
   const [x0, y0, x1, y1] = box;
   const height = y1 - y0;
   const angle = style.angle || 0;

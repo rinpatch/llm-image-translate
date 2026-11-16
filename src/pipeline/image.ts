@@ -458,6 +458,7 @@ export async function translateImage(
           align: blocks[i].align,
           pitch: blocks[i].pitch,
           angle: angles[i],
+          vertical: blocks[i].vertical,
         });
       }
     };
