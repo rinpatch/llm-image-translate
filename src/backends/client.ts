@@ -328,13 +328,6 @@ export async function listModels(endpoint: Endpoint, signal?: AbortSignal):
       { headers: headersFor(endpoint), signal });
     if (!r.ok) return null;
     const out = await r.json();
-    // A ChatGPT plan's catalog, where only `visibility: list` may be offered or asked for.
-    if (Array.isArray(out?.models)) {
-      return out.models
-        .filter((m: any) => typeof m?.slug === 'string' && m.visibility === 'list')
-        .map((m: any) => ({ id: m.slug,
-          ...(typeof m.display_name === 'string' ? { name: m.display_name } : {}) }));
-    }
     if (!Array.isArray(out?.data)) return null;
     return out.data.filter((m: any) => typeof m?.id === 'string').map((m: any) => ({
       id: m.id,

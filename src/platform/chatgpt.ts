@@ -1,9 +1,7 @@
 import {
-  type Pending, type Tokens, authorizeUrl, exchange, expiresAt, isCallback, readCallback, refresh,
-  revoke,
+  type Pending, type Tokens, authorizeUrl, exchange, expiresAt, isCallback, planModels,
+  readCallback, refresh, revoke,
 } from '../backends/chatgpt.ts';
-import { listModels } from '../backends/client.ts';
-import { toEndpoint } from './endpoint.ts';
 import { CHATGPT_KEY } from './providers.ts';
 import { readSecret, writeSecret } from './secrets.ts';
 import { type Settings, keys, saveKey } from './settings.ts';
@@ -142,7 +140,7 @@ let catalog: { token: string; models: Promise<string[] | null> } | null = null;
  */
 async function planModel(endpoint: Settings['translator']): Promise<string> {
   if (catalog?.token !== endpoint.apiKey) {
-    const models = listModels(toEndpoint(endpoint)).then((m) => m && m.map((x) => x.id));
+    const models = planModels(endpoint.apiKey);
     catalog = { token: endpoint.apiKey, models };
     models.then((m) => { if (!m && catalog?.models === models) catalog = null; });
   }

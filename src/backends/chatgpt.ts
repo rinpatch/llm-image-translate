@@ -253,6 +253,24 @@ export async function refresh(tokens: Tokens): Promise<Tokens> {
   };
 }
 
+/**
+ * The models a ChatGPT plan may ask for, from its catalog. OpenAI allows only
+ * those marked `visibility: list`. Null when the catalog cannot be had.
+ */
+export async function planModels(access: string): Promise<string[] | null> {
+  try {
+    const r = await fetch(`${OPENAI}/models`, { headers: { Authorization: `Bearer ${access}` } });
+    if (!r.ok) return null;
+    const out = await r.json();
+    if (!Array.isArray(out?.models)) return null;
+    return out.models
+      .filter((m: any) => typeof m?.slug === 'string' && m.visibility === 'list')
+      .map((m: any) => m.slug);
+  } catch {
+    return null;
+  }
+}
+
 /** Ends the session at OpenAI's end too. Best effort: signing out here does not wait on it. */
 export async function revoke(tokens: Pick<Tokens, 'clientId' | 'refresh'>): Promise<void> {
   try {

@@ -3,7 +3,7 @@ import assert from 'node:assert';
 
 import { send } from '../src/backends/client.ts';
 import { ppOcrBrowser } from '../src/backends/ocr/ppocr/adapter.ts';
-import { readsInBrowser } from '../src/backends/client.ts';
+import { listModels, readsInBrowser } from '../src/backends/client.ts';
 import { chatLines } from '../src/backends/translate/chat-lines.ts';
 import { chromeTranslator } from '../src/backends/translate/chrome.ts';
 import { hunyuanMt } from '../src/backends/translate/hunyuan-mt.ts';
@@ -67,6 +67,17 @@ test('a server that answers badly says so, in terms of what it was asked to be',
   await assert.rejects(
     send({ baseUrl: 'http://host' }, chatLines.build(['x'], 'Chinese', 'English'), 'the translator'),
     /cannot reach the translator at http:\/\/host\/v1\/chat\/completions/);
+});
+
+test('the standard model list is read whole, even beside an Ollama-style one', async () => {
+  // What llama.cpp's /v1/models sends.
+  const body = {
+    models: [{ name: 'gemma', model: 'gemma' }, { name: 'qwen', model: 'qwen' }],
+    data: [{ id: 'gemma', owned_by: 'llamacpp' }, { id: 'qwen', owned_by: 'llamacpp' }],
+  };
+  globalThis.fetch = (async () => ({ ok: true, json: async () => body })) as unknown as typeof fetch;
+  assert.deepEqual(await listModels({ baseUrl: 'http://host' }),
+    [{ id: 'gemma', llamacpp: true }, { id: 'qwen', llamacpp: true }]);
 });
 
 test('a base written either way round reaches the same place', async () => {
