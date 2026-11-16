@@ -39,8 +39,13 @@ To build it yourself:
 ```bash
 npm install
 tools/fetch-ocr-models.sh
+tools/fetch-inpaint-model.sh   # optional, needs uv; see below
 npm run build
 ```
+
+The second script fetches a small inpainter trained on manga, which redraws
+whatever was behind the original words. Without it the words are painted over
+in the background's colour, which shows wherever that background is a picture.
 
 Then load `extension/` the same way.
 
@@ -48,7 +53,8 @@ Then load `extension/` the same way.
 
 - Japanese names often come back with the wrong reading.
 - Sound effects in manga translate badly.
-- Text over a busy background is covered with a flat colour, which shows.
+- Text over a busy background is covered with a flat colour, which shows,
+  unless the inpainter was fetched.
 
 ## Licence
 

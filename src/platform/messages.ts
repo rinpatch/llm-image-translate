@@ -102,6 +102,16 @@ export interface Timings {
   translate?: Stage;
   /** Measuring each block's lean and colours, and whether to draw it at all. */
   layout_ms?: number;
+  /** Inpainting every block's words away, alongside the translation. */
+  inpaint_ms?: number;
+  /** When inpainting started, from the start of the run, to draw it where it ran. */
+  inpaint_from_ms?: number;
+  /**
+   * How long painting waited for the inpainter once the translation was in:
+   * what inpainting added to the image. The rest of `inpaint_ms` overlapped the
+   * translation and cost nothing.
+   */
+  inpaint_wait_ms?: number;
   /** Clearing the source glyphs and drawing the translations over them. */
   paint_ms?: number;
   /** Encoding the finished canvas for the page. */

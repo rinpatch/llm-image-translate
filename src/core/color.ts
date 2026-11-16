@@ -6,13 +6,35 @@ export type RGB = [number, number, number];
 export const luminance = (data: Uint8ClampedArray, i: number) =>
   0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
 
-/**
- * The colour the text sits on, from a ring just outside the block. Pixels vote
- * in coarse buckets so JPEG noise around the glyphs does not split the
- * background into a hundred near-identical shades, but the answer is the mean of
- * the winning bucket rather than the bucket itself: a bucket is 17 wide, and on
- * a dark interface that much off reads as a patch over the background.
- */
+type Votes = Map<number, [number, number, number, number]>;
+
+// Pixels vote in coarse buckets so JPEG noise does not split one colour into a
+// hundred near-identical shades, but the answer is the mean of the winning
+// bucket rather than the bucket itself: a bucket is 17 wide, and on a dark
+// interface that much off reads as a patch over the background.
+function vote(votes: Votes, data: Uint8ClampedArray, i: number): void {
+  const key = ((data[i] >> 4) << 8) | ((data[i + 1] >> 4) << 4) | (data[i + 2] >> 4);
+  const sum = votes.get(key);
+  if (sum) {
+    sum[0] += 1;
+    sum[1] += data[i];
+    sum[2] += data[i + 1];
+    sum[3] += data[i + 2];
+  } else {
+    votes.set(key, [1, data[i], data[i + 1], data[i + 2]]);
+  }
+}
+
+function winner(votes: Votes): RGB {
+  let best: [number, number, number, number] | null = null;
+  for (const sum of votes.values()) if (!best || sum[0] > best[0]) best = sum;
+  // No pixels at all, which only happens on a box outside the image.
+  if (!best) return [255, 255, 255];
+  return [Math.round(best[1] / best[0]), Math.round(best[2] / best[0]),
+          Math.round(best[3] / best[0])];
+}
+
+/** The colour the text sits on, from a ring just outside the block. */
 export function dominant(
   data: Uint8ClampedArray,
   width: number,
@@ -20,29 +42,39 @@ export function dominant(
   [x0, y0, x1, y1]: Box,
 ): RGB {
   const pad = Math.max(2, (y1 - y0) >> 2);
-  const buckets = new Map<number, [number, number, number, number]>();
+  const votes: Votes = new Map();
   for (let y = Math.max(0, y0 - pad); y < Math.min(height, y1 + pad); y++) {
     for (let x = Math.max(0, x0 - pad); x < Math.min(width, x1 + pad); x++) {
       if (x >= x0 && x < x1 && y >= y0 && y < y1) continue;
-      const i = offset(width, x, y);
-      const key = ((data[i] >> 4) << 8) | ((data[i + 1] >> 4) << 4) | (data[i + 2] >> 4);
-      const sum = buckets.get(key);
-      if (sum) {
-        sum[0] += 1;
-        sum[1] += data[i];
-        sum[2] += data[i + 1];
-        sum[3] += data[i + 2];
-      } else {
-        buckets.set(key, [1, data[i], data[i + 1], data[i + 2]]);
-      }
+      vote(votes, data, offset(width, x, y));
     }
   }
-  let best: [number, number, number, number] | null = null;
-  for (const sum of buckets.values()) if (!best || sum[0] > best[0]) best = sum;
-  // No ring at all, which only happens on a block that fills the image.
-  if (!best) return [255, 255, 255];
-  return [Math.round(best[1] / best[0]), Math.round(best[2] / best[0]),
-          Math.round(best[3] / best[0])];
+  return winner(votes);
+}
+
+/**
+ * The colour along the inside edge of the block, which is the paper the words
+ * sit on. Where a box fills its speech bubble, the ring that `dominant` reads
+ * is the drawing around the bubble, and its colour painted inside is a grey
+ * patch on white. Not the commonest colour in the whole box: on lettering
+ * filled white and outlined in colour, that is the letters' own fill. Only
+ * right where the background is one colour, so only asked there.
+ */
+export function paperOf(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  [x0, y0, x1, y1]: Box,
+): RGB {
+  const band = 3;
+  const votes: Votes = new Map();
+  for (let y = Math.max(0, y0); y < Math.min(height, y1); y++) {
+    for (let x = Math.max(0, x0); x < Math.min(width, x1); x++) {
+      if (x >= x0 + band && x < x1 - band && y >= y0 + band && y < y1 - band) continue;
+      vote(votes, data, offset(width, x, y));
+    }
+  }
+  return winner(votes);
 }
 
 /** How far apart two colours are, summed over the channels. */

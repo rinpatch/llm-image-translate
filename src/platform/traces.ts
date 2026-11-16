@@ -35,6 +35,8 @@ export interface TracedBlock {
   skipped: string | null;
   /** Where it was drawn: the block's box, padded. */
   drawn: Box;
+  /** Taken off the page by the inpainter rather than a flat fill. */
+  inpainted?: boolean;
 }
 
 /** What the list needs, which is everything but the image. */

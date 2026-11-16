@@ -3,10 +3,11 @@ import { type Box, type Block, type TextLine } from '../core/geometry.ts';
 import { group, join } from '../core/grouping.ts';
 import { dividerFor } from '../core/rules.ts';
 import { autoSource, detectedSource, untranslated } from '../core/language.ts';
-import { apart, dominant, inkFor, inkOf, rgb } from '../core/color.ts';
+import { apart, dominant, inkFor, inkOf, paperOf, rgb, type RGB } from '../core/color.ts';
+import { maskText, maskWords, regionsFor } from '../core/erase.ts';
 import { drawBlock, fillBox } from '../core/paint.ts';
 import { skewOf } from '../core/skew.ts';
-import { Cancelled, send } from '../backends/client.ts';
+import { askInBrowser, Cancelled, send } from '../backends/client.ts';
 import { ppOcrBrowser as reader } from '../backends/ocr/ppocr/adapter.ts';
 import { translateAdapter } from '../backends/registry.ts';
 import { type EncodedImage, type Endpoint, type ModelStats, type TranslateAdapter }
@@ -75,6 +76,9 @@ const asDataUrl = async (blob: Blob, encode: 'png' | 'jpeg'): Promise<string> =>
 // rather than writing, and black or white on the fill is the safer answer. The
 // faintest real text in the fixtures — a chat window's grey footer — is 236.
 const LEGIBLE = 150;
+
+// The furthest a glyph's mask is grown past its ink, in pixels.
+const GROW_MAX = 6;
 
 // Retries go out a few at a time. Serially they are slow enough to time a page
 // out; all at once they are a burst at whatever rate limit the endpoint has.
@@ -212,6 +216,97 @@ function traced(
   }));
 }
 
+/** A block's words to take off: where, off what paper, and how to mask them. */
+interface Erasure {
+  box: Box;
+  paper: RGB;
+  /** How far the mask is grown past the glyphs. */
+  grow: number;
+  /** How far past the box a stroke can run and still be a glyph. */
+  margin: number;
+}
+
+/**
+ * The source with the glyphs of each block given painted out in its paper, and
+ * which of the blocks that could not be done for, to be covered whole instead.
+ */
+function flatFilled(raster: Raster, erasures: Erasure[]): { flat: ImageData; boxed: boolean[] } {
+  const { source, width, height } = raster;
+  const flat = new ImageData(new Uint8ClampedArray(source), width, height);
+  // Which block owns each pixel, plus one, so one pass paints them all.
+  const owner = new Uint16Array(width * height);
+  const scratch = new Uint8Array(width * height);
+  const boxed = erasures.map((e, i) => !maskWords(source, width, height, e.box, e.paper, e.grow,
+    e.margin, owner, i + 1, scratch));
+  for (let p = 0; p < owner.length; p++) {
+    if (owner[p]) flat.data.set(erasures[owner[p] - 1].paper, p * 4);
+  }
+  return { flat, boxed };
+}
+
+/**
+ * `base` with every hole's words inpainted away, or null where there was
+ * nothing to do or it could not be done — the flat fill is then the fallback,
+ * so an inpainter that is missing or failing costs looks, never the
+ * translation.
+ */
+async function inpainted(base: ImageData, holes: Erasure[], signal: AbortSignal):
+  Promise<OffscreenCanvas | null> {
+  if (!holes.length) return null;
+  const { data: source, width, height } = base;
+  const mask = new Uint8Array(width * height);
+  for (const hole of holes) {
+    maskText(source, width, height, hole.box, hole.paper, hole.grow, null, mask, 1);
+  }
+  const clean = new ImageData(new Uint8ClampedArray(source), width, height);
+  try {
+    for (const [x0, y0, x1, y1] of regionsFor(holes.map((h) => h.box), width, height)) {
+      if (signal.aborted) return null;
+      const w = x1 - x0;
+      const h = y1 - y0;
+      const crop = new ImageData(w, h);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const from = ((y0 + y) * width + x0 + x) * 4;
+          const to = (y * w + x) * 4;
+          crop.data.set(source.subarray(from, from + 3), to);
+          crop.data[to + 3] = mask[(y0 + y) * width + x0 + x] ? 0 : 255;
+        }
+      }
+      const canvas = new OffscreenCanvas(w, h);
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+      ctx.putImageData(crop, 0, 0);
+      const reply = await askInBrowser({
+        type: 'inpaint', image: await asDataUrl(await encoded(canvas, 'png'), 'png'),
+      });
+      const filled = await createImageBitmap(await (await fetch(reply.image)).blob());
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(filled, 0, 0);
+      filled.close();
+      const back = ctx.getImageData(0, 0, w, h).data;
+      // Only the holes are taken from the model. Everywhere else its answer is
+      // the source run through a network, and at a scale it may have shrunk to.
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          if (!mask[(y0 + y) * width + x0 + x]) continue;
+          const from = (y * w + x) * 4;
+          clean.data.set(back.subarray(from, from + 3), ((y0 + y) * width + x0 + x) * 4);
+        }
+      }
+    }
+  } catch (e) {
+    log('could not inpaint, filling flat instead:', String((e as Error)?.message || e));
+    return null;
+  }
+  return canvasOf(clean);
+}
+
+function canvasOf(pixels: ImageData): OffscreenCanvas {
+  const canvas = new OffscreenCanvas(pixels.width, pixels.height);
+  canvas.getContext('2d')!.putImageData(pixels, 0, 0);
+  return canvas;
+}
+
 export async function translateImage(
   { src, dataUrl, binary, stream, auto }: TranslateImage,
   config: Settings,
@@ -280,19 +375,52 @@ export async function translateImage(
     // knows how tall it had to be but not which way the page turned.
     const angles = blocks.map((block) => (block.vertical
       ? 0 : skewOf(source, width, height, block.box)));
-    const looks = blocks.map((block) => {
-      const fill = dominant(source, width, height, block.box);
+    const boxes: Box[] = blocks.map(({ box: [x0, y0, x1, y1] }) => [
+      Math.max(0, x0 - 2), Math.max(0, y0 - 2), Math.min(width, x1 + 2), Math.min(height, y1 + 2)]);
+    const looks = blocks.map((block, i) => {
+      const ring = dominant(source, width, height, block.box);
+      const written = inkOf(source, width, height, block.box);
+      // Over a plain background the paper is read just inside the box, since
+      // the ring outside it can be the drawing around a bubble, or the white
+      // stroke around a heading's letters. Not where the box is so tight that
+      // its edge is mostly glyph, though: that colour is then more the ink's
+      // than the ring's.
+      const inner = paperOf(source, width, height, boxes[i]);
+      const fill = apart(inner, written) > apart(inner, ring) ? inner : ring;
       // The words keep the colour they had: a grey footer stays grey, a pink
       // sound effect stays pink. It reads over the restored background for the
       // same reason it read over the original, since that is the background it
       // was measured against.
-      const written = inkOf(source, width, height, block.box);
       const ink = apart(written, fill) >= LEGIBLE ? rgb(written) : inkFor(fill);
-      return { background: rgb(fill), ink };
+      // About the stroke of a glyph, from the thinnest line in the block.
+      const line = Math.min(...block.boxes.map(([x0, y0, x1, y1]) => Math.min(x1 - x0, y1 - y0)));
+      const erasure: Erasure = {
+        box: boxes[i], paper: fill,
+        grow: Math.min(GROW_MAX, Math.max(2, Math.round(line / 10))),
+        margin: Math.max(6, Math.round(line / 2)),
+      };
+      return { background: rgb(fill), ink, erasure };
     });
-    const boxes: Box[] = blocks.map(({ box: [x0, y0, x1, y1] }) => [
-      Math.max(0, x0 - 2), Math.max(0, y0 - 2), Math.min(width, x1 + 2), Math.min(height, y1 + 2)]);
+    // Every block is inpainted; this is what stands in until that is done, and
+    // for good where there is no inpainter.
+    const { flat, boxed: covered } = flatFilled(raster, looks.map((look) => look.erasure));
+    const flatCanvas = canvasOf(flat);
     timings.layout_ms = Date.now() - started;
+
+    // Under way while the translation is, since neither needs the other. From
+    // the source, not the flat fill: that has already painted the glyphs over
+    // in one colour, and the model would see only what the fill left.
+    const inpaintAt = Date.now();
+    let cleanSoFar: OffscreenCanvas | null = null;
+    const cleaning = inpainted(raster.pixels, looks.map((look) => look.erasure), signal)
+      .then((clean) => {
+        if (clean) {
+          timings.inpaint_from_ms = inpaintAt - wholeRun;
+          timings.inpaint_ms = Date.now() - inpaintAt;
+        }
+        cleanSoFar = clean;
+        return clean;
+      });
 
     const reportOf = (translations: (string | undefined)[]): BlockReport[] =>
       translations.flatMap((translation, i) => (translation === undefined ? [] : [{
@@ -302,11 +430,27 @@ export async function translateImage(
 
     // From the source every time: a box filled for one block can cover the
     // words of another, so fills all go down before any words do.
-    const paint = (translations: (string | undefined)[]) => {
+    const paint = (translations: (string | undefined)[], clean: OffscreenCanvas | null) => {
       ctx.putImageData(raster.pixels, 0, 0);
       const drawn = translations.flatMap((translation, i) => (translation === undefined
         || untranslated(originals[i], translation, config.target) ? [] : [i]));
-      for (const i of drawn) fillBox(ctx, boxes[i], looks[i].background);
+      // One picture for every block to take from: the inpainted one is built on
+      // the flat-filled one. Taking a block's surroundings from a picture its
+      // neighbour was not cleaned in would put the neighbour's words back.
+      const from = clean ?? flatCanvas;
+      const boxed = clean ? [] : drawn.filter((i) => covered[i]);
+      for (const i of drawn) {
+        if (boxed.includes(i)) continue;
+        // The mask grows past the box by up to GROW_MAX, so that much more is
+        // taken; outside the masks it is the source anyway.
+        const [x0, y0, x1, y1] = boxes[i];
+        const l = Math.max(0, x0 - GROW_MAX);
+        const t = Math.max(0, y0 - GROW_MAX);
+        const w = Math.min(width, x1 + GROW_MAX) - l;
+        const h = Math.min(height, y1 + GROW_MAX) - t;
+        ctx.drawImage(from, l, t, w, h, l, t, w, h);
+      }
+      for (const i of boxed) fillBox(ctx, boxes[i], looks[i].background);
       for (const i of drawn) {
         drawBlock(ctx, boxes[i], translations[i]!, {
           ink: looks[i].ink,
@@ -327,7 +471,9 @@ export async function translateImage(
     const showSoFar = async () => {
       repaint = undefined;
       const report = reportOf(sofar);
-      paint(sofar);
+      // Whatever is ready: holding a progress picture back for the inpainter
+      // would leave the page with nothing to show for the time it takes.
+      paint(sofar, cleanSoFar);
       const image = await forPage(await encoded(canvas, reader.capabilities.encode));
       // The finished image may already be on its way, and this would cover it.
       if (streaming) tell({ stage: 'translate', partial: { blocks: report, width, height, image } });
@@ -362,7 +508,10 @@ export async function translateImage(
     log('laid out', blocks.length, 'blocks in', timings.layout_ms, 'ms;',
       report.filter((r) => r.skipped).length, 'skipped');
     started = Date.now();
-    paint(translations);
+    const clean = await cleaning;
+    if (timings.inpaint_ms !== undefined) timings.inpaint_wait_ms = Date.now() - started;
+    started = Date.now();
+    paint(translations, clean);
     timings.paint_ms = Date.now() - started;
 
     started = Date.now();
@@ -377,7 +526,8 @@ export async function translateImage(
         id: trace, at: Date.now(), url: src,
         image: raw, width, height,
         spots: spots.map((line) => ({ text: line.text, box: line.box })),
-        grouped: traced(blocks, spots, originals, translations, report, angles, boxes),
+        grouped: traced(blocks, spots, originals, translations, report, angles, boxes)
+          .map((block) => ({ ...block, inpainted: Boolean(clean) })),
         logged: since(logFrom),
         timings,
       });

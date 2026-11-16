@@ -27,7 +27,11 @@ rm -rf "$stage" "$stage.zip" "$stage-store.zip"
 mkdir -p "$out"
 
 # _metadata is Chrome's, written into the folder when it loads it unpacked.
-rsync -a --exclude _metadata --exclude .DS_Store extension/ "$stage/"
+# The inpainter stays out until its licence is settled: it comes from
+# manga-image-translator, which is GPL-3.0, and the weights say nothing of
+# their own. Without it a release fills every block flat, as before.
+rsync -a --exclude _metadata --exclude .DS_Store --exclude aot-inpaint.onnx \
+  extension/ "$stage/"
 cp LICENSE THIRD_PARTY_NOTICES.txt "$stage/"
 
 (cd "$out" && zip -qrX "$stage.zip" "$name-$version")

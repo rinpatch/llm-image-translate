@@ -34,6 +34,12 @@ const PATHS: Record<Exclude<ModelRequest['kind'], 'offscreen'>, (url: string) =>
 let inBrowser: ((body: Record<string, unknown>) => Promise<any>) | null = null;
 export const readsInBrowser = (ask: typeof inBrowser): void => { inBrowser = ask; };
 
+/** Asks the in-browser models something other than a read, and hands back the whole answer. */
+export async function askInBrowser(body: Record<string, unknown>): Promise<any> {
+  if (!inBrowser) throw new Error('nothing runs in this browser here');
+  return inBrowser(body);
+}
+
 function headersFor(endpoint: Endpoint): Record<string, string> {
   return endpoint.apiKey ? { Authorization: `Bearer ${endpoint.apiKey}` } : {};
 }

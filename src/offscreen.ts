@@ -1,10 +1,12 @@
-// The reader, and Chrome's translator, run here rather than against a server.
+// The reader, the inpainter and Chrome's translator run here rather than against
+// a server.
 //
 // A document rather than part of the service worker, because the worker is
 // evicted after thirty seconds idle, which would mean reloading 30 MB of
 // weights and recompiling shaders on the click that matters. A document has no
 // extension API but `chrome.runtime` — no storage, no tabs — so the worker
 // decides everything and this only ever answers the one question.
+import { Inpainter } from './backends/inpaint/aot.ts';
 import { Reader, type Script } from './backends/ocr/ppocr/engine.ts';
 
 // WebGPU first: the detector takes about 50ms there against 555ms on wasm,
@@ -14,23 +16,44 @@ const reader = new Reader({
   providers: ['webgpu', 'wasm'],
 });
 
-// One read at a time. Two at once lock this document up, warm or cold, and take
-// every extension page in the process down with it; the GPU would only take
-// them in turn anyway.
-let reading: Promise<unknown> = Promise.resolve();
+const inpainter = new Inpainter({
+  base: chrome.runtime.getURL('vendor/ocr/'),
+  providers: ['webgpu', 'wasm'],
+});
 
-function read(dataUrl: string, script?: Script) {
-  const run = reading.then(async () => {
+// One model run at a time. Two reads at once lock this document up, warm or
+// cold, and take every extension page in the process down with it; the GPU
+// would only take them in turn anyway. Inpainting waits its turn too, which
+// also keeps its session from being built while the reader's are, something
+// the WebGPU backend refuses.
+let running: Promise<unknown> = Promise.resolve();
+
+function inTurn<T>(dataUrl: string, work: (bitmap: ImageBitmap) => Promise<T>): Promise<T> {
+  const run = running.then(async () => {
     const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob());
     try {
-      return await reader.read(bitmap, script);
+      return await work(bitmap);
     } finally {
       bitmap.close();
     }
   });
-  reading = run.catch(() => {});
+  running = run.catch(() => {});
   return run;
 }
+
+const read = (dataUrl: string, script?: Script) =>
+  inTurn(dataUrl, (bitmap) => reader.read(bitmap, script));
+
+// Encoded through a DOM canvas: this document is never visible, and in a hidden
+// document `convertToBlob` waits for a frame that comes about once a second.
+const inpaint = (dataUrl: string) => inTurn(dataUrl, async (bitmap) => {
+  const { image, ms } = await inpainter.fill(bitmap);
+  const canvas = document.createElement('canvas');
+  canvas.width = image.width;
+  canvas.height = image.height;
+  canvas.getContext('2d')!.drawImage(image, 0, 0);
+  return { image: canvas.toDataURL('image/png'), inpaint_ms: ms };
+});
 
 // The Translator API, which TypeScript's DOM types do not have yet.
 interface ChromeTranslator {
@@ -99,6 +122,12 @@ chrome.runtime.onMessage.addListener((msg: any, _sender, sendResponse) => {
         case 'ocr': {
           const { spots, timings } = await read(msg.image, msg.script);
           sendResponse({ ok: true, lines: spots, timings });
+          break;
+        }
+        // A crop with the pixels to fill made transparent; see src/pipeline/image.ts.
+        case 'inpaint': {
+          const { image, inpaint_ms } = await inpaint(msg.image);
+          sendResponse({ ok: true, image, timings: { inpaint_ms } });
           break;
         }
         case 'translate': {
