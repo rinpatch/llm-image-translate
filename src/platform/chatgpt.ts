@@ -2,7 +2,10 @@ import {
   type Pending, type Tokens, authorizeUrl, exchange, expiresAt, isCallback, readCallback, refresh,
   revoke,
 } from '../backends/chatgpt.ts';
+import { listModels } from '../backends/client.ts';
+import { toEndpoint } from './endpoint.ts';
 import { CHATGPT_KEY } from './providers.ts';
+import { readSecret, writeSecret } from './secrets.ts';
 import { type Settings, keys, saveKey } from './settings.ts';
 
 // The access token is kept with the API keys, under its own name, so everything
@@ -15,20 +18,25 @@ interface Stored {
   /** Kept through a sign-out, so signing in again reuses the app instead of registering another. */
   clientId?: string;
   refresh?: string;
+  /** The account, from the verified id token. A refresh for any other is refused. */
+  subject?: string;
   email?: string;
+  /** OpenAI's guidelines show the plan notice on the first sign-in and never again. */
+  welcomed?: boolean;
 }
 
 async function stored(): Promise<Stored> {
-  const { chatgpt } = await chrome.storage.local.get({ chatgpt: null });
-  return (chatgpt as Stored | null) || { hostId: `urn:uuid:${crypto.randomUUID()}` };
+  return (await readSecret<Stored | null>('chatgpt', null))
+    || { hostId: `urn:uuid:${crypto.randomUUID()}` };
 }
 
-const store = (value: Stored) => chrome.storage.local.set({ chatgpt: value });
+const store = (value: Stored) => writeSecret('chatgpt', value);
 
 async function keepSignIn(tokens: Tokens): Promise<void> {
-  const { hostId } = await stored();
+  const { hostId, welcomed } = await stored();
   await store({ hostId, clientId: tokens.clientId, refresh: tokens.refresh,
-    ...(tokens.email ? { email: tokens.email } : {}) });
+    ...(tokens.subject ? { subject: tokens.subject } : {}),
+    ...(tokens.email ? { email: tokens.email } : {}), ...(welcomed ? { welcomed } : {}) });
   await saveKey(CHATGPT_KEY, tokens.access);
 }
 
@@ -84,10 +92,18 @@ export async function completeSignIn(pending: Pending, url: string): Promise<str
 }
 
 export async function signOut(): Promise<void> {
-  const { hostId, clientId, refresh: token } = await stored();
+  const { hostId, clientId, refresh: token, welcomed } = await stored();
   if (clientId && token) revoke({ clientId, refresh: token });
-  await store({ hostId, ...(clientId ? { clientId } : {}) });
+  await store({ hostId, ...(clientId ? { clientId } : {}), ...(welcomed ? { welcomed } : {}) });
   await saveKey(CHATGPT_KEY, '');
+}
+
+/** True the first time it is ever asked, and false from then on, sign-outs included. */
+export async function welcomeOnce(): Promise<boolean> {
+  const now = await stored();
+  if (now.welcomed) return false;
+  await store({ ...now, welcomed: true });
+  return true;
 }
 
 /** The address signed in with, for the settings page to show. */
@@ -109,15 +125,38 @@ async function freshToken(): Promise<string> {
     const now = await stored();
     if (!now.clientId || !now.refresh) return access;
     const tokens = await refresh({ clientId: now.clientId, access, refresh: now.refresh,
-      ...(now.email ? { email: now.email } : {}) });
+      ...(now.subject ? { subject: now.subject } : {}), ...(now.email ? { email: now.email } : {}) });
     await keepSignIn(tokens);
     return tokens.access;
   })().finally(() => { refreshing = null; });
   return refreshing;
 }
 
-/** `config` with a ChatGPT translator holding a token that has not expired. */
+// The account's catalog, per access token: it changes with the plan, not per image.
+let catalog: { token: string; models: Promise<string[] | null> } | null = null;
+
+/**
+ * The model to ask for: ours if the account lists it, else the first it lists.
+ * OpenAI allows only the models its catalog shows. If the catalog cannot be
+ * had, ours is asked for and the request says whether it was right.
+ */
+async function planModel(endpoint: Settings['translator']): Promise<string> {
+  if (catalog?.token !== endpoint.apiKey) {
+    const models = listModels(toEndpoint(endpoint)).then((m) => m && m.map((x) => x.id));
+    catalog = { token: endpoint.apiKey, models };
+    models.then((m) => { if (!m && catalog?.models === models) catalog = null; });
+  }
+  const listed = await catalog.models;
+  if (!listed) return endpoint.model;
+  if (listed.includes(endpoint.model)) return endpoint.model;
+  if (!listed.length) throw new Error('ChatGPT plan usage is unavailable for this account or workspace.');
+  return listed[0];
+}
+
+/** `config` with a ChatGPT translator holding a token that has not expired, and a model the plan has. */
 export async function withFreshTokens(config: Settings): Promise<Settings> {
   if (config.translator.provider !== 'chatgpt') return config;
-  return { ...config, translator: { ...config.translator, apiKey: await freshToken() } };
+  const translator = { ...config.translator, apiKey: await freshToken() };
+  if (translator.apiKey) translator.model = await planModel(translator);
+  return { ...config, translator };
 }

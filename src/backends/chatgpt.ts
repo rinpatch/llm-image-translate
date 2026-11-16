@@ -9,6 +9,7 @@ export const OPENAI = 'https://api.openai.com/v1';
 
 const ISSUER = 'https://auth.openai.com';
 const TOKEN_URL = `${ISSUER}/api/accounts/oauth/token`;
+const DISCOVERY = `${ISSUER}/.well-known/openid-configuration`;
 const REGISTER = 'dynamic_agent_client';
 const APP_NAME = 'LLM Image Translate';
 // Without the last one the token identifies the user and cannot run a model.
@@ -19,7 +20,9 @@ export interface Tokens {
   clientId: string;
   access: string;
   refresh: string;
-  /** Who signed in, from the id token. Shown on the settings page and nowhere else. */
+  /** Who signed in, from the verified id token: the account, per OpenAI. */
+  subject?: string;
+  /** Shown on the settings page and nowhere else. */
   email?: string;
 }
 
@@ -36,20 +39,93 @@ export interface Pending {
 
 const random = () => b64url(crypto.getRandomValues(new Uint8Array(32)));
 
+const unb64url = (s: string) =>
+  Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+
 function b64url(bytes: Uint8Array): string {
   let s = '';
   for (const b of bytes) s += String.fromCharCode(b);
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-/** The claims of a JWT, unverified: it came straight from the token endpoint over TLS. */
-export function claims(jwt: string): Record<string, any> {
+/** One base64url JSON part of a JWT, or {} if it is not one. */
+function decoded(part: string): Record<string, any> {
   try {
-    const part = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(atob(part + '='.repeat((4 - (part.length % 4)) % 4)));
+    return JSON.parse(new TextDecoder().decode(unb64url(part)));
   } catch {
     return {};
   }
+}
+
+/** The claims of a JWT, unverified: fine for the access token's expiry, not for an id token. */
+export const claims = (jwt: string): Record<string, any> => decoded(jwt.split('.')[1] || '');
+
+interface Discovery { jwks_uri: string; revocation_endpoint: string }
+
+// Fetched once per worker. A failure is not kept, so the next sign-in asks again.
+let discovered: Promise<Discovery> | null = null;
+
+function discovery(): Promise<Discovery> {
+  discovered ??= fetch(DISCOVERY).then(async (r) => {
+    if (!r.ok) throw new Error(`auth.openai.com answered ${r.status}`);
+    return r.json();
+  }).catch((e) => { discovered = null; throw e; });
+  return discovered;
+}
+
+let jwks: Promise<JsonWebKey[]> | null = null;
+
+/** OpenAI's signing keys, fetched again when a token names one not seen yet. */
+async function signingKey(kid: string): Promise<JsonWebKey | undefined> {
+  const load = async () => {
+    const r = await fetch((await discovery()).jwks_uri);
+    if (!r.ok) throw new Error(`auth.openai.com answered ${r.status}`);
+    return (await r.json()).keys as JsonWebKey[];
+  };
+  const find = (keys: JsonWebKey[]) => keys.find((k: any) => k.kid === kid);
+  const cached = jwks && find(await jwks.catch(() => []));
+  if (cached) return cached;
+  jwks = load();
+  jwks.catch(() => { jwks = null; });
+  return find(await jwks);
+}
+
+// Clocks disagree; a token issued a moment "in the future" is still good.
+const SKEW_S = 60;
+
+/**
+ * The id token's claims, once its signature, issuer, audience and expiry check
+ * out, as OpenAI requires before the sign-in is used. `nonce` only on the first
+ * exchange: a refresh's id token answers no authorize request.
+ */
+export async function verifyIdToken(
+  jwt: string, clientId: string, nonce?: string,
+): Promise<Record<string, any>> {
+  const bad = (why: string) => new Error(`ChatGPT sign-in came back with ${why}. Sign in again.`);
+  const [head, body, sig] = jwt.split('.');
+  if (!head || !body || !sig) throw bad('no id token');
+  const header = decoded(head);
+  if (header.alg !== 'RS256') throw bad('an id token signed some other way');
+  const jwk = await signingKey(String(header.kid));
+  if (!jwk) throw bad('an id token signed by a key OpenAI does not list');
+  const key = await crypto.subtle.importKey('jwk', jwk,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+  const signed = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, unb64url(sig),
+    new TextEncoder().encode(`${head}.${body}`));
+  if (!signed) throw bad('an id token whose signature does not match');
+
+  const c = claims(jwt);
+  const now = Date.now() / 1000;
+  if (c.iss !== ISSUER) throw bad('an id token from someone else');
+  if (!(Array.isArray(c.aud) ? c.aud.includes(clientId) : c.aud === clientId)) {
+    throw bad('an id token for another app');
+  }
+  if (!(Number(c.exp) + SKEW_S > now)) throw bad('an expired id token');
+  if (nonce !== undefined && c.nonce !== nonce) {
+    throw new Error('ChatGPT sign-in came back for another attempt.');
+  }
+  if (typeof c.sub !== 'string' || !c.sub) throw bad('an id token naming no account');
+  return c;
 }
 
 /** Milliseconds since the epoch at which the access token stops working, 0 if unknown. */
@@ -62,7 +138,7 @@ export const expiresAt = (access: string): number => Number(claims(access).exp) 
  */
 export async function authorizeUrl(hostId: string, clientId?: string): Promise<Pending> {
   const port = 49152 + Math.floor(Math.random() * 16000);
-  const redirect = `http://127.0.0.1:${port}/auth/callback`;
+  const redirect = `http://127.0.0.1:${port}/callback`;
   const state = random();
   const nonce = random();
   const verifier = random();
@@ -135,9 +211,9 @@ export async function exchange(
     throw new Error('ChatGPT did not allow use of your plan. Sign in again and allow it, '
       + 'or check that your plan includes it.');
   }
-  const identity = claims(out.id_token || '');
-  if (identity.nonce !== pending.nonce) throw new Error('ChatGPT sign-in came back for another attempt.');
-  return { clientId, access: out.access_token, refresh: out.refresh_token, email: identity.email };
+  const identity = await verifyIdToken(out.id_token || '', clientId, pending.nonce);
+  return { clientId, access: out.access_token, refresh: out.refresh_token,
+    subject: identity.sub, ...(identity.email ? { email: identity.email } : {}) };
 }
 
 // The ones that mean the grant itself is gone, not that the server had a bad moment.
@@ -162,21 +238,30 @@ export async function refresh(tokens: Tokens): Promise<Tokens> {
     }
     throw e;
   }
+  const identity = out.id_token ? await verifyIdToken(out.id_token, tokens.clientId) : null;
+  if (identity && tokens.subject && identity.sub !== tokens.subject) {
+    throw new Error('ChatGPT sign-in came back for another account. Sign in again.');
+  }
+  const subject = identity?.sub ?? tokens.subject;
+  const email = identity?.email ?? tokens.email;
   return {
     clientId: tokens.clientId,
     access: out.access_token || tokens.access,
     refresh: out.refresh_token || tokens.refresh,
-    email: out.id_token ? claims(out.id_token).email : tokens.email,
+    ...(subject ? { subject } : {}),
+    ...(email ? { email } : {}),
   };
 }
 
 /** Ends the session at OpenAI's end too. Best effort: signing out here does not wait on it. */
 export async function revoke(tokens: Pick<Tokens, 'clientId' | 'refresh'>): Promise<void> {
-  await fetch(`${ISSUER}/api/accounts/oauth/revoke`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      token: tokens.refresh, token_type_hint: 'refresh_token', client_id: tokens.clientId,
-    }),
-  }).catch(() => {});
+  try {
+    await fetch((await discovery()).revocation_endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        token: tokens.refresh, token_type_hint: 'refresh_token', client_id: tokens.clientId,
+      }),
+    });
+  } catch {}
 }

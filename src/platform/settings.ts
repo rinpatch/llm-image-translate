@@ -1,5 +1,6 @@
 import { type EndpointSettings, toEndpoint } from './endpoint.ts';
 import { PROVIDERS, keyScope, provider, scopeOf, startOn } from './providers.ts';
+import { readSecret, writeSecret } from './secrets.ts';
 
 export { type EndpointSettings, toEndpoint };
 
@@ -65,8 +66,7 @@ export type Keys = Record<string, string>;
 
 /** API keys by server, from `scopeOf`. */
 export async function keys(): Promise<Keys> {
-  const { keys: stored } = await chrome.storage.local.get({ keys: {} });
-  return { ...(stored as Keys) };
+  return { ...await readSecret<Keys>('keys', {}) };
 }
 
 /** `scope` is a base URL or what `scopeOf` made of one. */
@@ -74,7 +74,7 @@ export async function saveKey(scope: string, key: string): Promise<void> {
   const all = await keys();
   if (key) all[keyScope(scope)] = key;
   else delete all[keyScope(scope)];
-  await chrome.storage.local.set({ keys: all });
+  await writeSecret('keys', all);
 }
 
 const withoutKey = ({ apiKey: _, ...rest }: EndpointSettings) => rest;
@@ -94,13 +94,15 @@ export interface Translators {
  * a server is the server card's.
  */
 export async function translators(): Promise<Translators> {
-  const stored = await chrome.storage.local.get(
-    { provider: '', server: null, profiles: null, profile: '', keys: {} });
+  const [stored, saved] = await Promise.all([
+    chrome.storage.local.get({ provider: '', server: null, profiles: null, profile: '' }),
+    keys(),
+  ]);
   const old = (stored.profiles || []) as { id: string; translator: EndpointSettings }[];
   const was = old.find((p) => p.id === stored.profile) || old[0];
   const id = provider(String(stored.provider || was?.translator.provider || '')).id;
   const fill = (e: EndpointSettings) =>
-    ({ ...e, apiKey: (stored.keys as Keys)[scopeOf(e)] || '' });
+    ({ ...e, apiKey: saved[scopeOf(e)] || '' });
   const server = fill({ ...startOn('server'), ...((stored.server as EndpointSettings | null)
     || old.map((p) => p.translator).find((t) => t.provider === 'server')) });
   return { provider: id, server, translator: id === 'server' ? server : fill(startOn(id)) };

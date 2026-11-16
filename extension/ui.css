@@ -118,6 +118,18 @@ button.primary[disabled] { opacity: .6; filter: none; }
 button.link { background: none; border: none; padding: 0; color: var(--accent);
               font-size: inherit; text-decoration: underline; }
 button.link:hover { text-decoration: none; }
+/* OpenAI's sign-in button: their white logo, so dark in both themes. */
+button.chatgpt { display: inline-flex; align-items: center; gap: 8px; background: #0d0d0d;
+                 border-color: #0d0d0d; color: #fff; font-weight: 600; }
+button.chatgpt:hover { background: #2a2a2a; border-color: #2a2a2a; }
+@media (prefers-color-scheme: dark) { button.chatgpt { border-color: var(--line); } }
+
+dialog.welcome { max-width: 360px; padding: calc(var(--step) * 5); color: var(--fg);
+                 background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); }
+dialog.welcome::backdrop { background: rgb(0 0 0 / .4); }
+dialog.welcome h2 { margin: 0 0 calc(var(--step) * 2); font-size: 15px; }
+dialog.welcome p { margin: 0 0 calc(var(--step) * 4); }
+dialog.welcome form { display: flex; justify-content: flex-end; }
 
 .buttons { display: flex; gap: calc(var(--step) * 2); }
 .signed { display: flex; flex-wrap: wrap; align-items: baseline; gap: calc(var(--step) * 2);

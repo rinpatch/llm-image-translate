@@ -2,11 +2,16 @@
 // worker: it takes as long as the user does, and an idle worker is evicted after
 // thirty seconds, while this page stays open for as long as they are at it.
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { beginSignIn, completeSignIn, signOut, signedInAs, watchTab }
+import { beginSignIn, completeSignIn, signOut, signedInAs, watchTab, welcomeOnce }
   from '../platform/chatgpt.ts';
 import { useAsync } from './async.ts';
 import { Input, Row } from './fields.tsx';
 import { NONE, type Note, Status, note } from './status.tsx';
+
+// The wording, the logo and the usage link are all OpenAI's, from
+// https://developers.openai.com/siwc/ui-ux-guidelines
+const USAGE = 'https://chatgpt.com/settings/usage';
+const LOGO = <img class="chatgpt-logo" src="icons/chatgpt.svg" alt="" width="18" height="18" />;
 
 /**
  * `token` is the stored one, so being signed in is whatever storage says.
@@ -18,6 +23,7 @@ export function SignIn({ token, setKey, div }: {
   const [waiting, setWaiting] = useState(false);
   const [said, setSaid] = useState<Note>(NONE);
   const attempt = useRef<AbortController | null>(null);
+  const welcome = useRef<HTMLDialogElement>(null);
   // Where a pasted address goes while the tab is out.
   const paste = useRef<(url: string) => void>(() => {});
   const email = useAsync(() => signedInAs(), [token]);
@@ -39,6 +45,7 @@ export function SignIn({ token, setKey, div }: {
       setSaid(note('Signing in…'));
       setKey(await completeSignIn(pending, url));
       setSaid(NONE);
+      if (await welcomeOnce()) welcome.current?.showModal();
     } catch (e: any) {
       setSaid(controller.signal.aborted ? NONE : note(String(e?.message || e), 'bad'));
     } finally {
@@ -49,37 +56,50 @@ export function SignIn({ token, setKey, div }: {
     }
   };
 
-  if (token && !waiting) {
-    return (
+  const body = token && !waiting
+    ? (
       <div class="field">
         <span>Account</span>
         <div class="signed">
-          <Status span of={note(`Signed in${email ? ` as ${email}` : ''}`, 'ok')} />
+          <Status span of={note(`Using ChatGPT plan${email ? ` · ${email}` : ''}`, 'ok')} />
+          <a href={USAGE} target="_blank">Manage usage</a>
           <button type="button" class="link" onClick={async () => { await signOut(); setKey(''); }}>
             Sign out
           </button>
         </div>
       </div>
+    )
+    : (
+      <>
+        <div class="field">
+          <span>Account</span>
+          <div class="buttons">
+            {waiting
+              ? <button type="button" onClick={() => attempt.current?.abort()}>Cancel</button>
+              : <button type="button" class="chatgpt" onClick={start}>
+                {LOGO}Continue with ChatGPT</button>}
+          </div>
+        </div>
+        <Status of={said} live />
+        {waiting && (
+          <Row div={div} label="If the tab stays open on an error page, paste its address here">
+            <Input type="url" value="" autocomplete="off" spellcheck={false}
+              placeholder="http://127.0.0.1:…/callback?code=…"
+              onCommit={(url) => paste.current(url.trim())} />
+          </Row>
+        )}
+      </>
     );
-  }
+  // Outside both branches, so signing in swapping one for the other leaves it open.
   return (
     <>
-      <div class="field">
-        <span>Account</span>
-        <div class="buttons">
-          {waiting
-            ? <button type="button" onClick={() => attempt.current?.abort()}>Cancel</button>
-            : <button type="button" onClick={start}>Sign in with ChatGPT</button>}
-        </div>
-      </div>
-      <Status of={said} live />
-      {waiting && (
-        <Row div={div} label="If the tab stays open on an error page, paste its address here">
-          <Input type="url" value="" autocomplete="off" spellcheck={false}
-            placeholder="http://127.0.0.1:…/auth/callback?code=…"
-            onCommit={(url) => paste.current(url.trim())} />
-        </Row>
-      )}
+      {body}
+      <dialog ref={welcome} class="welcome">
+        <h2>You're using your ChatGPT plan</h2>
+        <p>Eligible usage in this app uses your ChatGPT plan. Manage usage in
+          your <a href={USAGE} target="_blank">ChatGPT settings</a>.</p>
+        <form method="dialog"><button class="primary">Got it</button></form>
+      </dialog>
     </>
   );
 }

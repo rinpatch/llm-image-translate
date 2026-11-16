@@ -1,3 +1,4 @@
+import { IDBFactory } from 'fake-indexeddb';
 import { test } from 'node:test';
 import assert from 'node:assert';
 
@@ -6,6 +7,7 @@ import { affectsResults, keys, publicSettings, save, saveKey, saveServer, settin
 
 /** Enough of chrome.storage to tell the two areas apart. */
 function stubStorage(sync: Record<string, unknown> = {}, local: Record<string, unknown> = {}) {
+  globalThis.indexedDB = new IDBFactory();
   const area = (store: Record<string, unknown>) => ({
     store,
     async get(query: string[] | Record<string, unknown>) {
@@ -101,6 +103,13 @@ test('one key per server, however its URL is written', async () => {
 
   await saveKey('https://openrouter.ai/api/v1', '');
   assert.deepEqual(await keys(), {}, 'clearing the field forgets the key');
+});
+
+test('a key never reaches chrome.storage, which every content script can read', async () => {
+  const areas = stubStorage();
+  await saveKey('https://openrouter.ai/api/v1', 'sk-1');
+  assert.deepEqual(areas.local.store, {});
+  assert.deepEqual(areas.sync.store, {});
 });
 
 test('saving the server never writes its key into it', async () => {

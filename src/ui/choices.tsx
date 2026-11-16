@@ -22,8 +22,8 @@ const BLURBS: Record<string, ComponentChildren> = {
   browser: <>Uses Chrome's built-in <a href="https://developer.chrome.com/docs/ai/translator-api"
     target="_blank">Translator API</a>. Free and private, but its translations are rougher
     than the other choices'.</>,
-  chatgpt: <>Draws from the same usage as Codex, included with ChatGPT Plus, Pro, Business,
-    Edu and Enterprise.</>,
+  chatgpt: <>Eligible usage in this app uses your ChatGPT plan, the same usage as Codex.
+    Included with Plus, Pro, Business, Edu and Enterprise.</>,
   server: <>If you are interested in running a local model, check out
     the <a href={GUIDE} target="_blank">guide</a>.</>,
 };

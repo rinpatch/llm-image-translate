@@ -31,6 +31,8 @@ function Popup() {
           {PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
         </select>
       </label>
+      {/* OpenAI's guidelines want this wherever a request would spend the plan. */}
+      {value('provider') === 'chatgpt' && <p class="blurb">Using ChatGPT plan</p>}
       <label>
         <span>Translate from</span>
         <Names names={['Auto', ...LANGUAGES]} value={value('source')} onPick={pick('source')} />

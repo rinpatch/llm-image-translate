@@ -40,9 +40,28 @@ function headersFor(endpoint: Endpoint): Record<string, string> {
 
 // A spent ChatGPT allowance is a 429 that is no use without the reason. OpenAI
 // and most servers give it in `error.message`, some in `detail`.
-async function whyNot(response: Response): Promise<string> {
+// A ChatGPT plan's refusals, in the words OpenAI asks apps to use:
+// https://developers.openai.com/siwc/token-sharing-open-source/errors-and-recovery
+const PLAN_ERRORS: Record<string, string> = {
+  subscription_sharing_user_not_eligible:
+    'ChatGPT plan usage is unavailable for this account or workspace.',
+  subscription_sharing_usage_limit_exceeded:
+    'Usage limit reached. Manage your plan in ChatGPT settings.',
+  subscription_sharing_unsupported_capability:
+    'This feature isn\'t supported with your current plan.',
+  subscription_sharing_route_not_supported:
+    'This operation isn\'t available with ChatGPT plan usage.',
+};
+
+/** OpenAI's wording for a plan refusal anywhere in `out`, or undefined. */
+export const planError = (out: any): string | undefined =>
+  PLAN_ERRORS[out?.error?.code ?? out?.response?.error?.code ?? out?.code ?? out?.detail?.code];
+
+async function whyNot(response: Response): Promise<string | { plan: string }> {
   try {
     const out = await response.json();
+    const plan = planError(out);
+    if (plan) return { plan };
     const why = out?.detail?.message ?? out?.detail ?? out?.error?.message;
     return typeof why === 'string' ? `: ${why.slice(0, 200)}` : '';
   } catch {
@@ -74,7 +93,10 @@ async function post(
     if (deadline.aborted) throw new Error(`${what} did not answer within ${TIMEOUT_MS / 1000}s`);
     throw new Error(`cannot reach ${what} at ${url}`);
   }
-  if (!response.ok) throw new Error(`${what} answered ${response.status}${await whyNot(response)}`);
+  if (!response.ok) {
+    const why = await whyNot(response);
+    throw new Error(typeof why === 'string' ? `${what} answered ${response.status}${why}` : why.plan);
+  }
   return response;
 }
 
@@ -207,7 +229,8 @@ export async function send(
       }
       if (event.type === 'response.completed') done = event.response;
       if (event.type === 'response.failed' || event.type === 'error') {
-        throw new Error(event.response?.error?.message || event.message || 'the model failed');
+        throw new Error(planError(event)
+          || event.response?.error?.message || event.message || 'the model failed');
       }
     });
     const out = asCompletion(done);
@@ -305,6 +328,13 @@ export async function listModels(endpoint: Endpoint, signal?: AbortSignal):
       { headers: headersFor(endpoint), signal });
     if (!r.ok) return null;
     const out = await r.json();
+    // A ChatGPT plan's catalog, where only `visibility: list` may be offered or asked for.
+    if (Array.isArray(out?.models)) {
+      return out.models
+        .filter((m: any) => typeof m?.slug === 'string' && m.visibility === 'list')
+        .map((m: any) => ({ id: m.slug,
+          ...(typeof m.display_name === 'string' ? { name: m.display_name } : {}) }));
+    }
     if (!Array.isArray(out?.data)) return null;
     return out.data.filter((m: any) => typeof m?.id === 'string').map((m: any) => ({
       id: m.id,
