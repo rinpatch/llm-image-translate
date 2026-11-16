@@ -1,13 +1,16 @@
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
 import { LANGUAGES } from './core/language.ts';
+import { t } from './platform/i18n.ts';
 import { PROVIDERS } from './platform/providers.ts';
 import {
   autoSites, publicSettings, save, setAuto, siteOf, translators,
 } from './platform/settings.ts';
 import { useAsync } from './ui/async.ts';
-import { NameBox } from './ui/combobox.tsx';
+import { PROVIDER_NAMES } from './ui/choices.tsx';
+import { LanguageBox } from './ui/combobox.tsx';
 import { Check } from './ui/fields.tsx';
+import { setPage } from './ui/text.tsx';
 
 type Picked = Partial<Record<'provider' | 'source' | 'target', string>>;
 
@@ -36,35 +39,36 @@ function Popup() {
   return (
     <>
       <label>
-        <span>Translator</span>
+        <span>{t('translator')}</span>
         <select value={value('provider')} onChange={(e) => pick('provider')(e.currentTarget.value)}>
-          {PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+          {PROVIDERS.map((p) => <option key={p.id} value={p.id}>{t(PROVIDER_NAMES[p.id])}</option>)}
         </select>
       </label>
       {/* OpenAI's guidelines want this wherever a request would spend the plan. */}
-      {value('provider') === 'chatgpt' && <p class="blurb">Using ChatGPT plan</p>}
+      {value('provider') === 'chatgpt' && <p class="blurb">{t('usingPlan')}</p>}
       <label>
-        <span>Translate from</span>
-        <NameBox names={['Auto', ...LANGUAGES]} value={value('source')} onPick={pick('source')} />
+        <span>{t('translateFrom')}</span>
+        <LanguageBox names={['Auto', ...LANGUAGES]} value={value('source')} onPick={pick('source')} />
       </label>
       <label>
-        <span>Translate into</span>
-        <NameBox names={LANGUAGES} value={value('target')} onPick={pick('target')} />
+        <span>{t('translateInto')}</span>
+        <LanguageBox names={LANGUAGES} value={value('target')} onPick={pick('target')} />
       </label>
       {here?.site && (
-        <Check label={`Translate images on ${here.site} automatically`} checked={auto ?? here.on}
+        <Check label={t('autoHere', here.site)} checked={auto ?? here.on}
           onCheck={(on) => {
             setAutoHere(on);
             setAuto(here.site, on);
           }} />
       )}
       <footer class="rule">
-        <a href="#" onClick={(e) => open(e, () => chrome.runtime.openOptionsPage())}>Settings…</a>
+        <a href="#" onClick={(e) => open(e, () => chrome.runtime.openOptionsPage())}>{t('settingsMenu')}</a>
         <a href="#" onClick={(e) => open(e, () =>
-          chrome.tabs.create({ url: chrome.runtime.getURL('stats.html') }))}>History &amp; Performance…</a>
+          chrome.tabs.create({ url: chrome.runtime.getURL('stats.html') }))}>{t('historyPerformance')}…</a>
       </footer>
     </>
   );
 }
 
+setPage(t('extName'));
 render(<Popup />, document.getElementById('app')!);

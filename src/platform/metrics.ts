@@ -1,3 +1,4 @@
+import { type MessageKey, t, tn } from './i18n.ts';
 import { type Stage, type Timings } from './messages.ts';
 
 /** A run is a handful of numbers, so the window can be long enough to be dull. */
@@ -55,7 +56,7 @@ export interface Span {
 /** What ran alongside `run`'s stages: so far only the inpainter, beside translation. */
 export function alongside(run: Timings): Span[] {
   if (run.inpaint_from_ms === undefined || run.inpaint_ms === undefined) return [];
-  return [{ key: 'inpaint', label: 'Inpaint, alongside', from: run.inpaint_from_ms,
+  return [{ key: 'inpaint', label: t('stageInpaintAlongside'), from: run.inpaint_from_ms,
             ms: run.inpaint_ms }];
 }
 
@@ -64,28 +65,28 @@ type PlainField = 'fetch_ms' | 'decode_ms' | 'scale_ms' | 'reader_encode_ms'
 
 interface PlainStage {
   key: string;
-  label: string;
+  label: MessageKey;
   field: PlainField;
   /** Left off the bar, rather than shown as nought, where no run did it. */
   optional?: boolean;
 }
 
 const IMAGE_PARTS: PlainStage[] = [
-  { key: 'fetch', label: 'Fetch', field: 'fetch_ms' },
-  { key: 'decode', label: 'Decode source', field: 'decode_ms' },
-  { key: 'scale', label: 'Scale and read pixels', field: 'scale_ms' },
-  { key: 'reader-encode', label: 'Encode for reader', field: 'reader_encode_ms' },
+  { key: 'fetch', label: 'stageFetch', field: 'fetch_ms' },
+  { key: 'decode', label: 'stageDecodeSource', field: 'decode_ms' },
+  { key: 'scale', label: 'stageScale', field: 'scale_ms' },
+  { key: 'reader-encode', label: 'stageReaderEncode', field: 'reader_encode_ms' },
 ];
 
 /** Only reached by an image that had text in it. */
 const AFTER_MODELS: PlainStage[] = [
-  { key: 'layout', label: 'Lay out', field: 'layout_ms' },
+  { key: 'layout', label: 'stageLayout', field: 'layout_ms' },
   // Only the wait, so the bar still adds up to the whole: the inpainter runs
   // while the translation does, and that part cost nothing.
-  { key: 'inpaint', label: 'Inpaint, past translation', field: 'inpaint_wait_ms',
+  { key: 'inpaint', label: 'stageInpaintPast', field: 'inpaint_wait_ms',
     optional: true },
-  { key: 'paint', label: 'Paint', field: 'paint_ms' },
-  { key: 'encode', label: 'Encode', field: 'encode_ms' },
+  { key: 'paint', label: 'stagePaint', field: 'paint_ms' },
+  { key: 'encode', label: 'stageEncode', field: 'encode_ms' },
 ];
 
 const rate = (stage?: Stage) =>
@@ -104,19 +105,19 @@ function modelStage(key: string, label: string, stage?: Stage,
     const decode = Math.min(Math.max(0, stage.ms - ttft), stage.gen_ms);
     const overhead = Math.max(0, stage.ms - ttft - decode);
     return { key, label, ms: stage.ms, parts: [
-      { key: `${key}-ttft`, label: 'TTFT', ms: ttft },
-      { key: `${key}-decode`, label: `Decode${tokensPerS ? ` · ${tokensPerS} tok/s` : ''}`,
-        ms: decode },
-      ...(overhead ? [{ key: `${key}-overhead`, label: 'Overhead', ms: overhead }] : []),
+      { key: `${key}-ttft`, label: t('stageTtft'), ms: ttft },
+      { key: `${key}-decode`,
+        label: t('stageDecode') + (tokensPerS ? ` · ${t('tokRate', tokensPerS)}` : ''), ms: decode },
+      ...(overhead ? [{ key: `${key}-overhead`, label: t('stageOverhead'), ms: overhead }] : []),
     ] };
   }
   const details = [
-    tokensPerS ? `${tokensPerS} tok/s overall` : '',
-    stage.calls > 1 ? `${stage.calls} requests` : '',
+    tokensPerS ? t('tokRateOverall', tokensPerS) : '',
+    stage.calls > 1 ? tn('requests', stage.calls) : '',
   ].filter(Boolean).join(' · ');
   return {
     key, label, ms: stage.ms,
-    ...(details ? { parts: [{ key: `${key}-request`, label: `Full request · ${details}`,
+    ...(details ? { parts: [{ key: `${key}-request`, label: `${t('fullRequest')} · ${details}`,
       ms: stage.ms }] } : {}),
   };
 }
@@ -128,11 +129,11 @@ function modelStage(key: string, label: string, stage?: Stage,
 export function stagesOf(
   run: Timings, rates: { read?: number; translate?: number } = {},
 ): StageRow[] {
-  const plain = ({ key, label, field }: PlainStage) => ({ key, label, ms: run[field] ?? 0 });
+  const plain = ({ key, label, field }: PlainStage) => ({ key, label: t(label), ms: run[field] ?? 0 });
   return [
-    group('fetch', 'Fetch and scale', IMAGE_PARTS.map(plain)),
-    modelStage('read', 'Read', run.read, rates.read ?? rate(run.read)),
-    modelStage('translate', 'Translate', run.translate,
+    group('fetch', t('stageFetchScale'), IMAGE_PARTS.map(plain)),
+    modelStage('read', t('stageRead'), run.read, rates.read ?? rate(run.read)),
+    modelStage('translate', t('stageTranslate'), run.translate,
       rates.translate ?? rate(run.translate)),
     ...AFTER_MODELS.filter((stage) => !stage.optional || run[stage.field] !== undefined)
       .map(plain),

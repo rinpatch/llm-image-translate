@@ -3,6 +3,7 @@ import assert from 'node:assert';
 
 import { startOn } from '../src/platform/providers.ts';
 import { blocker } from '../src/platform/ready.ts';
+import './i18n.ts';
 
 test('a hosted translator without its key says which and where', () => {
   assert.equal(blocker(startOn('openrouter')), 'The translator needs an API key for openrouter.ai.');

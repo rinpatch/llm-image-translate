@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { languageName, t } from '../platform/i18n.ts';
 import { type Option, search } from './search.ts';
 
 let ids = 0;
@@ -19,9 +20,11 @@ export function Combobox({ options, value, onPick, free, placeholder, id, ...res
   const listRef = useRef<HTMLUListElement>(null);
 
   const typed = query?.trim() ?? '';
+  // A free field keeps what was typed in it, which is the value, not a label.
+  const shown = (!free && options.find((o) => o.value === value)?.label) || value;
   const items: Option[] = query === null ? [...options] : search(options, query);
   if (free && typed && !options.some((o) => o.value === typed)) {
-    items.push({ value: typed, label: `Use “${typed}”` });
+    items.push({ value: typed, label: t('useTyped', typed) });
   }
 
   const show = (at = items.findIndex((o) => o.value === value)) => {
@@ -67,7 +70,7 @@ export function Combobox({ options, value, onPick, free, placeholder, id, ...res
       <input {...rest} id={id} type="text" role="combobox" autocomplete="off" spellcheck={false}
         aria-expanded={open} aria-controls={list} aria-autocomplete="list"
         aria-activedescendant={open && items[active] ? `${list}-${active}` : undefined}
-        placeholder={placeholder} value={query ?? value}
+        placeholder={placeholder} value={query ?? shown}
         onFocus={(e) => e.currentTarget.select()}
         onClick={(e) => {
           if (open) return close();
@@ -100,7 +103,7 @@ export function Combobox({ options, value, onPick, free, placeholder, id, ...res
               }}>
               {o.label ?? o.value}
             </li>
-          )) : <li class="empty">No match</li>}
+          )) : <li class="empty">{t('noMatch')}</li>}
         </ul>
       )}
     </div>
@@ -111,3 +114,8 @@ export function Combobox({ options, value, onPick, free, placeholder, id, ...res
 export const NameBox = ({ names, ...rest }: Omit<Parameters<typeof Combobox>[0], 'options'> & {
   names: readonly string[];
 }) => <Combobox options={names.map((value) => ({ value }))} {...rest} />;
+
+/** Language names, shown in the interface's language. The value stays the English name. */
+export const LanguageBox = ({ names, ...rest }: Omit<Parameters<typeof Combobox>[0], 'options'> & {
+  names: readonly string[];
+}) => <Combobox options={names.map((value) => ({ value, label: languageName(value) }))} {...rest} />;

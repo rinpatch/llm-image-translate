@@ -6,6 +6,7 @@
 // second.
 import { useEffect, useState } from 'preact/hooks';
 import { code } from '../core/language.ts';
+import { languageName, locale, t } from '../platform/i18n.ts';
 import { useAsync } from './async.ts';
 import { NONE, type Note, Status, note } from './status.tsx';
 
@@ -26,17 +27,16 @@ export async function packState(source: string, target: string): Promise<PackSta
 
 /** `pack` names the pack where nothing beside the line says which. */
 export const fetchingNote = (fraction?: number, pack = '') =>
-  note(`Downloading${pack ? ` the ${pack} pack` : ''}…`
-    + (fraction === undefined ? '' : ` ${Math.round(fraction * 100)}%`));
+  note((pack ? t('downloadingPack', languageName(pack)) : t('downloading'))
+    + (fraction === undefined ? ''
+      : ` ${new Intl.NumberFormat(locale(), { style: 'percent' }).format(fraction)}`));
 
 // Chrome reports its first progress within a few seconds of the click. Helium
 // never fetches the pack at all: no progress, no error, a promise that never
 // settles. It calls itself Google Chrome, so waiting is the only way to tell.
 const STALL_MS = 20_000;
 
-export const stalledNote = note(
-  'Nothing is downloading. Helium and some other Chromium builds never fetch '
-    + 'Chrome\'s translator; choose another one.', 'bad');
+export const stalledNote = () => note(t('packStalled'), 'bad');
 
 /** Has to be called from a click handler, or Chrome refuses to download.
  *  `stalled` fires if no progress has come by `STALL_MS`; the wait goes on. */
@@ -44,7 +44,7 @@ export async function downloadPack(
   source: string, target: string, progress: (fraction: number) => void,
   stalled: () => void = () => {},
 ): Promise<void> {
-  if (!api) throw new Error('This browser has no built-in translator.');
+  if (!api) throw new Error(t('noBuiltIn'));
   const timer = setTimeout(stalled, STALL_MS);
   try {
     await api.create({
@@ -75,7 +75,7 @@ export function PackStatus({ source, target, stamp = 0 }: {
     setProgress(fetchingNote());
     try {
       await downloadPack(source, target, (done) => setProgress(fetchingNote(done)),
-        () => setProgress(stalledNote));
+        () => setProgress(stalledNote()));
       setProgress(null);
     } catch (e: any) {
       setProgress(note(String(e?.message || e), 'bad'));
@@ -86,15 +86,16 @@ export function PackStatus({ source, target, stamp = 0 }: {
   };
 
   const told = progress ?? (
-    state === 'available' ? note('Ready', 'ok')
-      : state === 'unavailable' ? note(`Chrome cannot translate ${source} into ${target}`, 'bad')
-      : state === 'missing' ? note('This browser has no built-in translator', 'bad')
+    state === 'available' ? note(t('packReady'), 'ok')
+      : state === 'unavailable'
+        ? note(t('packUnavailable', languageName(source), languageName(target)), 'bad')
+      : state === 'missing' ? note(t('noBuiltIn'), 'bad')
       : NONE);
   return (
     <>
       <Status of={told} span />
       {(state === 'downloadable' || state === 'downloading' || downloading) && (
-        <button type="button" disabled={downloading} onClick={download}>Download</button>
+        <button type="button" disabled={downloading} onClick={download}>{t('download')}</button>
       )}
     </>
   );

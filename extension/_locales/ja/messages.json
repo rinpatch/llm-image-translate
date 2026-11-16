@@ -1,0 +1,482 @@
+{
+  "locale": {
+    "message": "ja"
+  },
+  "extName": {
+    "message": "LLM Image Translate"
+  },
+  "extDescription": {
+    "message": "画像の中の文字を、手元のマシンのモデルやオンラインサービスで翻訳します。"
+  },
+  "titleSettings": {
+    "message": "LLM Image Translate の設定"
+  },
+  "titleWelcome": {
+    "message": "LLM Image Translate へようこそ"
+  },
+  "historyPerformance": {
+    "message": "履歴とパフォーマンス"
+  },
+  "auto": {
+    "message": "自動"
+  },
+  "languages": {
+    "message": "言語"
+  },
+  "translateFrom": {
+    "message": "翻訳元"
+  },
+  "translateInto": {
+    "message": "翻訳先"
+  },
+  "translator": {
+    "message": "翻訳エンジン"
+  },
+  "pages": {
+    "message": "ページ"
+  },
+  "settings": {
+    "message": "設定"
+  },
+  "settingsMenu": {
+    "message": "設定…"
+  },
+  "allSettings": {
+    "message": "すべての設定"
+  },
+  "setupGuide": {
+    "message": "セットアップガイド"
+  },
+  "back": {
+    "message": "戻る"
+  },
+  "done": {
+    "message": "完了"
+  },
+  "stop": {
+    "message": "停止"
+  },
+  "cancel": {
+    "message": "キャンセル"
+  },
+  "test": {
+    "message": "テスト"
+  },
+  "checking": {
+    "message": "確認中…"
+  },
+  "answered": {
+    "message": "応答がありました。"
+  },
+  "tryIt": {
+    "message": "試してみる"
+  },
+  "tryBlurb": {
+    "message": "画像を1枚、$1に翻訳します。このページに画像をドロップまたは貼り付けても使えます。"
+  },
+  "pastedImage": {
+    "message": "貼り付けた画像"
+  },
+  "samplePage": {
+    "message": "サンプルページ"
+  },
+  "chooseImage": {
+    "message": "画像を選択…"
+  },
+  "leftAlone": {
+    "message": "そのまま：$1"
+  },
+  "clearCache": {
+    "message": "キャッシュを消去"
+  },
+  "cacheCleared": {
+    "message": "キャッシュを消去しました"
+  },
+  "cacheNotCleared": {
+    "message": "キャッシュを消去できませんでした"
+  },
+  "showTranslations": {
+    "message": "翻訳の表示"
+  },
+  "showBadge": {
+    "message": "画像にバッジを表示"
+  },
+  "showBadgeHint": {
+    "message": "⌘ キー（Windows と Linux では Super キー）を押している間、バッジが表示されます。"
+  },
+  "debugMode": {
+    "message": "デバッグモード"
+  },
+  "debugHint": {
+    "message": "各段階をコンソールに記録し、直近の数枚の画像を「$1」用に保存します。"
+  },
+  "regions": {
+    "message": "領域"
+  },
+  "usingPlan": {
+    "message": "ChatGPT プランを使用中"
+  },
+  "usingPlanAs": {
+    "message": "ChatGPT プランを使用中 · $1"
+  },
+  "autoHere": {
+    "message": "$1 の画像を自動で翻訳"
+  },
+  "pickModel": {
+    "message": "翻訳モデルを選ぶ"
+  },
+  "testAndContinue": {
+    "message": "テストして続ける"
+  },
+  "tryItOut": {
+    "message": "試してみましょう"
+  },
+  "useHint": {
+    "message": "画像の上で $1 を押したまま、表示される $2 をクリックします。どのページでも同じです。もう一度クリックすると元に戻ります。ツールバーのボタンでモデルと言語を切り替えられます。"
+  },
+  "sampleAlt": {
+    "message": "吹き出しに日本語が書かれたページ"
+  },
+  "providerBrowser": {
+    "message": "このブラウザ内"
+  },
+  "providerOpenrouter": {
+    "message": "OpenRouter"
+  },
+  "providerChatgpt": {
+    "message": "ChatGPT プラン"
+  },
+  "providerServer": {
+    "message": "OpenAI 互換サーバー"
+  },
+  "blurbBrowser": {
+    "message": "Chrome に組み込まれた $1 を使います。無料でプライバシーも守られますが、翻訳の質は他の選択肢より粗くなります。"
+  },
+  "blurbChatgpt": {
+    "message": "このアプリでの対象となる利用には ChatGPT プランが使われ、Codex と同じ利用枠を消費します。Plus、Pro、Business、Edu、Enterprise に含まれます。"
+  },
+  "blurbServer": {
+    "message": "ローカルでモデルを動かしたい場合は、$1をご覧ください。"
+  },
+  "guide": {
+    "message": "ガイド"
+  },
+  "translatorOff": {
+    "message": "このブラウザでは Chrome の翻訳機能がオフになっています。"
+  },
+  "server": {
+    "message": "サーバー"
+  },
+  "apiKey": {
+    "message": "API キー"
+  },
+  "apiKeyGetOne": {
+    "message": "API キー — $1"
+  },
+  "getOne": {
+    "message": "取得"
+  },
+  "model": {
+    "message": "モデル"
+  },
+  "keyIfAsked": {
+    "message": "サーバーが求める場合のみ"
+  },
+  "modelServed": {
+    "message": "サーバーが提供するもの"
+  },
+  "anotherLanguage": {
+    "message": "その他の言語"
+  },
+  "languagePacks": {
+    "message": "言語パック"
+  },
+  "packsBlurb": {
+    "message": "Chrome は各言語を一度だけダウンロードします。"
+  },
+  "useTyped": {
+    "message": "「$1」を使用"
+  },
+  "noMatch": {
+    "message": "一致なし"
+  },
+  "replaceText": {
+    "message": "文字を置き換える"
+  },
+  "replaceBlurb": {
+    "message": "原文があった場所に翻訳を描き込みます。"
+  },
+  "notesTitle": {
+    "message": "画像の上に注釈"
+  },
+  "notesBlurb": {
+    "message": "画像はそのままです。枠にカーソルを合わせると翻訳が読めます。"
+  },
+  "demoTop": {
+    "message": "どこに"
+  },
+  "demoBottom": {
+    "message": "行くの？"
+  },
+  "demoNote": {
+    "message": "どこに行くの？"
+  },
+  "downloading": {
+    "message": "ダウンロード中…"
+  },
+  "downloadingPack": {
+    "message": "$1 パックをダウンロード中…"
+  },
+  "packStalled": {
+    "message": "何もダウンロードされていません。Helium など一部の Chromium ビルドは Chrome の翻訳機能を取得しません。別の翻訳エンジンを選んでください。"
+  },
+  "noBuiltIn": {
+    "message": "このブラウザには組み込みの翻訳機能がありません。"
+  },
+  "packReady": {
+    "message": "準備完了"
+  },
+  "packUnavailable": {
+    "message": "Chrome は$1から$2に翻訳できません"
+  },
+  "download": {
+    "message": "ダウンロード"
+  },
+  "nothingAnswering": {
+    "message": "$1 から応答がありません。"
+  },
+  "gemmaNeedsLlamacpp": {
+    "message": "TranslateGemma には llama.cpp の /completion が必要ですが、このサーバーにはありません。"
+  },
+  "modelNotServed": {
+    "message": "このサーバーに $1 はありません。"
+  },
+  "servesModels_other": {
+    "message": "$1 個のモデルがあります。1 つ選んでください。"
+  },
+  "account": {
+    "message": "アカウント"
+  },
+  "continueChatgpt": {
+    "message": "ChatGPT で続ける"
+  },
+  "manageUsage": {
+    "message": "利用状況を管理"
+  },
+  "signOut": {
+    "message": "サインアウト"
+  },
+  "finishSignIn": {
+    "message": "新しいタブでサインインを完了してください…"
+  },
+  "signingIn": {
+    "message": "サインイン中…"
+  },
+  "pasteCallback": {
+    "message": "タブがエラーページのまま開いている場合は、そのアドレスをここに貼り付けてください"
+  },
+  "planWelcomeTitle": {
+    "message": "ChatGPT プランを使用しています"
+  },
+  "planWelcomeBody": {
+    "message": "このアプリでの対象となる利用には ChatGPT プランが使われます。利用状況は$1で管理できます。"
+  },
+  "chatgptSettings": {
+    "message": "ChatGPT の設定"
+  },
+  "gotIt": {
+    "message": "OK"
+  },
+  "signInTabClosed": {
+    "message": "サインインのタブが閉じられました。"
+  },
+  "planUnavailable": {
+    "message": "このアカウントまたはワークスペースでは ChatGPT プランを利用できません。"
+  },
+  "needsServer": {
+    "message": "翻訳エンジンにはサーバーが必要です。"
+  },
+  "signInFirst": {
+    "message": "先に ChatGPT にサインインしてください。"
+  },
+  "needsKey": {
+    "message": "翻訳エンジンには $1 の API キーが必要です。"
+  },
+  "translating": {
+    "message": "翻訳中…"
+  },
+  "elapsed": {
+    "message": "$1… $2"
+  },
+  "stopped": {
+    "message": "停止しました。"
+  },
+  "blocksTranslated_other": {
+    "message": "$1 ブロック中 $2 ブロックを $3 で翻訳しました。"
+  },
+  "noTextFound": {
+    "message": "文字が見つかりませんでした（$1）。"
+  },
+  "showOriginal": {
+    "message": "元の画像を表示"
+  },
+  "reading": {
+    "message": "読み取り中…"
+  },
+  "readingTokens": {
+    "message": "読み取り · $1 tok"
+  },
+  "tokens": {
+    "message": "$1 tok"
+  },
+  "linesFraction": {
+    "message": "$1/$2 行"
+  },
+  "readingImage": {
+    "message": "画像を読み取り中"
+  },
+  "translatingWord": {
+    "message": "翻訳中"
+  },
+  "linesDone": {
+    "message": "$2 行中 $1 行完了"
+  },
+  "tokensSoFar": {
+    "message": "ここまで $1 トークン"
+  },
+  "andThen": {
+    "message": "$1、$2"
+  },
+  "clickToStop": {
+    "message": "$1。クリックで停止します。"
+  },
+  "badgeIdle": {
+    "message": "この画像の文字を翻訳"
+  },
+  "badgeShown": {
+    "message": "元の画像を表示"
+  },
+  "badgeHidden": {
+    "message": "翻訳を表示"
+  },
+  "badgeEmpty": {
+    "message": "この画像に文字は見つかりませんでした"
+  },
+  "badgeError": {
+    "message": "翻訳に失敗しました"
+  },
+  "extensionReloaded": {
+    "message": "拡張機能が再読み込みされました。もう一度使うにはこのページを再読み込みしてください。"
+  },
+  "couldNotRead": {
+    "message": "この画像を読み込めませんでした"
+  },
+  "history": {
+    "message": "履歴"
+  },
+  "nothingYet": {
+    "message": "まだ何も翻訳していません。"
+  },
+  "images_other": {
+    "message": "枚の画像"
+  },
+  "failures_other": {
+    "message": "件の失敗"
+  },
+  "blockCount_other": {
+    "message": "$1 ブロック"
+  },
+  "medianEndToEnd": {
+    "message": "中央値（全体）"
+  },
+  "slowest": {
+    "message": "最遅"
+  },
+  "blocksPerImage": {
+    "message": "ブロック/画像"
+  },
+  "failed": {
+    "message": "失敗"
+  },
+  "showRegions": {
+    "message": "領域を表示"
+  },
+  "colTime": {
+    "message": "時刻"
+  },
+  "colImage": {
+    "message": "画像"
+  },
+  "colStages": {
+    "message": "段階"
+  },
+  "colTotal": {
+    "message": "合計"
+  },
+  "noFailures": {
+    "message": "直近 200 枚の画像に失敗はありません。"
+  },
+  "failuresOnly": {
+    "message": "失敗のみ"
+  },
+  "forgetHistory": {
+    "message": "履歴を消去"
+  },
+  "stageFetchScale": {
+    "message": "取得と縮小"
+  },
+  "stageFetch": {
+    "message": "取得"
+  },
+  "stageDecodeSource": {
+    "message": "元画像のデコード"
+  },
+  "stageScale": {
+    "message": "縮小とピクセル読み取り"
+  },
+  "stageReaderEncode": {
+    "message": "読み取り用にエンコード"
+  },
+  "stageRead": {
+    "message": "読み取り"
+  },
+  "stageTranslate": {
+    "message": "翻訳"
+  },
+  "stageLayout": {
+    "message": "レイアウト"
+  },
+  "stageInpaintPast": {
+    "message": "インペイント（翻訳後の待ち）"
+  },
+  "stageInpaintAlongside": {
+    "message": "インペイント（並行）"
+  },
+  "stagePaint": {
+    "message": "描画"
+  },
+  "stageEncode": {
+    "message": "エンコード"
+  },
+  "stageTtft": {
+    "message": "TTFT"
+  },
+  "stageDecode": {
+    "message": "生成"
+  },
+  "stageOverhead": {
+    "message": "オーバーヘッド"
+  },
+  "fullRequest": {
+    "message": "リクエスト全体"
+  },
+  "tokRate": {
+    "message": "$1 tok/s"
+  },
+  "tokRateOverall": {
+    "message": "全体で $1 tok/s"
+  },
+  "requests_other": {
+    "message": "$1 回のリクエスト"
+  }
+}

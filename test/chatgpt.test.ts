@@ -11,6 +11,7 @@ import { toEndpoint } from '../src/platform/endpoint.ts';
 import { CHATGPT_KEY, scopeOf, startOn } from '../src/platform/providers.ts';
 import { blocker } from '../src/platform/ready.ts';
 import { readSecret, writeSecret } from '../src/platform/secrets.ts';
+import { i18n } from './i18n.ts';
 import { PRIVATE_DEFAULTS, PUBLIC_DEFAULTS, type Settings, translators }
   from '../src/platform/settings.ts';
 
@@ -76,7 +77,7 @@ async function stubLocal(store: Record<string, unknown>, secrets: Record<string,
       return out;
     },
     async set(items: Record<string, unknown>) { Object.assign(store, items); },
-  } } };
+  } }, i18n };
 }
 
 test('a first sign-in registers, and a later one reuses the app it registered', async () => {

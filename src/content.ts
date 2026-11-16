@@ -4,16 +4,21 @@ import { notesFor } from './content/notes.ts';
 import { restore, show } from './content/swap.ts';
 import { type ImageResult, type Message, type ProgressMessage, type SoFar, type TranslateImage }
   from './platform/messages.ts';
+import { t } from './platform/i18n.ts';
 import { affectsResults, type PageSettings } from './platform/settings.ts';
 
 const TITLES: Record<Status, string> = {
-  idle: 'Translate the text in this image',
-  working: 'Translating…',
-  shown: 'Show the original image',
-  hidden: 'Show the translation',
-  empty: 'No text found in this image',
-  error: 'Translation failed',
+  idle: t('badgeIdle'),
+  working: t('translating'),
+  shown: t('badgeShown'),
+  hidden: t('badgeHidden'),
+  empty: t('badgeEmpty'),
+  error: t('badgeError'),
 };
+
+// Read at load, like the titles: by the time it is wanted, the extension behind
+// chrome.* is gone.
+const RELOADED = t('extensionReloaded');
 
 interface State {
   status: Status;
@@ -50,7 +55,7 @@ async function send<T>(message: Message): Promise<T | { ok: false; error: string
       // than leaving ones that fail on every click.
       layer.stop();
       return { ok: false, code: 'reloaded',
-               error: 'The extension was reloaded. Reload this page to use it again.' };
+               error: RELOADED };
     }
     return { ok: false, error: String(e?.message || e) };
   }
@@ -137,7 +142,7 @@ async function translate(img: HTMLImageElement, auto: boolean): Promise<void> {
       message.dataUrl = await blobToDataUrl(src);
     } catch {
       if (auto) leaveAlone(img, state);
-      else setStatus(img, 'error', 'Could not read this image');
+      else setStatus(img, 'error', t('couldNotRead'));
       return;
     }
   }

@@ -4,15 +4,17 @@
 import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { LANGUAGES } from './core/language.ts';
+import { t } from './platform/i18n.ts';
 import { type PingResult } from './platform/messages.ts';
 import { blocker } from './platform/ready.ts';
 import { publicSettings, save } from './platform/settings.ts';
 import { Choices } from './ui/choices.tsx';
 import { Display } from './ui/display.tsx';
-import { NameBox } from './ui/combobox.tsx';
+import { LanguageBox } from './ui/combobox.tsx';
 import { Hero } from './ui/hero.tsx';
 import { downloadPack, fetchingNote, packState, stalledNote } from './ui/packs.tsx';
 import { NONE, type Note, Status, note } from './ui/status.tsx';
+import { setPage, tx } from './ui/text.tsx';
 import { useTranslator } from './ui/translator.ts';
 
 // What sample.jpg is written in.
@@ -51,10 +53,10 @@ function Welcome() {
         && await packState(SAMPLE, target) !== 'available') {
         setTold(fetchingNote(undefined, SAMPLE));
         await downloadPack(SAMPLE, target, (done) => setTold(fetchingNote(done, SAMPLE)),
-          () => setTold(stalledNote));
+          () => setTold(stalledNote()));
         setPackStamp((n) => n + 1);
       }
-      setTold(note('Checking…'));
+      setTold(note(t('checking')));
       const ping: PingResult = await chrome.runtime.sendMessage({ type: 'ping' });
       if (ping.error) {
         return setTold(note(ping.error[0].toUpperCase() + ping.error.slice(1), 'bad'));
@@ -73,22 +75,20 @@ function Welcome() {
       <>
         <Hero />
         <section class="use">
-          <h2>Try it out</h2>
-          <p>Hold <kbd>{MODIFIER}</kbd> over the image and click the <b>T</b> that appears,
-            the same as on any page. Click it again for the original. The toolbar button
-            switches models and languages.</p>
-          <img class="practice" src={SAMPLE_URL} alt="A page of Japanese text in speech bubbles" />
+          <h2>{t('tryItOut')}</h2>
+          <p>{tx('useHint', <kbd>{MODIFIER}</kbd>, <b>T</b>)}</p>
+          <img class="practice" src={SAMPLE_URL} alt={t('sampleAlt')} />
         </section>
 
         <footer>
           <div class="rule">
-            <a href="options.html">All settings</a>
+            <a href="options.html">{t('allSettings')}</a>
             <div class="buttons">
-              <button type="button" onClick={() => setScreen('setup')}>Back</button>
+              <button type="button" onClick={() => setScreen('setup')}>{t('back')}</button>
               <button type="button" class="primary" onClick={async () => {
                 const tab = await chrome.tabs.getCurrent();
                 if (tab?.id !== undefined) chrome.tabs.remove(tab.id);
-              }}>Done</button>
+              }}>{t('done')}</button>
             </div>
           </div>
         </footer>
@@ -102,8 +102,8 @@ function Welcome() {
 
       <ol class="steps">
         <li>
-          <h2>Translate into</h2>
-          <NameBox id="target" aria-label="Translate into" names={LANGUAGES} value={target}
+          <h2>{t('translateInto')}</h2>
+          <LanguageBox id="target" aria-label={t('translateInto')} names={LANGUAGES} value={target}
             onPick={(name) => {
               setTarget(name);
               save('target', name);
@@ -111,12 +111,12 @@ function Welcome() {
         </li>
 
         <li>
-          <h2>Pick the translation model</h2>
+          <h2>{t('pickModel')}</h2>
           <Choices translator={translator} target={target} packStamp={packStamp} />
         </li>
 
         <li>
-          <h2>Show translations</h2>
+          <h2>{t('showTranslations')}</h2>
           <Display notes={notes} onPick={(on) => {
             setNotes(on);
             save('notes', on);
@@ -126,11 +126,11 @@ function Welcome() {
 
       <footer>
         <div class="rule">
-          <a href="options.html">All settings</a>
+          <a href="options.html">{t('allSettings')}</a>
           <div class="check">
             <Status of={told} live />
             <button type="button" class="primary" disabled={checking || !active}
-              onClick={check}>Test and continue</button>
+              onClick={check}>{t('testAndContinue')}</button>
           </div>
         </div>
       </footer>
@@ -138,4 +138,5 @@ function Welcome() {
   );
 }
 
+setPage(t('titleWelcome'));
 render(<Welcome />, document.getElementById('app')!);

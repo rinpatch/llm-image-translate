@@ -1,0 +1,500 @@
+{
+  "locale": {
+    "message": "en"
+  },
+  "extName": {
+    "message": "LLM Image Translate"
+  },
+  "extDescription": {
+    "message": "Translate the text inside images, with models on your own machine or a hosted service."
+  },
+  "titleSettings": {
+    "message": "LLM Image Translate settings"
+  },
+  "titleWelcome": {
+    "message": "Welcome to LLM Image Translate"
+  },
+  "historyPerformance": {
+    "message": "History & Performance"
+  },
+  "auto": {
+    "message": "Auto"
+  },
+  "languages": {
+    "message": "Languages"
+  },
+  "translateFrom": {
+    "message": "Translate from"
+  },
+  "translateInto": {
+    "message": "Translate into"
+  },
+  "translator": {
+    "message": "Translator"
+  },
+  "pages": {
+    "message": "Pages"
+  },
+  "settings": {
+    "message": "Settings"
+  },
+  "settingsMenu": {
+    "message": "Settings…"
+  },
+  "allSettings": {
+    "message": "All settings"
+  },
+  "setupGuide": {
+    "message": "Setup guide"
+  },
+  "back": {
+    "message": "Back"
+  },
+  "done": {
+    "message": "Done"
+  },
+  "stop": {
+    "message": "Stop"
+  },
+  "cancel": {
+    "message": "Cancel"
+  },
+  "test": {
+    "message": "Test"
+  },
+  "checking": {
+    "message": "Checking…"
+  },
+  "answered": {
+    "message": "Answered."
+  },
+  "tryIt": {
+    "message": "Try it"
+  },
+  "tryBlurb": {
+    "message": "Translates one image into $1. An image dropped or pasted on this page works too."
+  },
+  "pastedImage": {
+    "message": "pasted image"
+  },
+  "samplePage": {
+    "message": "Sample page"
+  },
+  "chooseImage": {
+    "message": "Choose an image…"
+  },
+  "leftAlone": {
+    "message": "Left alone: $1"
+  },
+  "clearCache": {
+    "message": "Clear cache"
+  },
+  "cacheCleared": {
+    "message": "Cache cleared"
+  },
+  "cacheNotCleared": {
+    "message": "Could not clear cache"
+  },
+  "showTranslations": {
+    "message": "Show translations"
+  },
+  "showBadge": {
+    "message": "Show a badge on images"
+  },
+  "showBadgeHint": {
+    "message": "The badge appears while ⌘ is held (Super on Windows and Linux)."
+  },
+  "debugMode": {
+    "message": "Debug mode"
+  },
+  "debugHint": {
+    "message": "Logs every stage to the console and keeps the last few images for $1."
+  },
+  "regions": {
+    "message": "Regions"
+  },
+  "usingPlan": {
+    "message": "Using ChatGPT plan"
+  },
+  "usingPlanAs": {
+    "message": "Using ChatGPT plan · $1"
+  },
+  "autoHere": {
+    "message": "Translate images on $1 automatically"
+  },
+  "pickModel": {
+    "message": "Pick the translation model"
+  },
+  "testAndContinue": {
+    "message": "Test and continue"
+  },
+  "tryItOut": {
+    "message": "Try it out"
+  },
+  "useHint": {
+    "message": "Hold $1 over the image and click the $2 that appears, the same as on any page. Click it again for the original. The toolbar button switches models and languages."
+  },
+  "sampleAlt": {
+    "message": "A page of Japanese text in speech bubbles"
+  },
+  "providerBrowser": {
+    "message": "In this browser"
+  },
+  "providerOpenrouter": {
+    "message": "OpenRouter"
+  },
+  "providerChatgpt": {
+    "message": "ChatGPT plan"
+  },
+  "providerServer": {
+    "message": "OpenAI-compatible server"
+  },
+  "blurbBrowser": {
+    "message": "Uses Chrome's built-in $1. Free and private, but its translations are rougher than the other choices'."
+  },
+  "blurbChatgpt": {
+    "message": "Eligible usage in this app uses your ChatGPT plan, the same usage as Codex. Included with Plus, Pro, Business, Edu and Enterprise."
+  },
+  "blurbServer": {
+    "message": "If you are interested in running a local model, check out the $1."
+  },
+  "guide": {
+    "message": "guide"
+  },
+  "translatorOff": {
+    "message": "Chrome's translator is turned off in this browser."
+  },
+  "server": {
+    "message": "Server"
+  },
+  "apiKey": {
+    "message": "API key"
+  },
+  "apiKeyGetOne": {
+    "message": "API key — $1"
+  },
+  "getOne": {
+    "message": "get one"
+  },
+  "model": {
+    "message": "Model"
+  },
+  "keyIfAsked": {
+    "message": "Only if the server asks for one"
+  },
+  "modelServed": {
+    "message": "The one it serves"
+  },
+  "anotherLanguage": {
+    "message": "Another language"
+  },
+  "languagePacks": {
+    "message": "Language packs"
+  },
+  "packsBlurb": {
+    "message": "Chrome downloads each language once."
+  },
+  "useTyped": {
+    "message": "Use “$1”"
+  },
+  "noMatch": {
+    "message": "No match"
+  },
+  "replaceText": {
+    "message": "Replace the text"
+  },
+  "replaceBlurb": {
+    "message": "The translation is painted into the image where the original was."
+  },
+  "notesTitle": {
+    "message": "Notes over the image"
+  },
+  "notesBlurb": {
+    "message": "The image stays as it is. Hover a box to read its translation."
+  },
+  "demoTop": {
+    "message": "Where are"
+  },
+  "demoBottom": {
+    "message": "you going?"
+  },
+  "demoNote": {
+    "message": "Where are you going?"
+  },
+  "downloading": {
+    "message": "Downloading…"
+  },
+  "downloadingPack": {
+    "message": "Downloading the $1 pack…"
+  },
+  "packStalled": {
+    "message": "Nothing is downloading. Helium and some other Chromium builds never fetch Chrome's translator; choose another one."
+  },
+  "noBuiltIn": {
+    "message": "This browser has no built-in translator."
+  },
+  "packReady": {
+    "message": "Ready"
+  },
+  "packUnavailable": {
+    "message": "Chrome cannot translate $1 into $2"
+  },
+  "download": {
+    "message": "Download"
+  },
+  "nothingAnswering": {
+    "message": "Nothing answering at $1."
+  },
+  "gemmaNeedsLlamacpp": {
+    "message": "TranslateGemma needs llama.cpp's /completion, which this server does not have."
+  },
+  "modelNotServed": {
+    "message": "$1 is not on this server."
+  },
+  "servesModels_one": {
+    "message": "Serves $1 model. Pick one."
+  },
+  "servesModels_other": {
+    "message": "Serves $1 models. Pick one."
+  },
+  "account": {
+    "message": "Account"
+  },
+  "continueChatgpt": {
+    "message": "Continue with ChatGPT"
+  },
+  "manageUsage": {
+    "message": "Manage usage"
+  },
+  "signOut": {
+    "message": "Sign out"
+  },
+  "finishSignIn": {
+    "message": "Finish signing in in the new tab…"
+  },
+  "signingIn": {
+    "message": "Signing in…"
+  },
+  "pasteCallback": {
+    "message": "If the tab stays open on an error page, paste its address here"
+  },
+  "planWelcomeTitle": {
+    "message": "You're using your ChatGPT plan"
+  },
+  "planWelcomeBody": {
+    "message": "Eligible usage in this app uses your ChatGPT plan. Manage usage in your $1."
+  },
+  "chatgptSettings": {
+    "message": "ChatGPT settings"
+  },
+  "gotIt": {
+    "message": "Got it"
+  },
+  "signInTabClosed": {
+    "message": "The sign-in tab was closed."
+  },
+  "planUnavailable": {
+    "message": "ChatGPT plan usage is unavailable for this account or workspace."
+  },
+  "needsServer": {
+    "message": "The translator needs a server."
+  },
+  "signInFirst": {
+    "message": "Sign in to ChatGPT first."
+  },
+  "needsKey": {
+    "message": "The translator needs an API key for $1."
+  },
+  "translating": {
+    "message": "Translating…"
+  },
+  "elapsed": {
+    "message": "$1… $2"
+  },
+  "stopped": {
+    "message": "Stopped."
+  },
+  "blocksTranslated_one": {
+    "message": "$2 of $1 block translated in $3."
+  },
+  "blocksTranslated_other": {
+    "message": "$2 of $1 blocks translated in $3."
+  },
+  "noTextFound": {
+    "message": "No text found ($1)."
+  },
+  "showOriginal": {
+    "message": "Show the original"
+  },
+  "reading": {
+    "message": "Reading…"
+  },
+  "readingTokens": {
+    "message": "Reading · $1 tok"
+  },
+  "tokens": {
+    "message": "$1 tok"
+  },
+  "linesFraction": {
+    "message": "$1/$2 lines"
+  },
+  "readingImage": {
+    "message": "Reading the image"
+  },
+  "translatingWord": {
+    "message": "Translating"
+  },
+  "linesDone": {
+    "message": "$1 of $2 lines done"
+  },
+  "tokensSoFar": {
+    "message": "$1 tokens so far"
+  },
+  "andThen": {
+    "message": "$1, $2"
+  },
+  "clickToStop": {
+    "message": "$1. Click to stop."
+  },
+  "badgeIdle": {
+    "message": "Translate the text in this image"
+  },
+  "badgeShown": {
+    "message": "Show the original image"
+  },
+  "badgeHidden": {
+    "message": "Show the translation"
+  },
+  "badgeEmpty": {
+    "message": "No text found in this image"
+  },
+  "badgeError": {
+    "message": "Translation failed"
+  },
+  "extensionReloaded": {
+    "message": "The extension was reloaded. Reload this page to use it again."
+  },
+  "couldNotRead": {
+    "message": "Could not read this image"
+  },
+  "history": {
+    "message": "History"
+  },
+  "nothingYet": {
+    "message": "Nothing translated yet."
+  },
+  "images_one": {
+    "message": "image"
+  },
+  "images_other": {
+    "message": "images"
+  },
+  "failures_one": {
+    "message": "failure"
+  },
+  "failures_other": {
+    "message": "failures"
+  },
+  "blockCount_one": {
+    "message": "$1 block"
+  },
+  "blockCount_other": {
+    "message": "$1 blocks"
+  },
+  "medianEndToEnd": {
+    "message": "median, end to end"
+  },
+  "slowest": {
+    "message": "slowest"
+  },
+  "blocksPerImage": {
+    "message": "blocks an image"
+  },
+  "failed": {
+    "message": "failed"
+  },
+  "showRegions": {
+    "message": "Show regions"
+  },
+  "colTime": {
+    "message": "Time"
+  },
+  "colImage": {
+    "message": "Image"
+  },
+  "colStages": {
+    "message": "Stages"
+  },
+  "colTotal": {
+    "message": "Total"
+  },
+  "noFailures": {
+    "message": "No failures in the last 200 images."
+  },
+  "failuresOnly": {
+    "message": "Failures only"
+  },
+  "forgetHistory": {
+    "message": "Forget the history"
+  },
+  "stageFetchScale": {
+    "message": "Fetch and scale"
+  },
+  "stageFetch": {
+    "message": "Fetch"
+  },
+  "stageDecodeSource": {
+    "message": "Decode source"
+  },
+  "stageScale": {
+    "message": "Scale and read pixels"
+  },
+  "stageReaderEncode": {
+    "message": "Encode for reader"
+  },
+  "stageRead": {
+    "message": "Read"
+  },
+  "stageTranslate": {
+    "message": "Translate"
+  },
+  "stageLayout": {
+    "message": "Lay out"
+  },
+  "stageInpaintPast": {
+    "message": "Inpaint, past translation"
+  },
+  "stageInpaintAlongside": {
+    "message": "Inpaint, alongside"
+  },
+  "stagePaint": {
+    "message": "Paint"
+  },
+  "stageEncode": {
+    "message": "Encode"
+  },
+  "stageTtft": {
+    "message": "TTFT"
+  },
+  "stageDecode": {
+    "message": "Decode"
+  },
+  "stageOverhead": {
+    "message": "Overhead"
+  },
+  "fullRequest": {
+    "message": "Full request"
+  },
+  "tokRate": {
+    "message": "$1 tok/s"
+  },
+  "tokRateOverall": {
+    "message": "$1 tok/s overall"
+  },
+  "requests_one": {
+    "message": "$1 request"
+  },
+  "requests_other": {
+    "message": "$1 requests"
+  }
+}

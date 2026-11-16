@@ -6,6 +6,7 @@ import { chatLines } from '../src/backends/translate/chat-lines.ts';
 import { type Timings } from '../src/platform/messages.ts';
 import { type ProfileReport, alongside, clear, entries, record, report }
   from '../src/platform/metrics.ts';
+import { i18n } from './i18n.ts';
 
 const lines = chatLines.build(['x'], 'Chinese', 'English');
 
@@ -20,7 +21,7 @@ function stubStorage(local: Record<string, unknown> = {}) {
     async set(items: Record<string, unknown>) { Object.assign(local, items); },
     async remove(keys: string[]) { for (const key of keys) delete local[key]; },
   };
-  (globalThis as any).chrome = { storage: { local: area } };
+  (globalThis as any).chrome = { storage: { local: area }, i18n };
   return local;
 }
 

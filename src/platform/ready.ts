@@ -1,4 +1,5 @@
 import { type EndpointSettings } from './endpoint.ts';
+import { t } from './i18n.ts';
 import { provider } from './providers.ts';
 
 export function hostOf(url: string): string {
@@ -11,10 +12,10 @@ export function hostOf(url: string): string {
  */
 export function blocker(translator: EndpointSettings): string {
   const p = provider(translator.provider);
-  if (p.editUrl && !translator.baseUrl) return 'The translator needs a server.';
-  if (p.key === 'signin' && !translator.apiKey) return 'Sign in to ChatGPT first.';
+  if (p.editUrl && !translator.baseUrl) return t('needsServer');
+  if (p.key === 'signin' && !translator.apiKey) return t('signInFirst');
   if (p.key === 'required' && !translator.apiKey) {
-    return `The translator needs an API key for ${hostOf(translator.baseUrl)}.`;
+    return t('needsKey', hostOf(translator.baseUrl));
   }
   return '';
 }

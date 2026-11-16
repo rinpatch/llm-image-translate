@@ -1,0 +1,482 @@
+{
+  "locale": {
+    "message": "id"
+  },
+  "extName": {
+    "message": "LLM Image Translate"
+  },
+  "extDescription": {
+    "message": "Terjemahkan teks di dalam gambar, dengan model di komputer Anda sendiri atau layanan daring."
+  },
+  "titleSettings": {
+    "message": "Pengaturan LLM Image Translate"
+  },
+  "titleWelcome": {
+    "message": "Selamat datang di LLM Image Translate"
+  },
+  "historyPerformance": {
+    "message": "Riwayat & Performa"
+  },
+  "auto": {
+    "message": "Otomatis"
+  },
+  "languages": {
+    "message": "Bahasa"
+  },
+  "translateFrom": {
+    "message": "Terjemahkan dari"
+  },
+  "translateInto": {
+    "message": "Terjemahkan ke"
+  },
+  "translator": {
+    "message": "Penerjemah"
+  },
+  "pages": {
+    "message": "Halaman"
+  },
+  "settings": {
+    "message": "Pengaturan"
+  },
+  "settingsMenu": {
+    "message": "Pengaturan…"
+  },
+  "allSettings": {
+    "message": "Semua pengaturan"
+  },
+  "setupGuide": {
+    "message": "Panduan penyiapan"
+  },
+  "back": {
+    "message": "Kembali"
+  },
+  "done": {
+    "message": "Selesai"
+  },
+  "stop": {
+    "message": "Hentikan"
+  },
+  "cancel": {
+    "message": "Batal"
+  },
+  "test": {
+    "message": "Uji"
+  },
+  "checking": {
+    "message": "Memeriksa…"
+  },
+  "answered": {
+    "message": "Merespons."
+  },
+  "tryIt": {
+    "message": "Coba"
+  },
+  "tryBlurb": {
+    "message": "Menerjemahkan satu gambar ke $1. Gambar yang diseret atau ditempel ke halaman ini juga bisa."
+  },
+  "pastedImage": {
+    "message": "gambar yang ditempel"
+  },
+  "samplePage": {
+    "message": "Halaman contoh"
+  },
+  "chooseImage": {
+    "message": "Pilih gambar…"
+  },
+  "leftAlone": {
+    "message": "Dibiarkan: $1"
+  },
+  "clearCache": {
+    "message": "Hapus cache"
+  },
+  "cacheCleared": {
+    "message": "Cache dihapus"
+  },
+  "cacheNotCleared": {
+    "message": "Tidak dapat menghapus cache"
+  },
+  "showTranslations": {
+    "message": "Tampilkan terjemahan"
+  },
+  "showBadge": {
+    "message": "Tampilkan lencana pada gambar"
+  },
+  "showBadgeHint": {
+    "message": "Lencana muncul saat ⌘ ditahan (Super di Windows dan Linux)."
+  },
+  "debugMode": {
+    "message": "Mode debug"
+  },
+  "debugHint": {
+    "message": "Mencatat setiap tahap ke konsol dan menyimpan beberapa gambar terakhir untuk $1."
+  },
+  "regions": {
+    "message": "Region"
+  },
+  "usingPlan": {
+    "message": "Menggunakan paket ChatGPT"
+  },
+  "usingPlanAs": {
+    "message": "Menggunakan paket ChatGPT · $1"
+  },
+  "autoHere": {
+    "message": "Terjemahkan gambar di $1 secara otomatis"
+  },
+  "pickModel": {
+    "message": "Pilih model terjemahan"
+  },
+  "testAndContinue": {
+    "message": "Uji dan lanjutkan"
+  },
+  "tryItOut": {
+    "message": "Cobalah"
+  },
+  "useHint": {
+    "message": "Tahan $1 di atas gambar dan klik $2 yang muncul, sama seperti di halaman mana pun. Klik lagi untuk melihat aslinya. Tombol di bilah alat mengganti model dan bahasa."
+  },
+  "sampleAlt": {
+    "message": "Halaman berisi teks Jepang dalam balon kata"
+  },
+  "providerBrowser": {
+    "message": "Di browser ini"
+  },
+  "providerOpenrouter": {
+    "message": "OpenRouter"
+  },
+  "providerChatgpt": {
+    "message": "Paket ChatGPT"
+  },
+  "providerServer": {
+    "message": "Server yang kompatibel dengan OpenAI"
+  },
+  "blurbBrowser": {
+    "message": "Menggunakan $1 bawaan Chrome. Gratis dan privat, tetapi terjemahannya lebih kasar daripada pilihan lain."
+  },
+  "blurbChatgpt": {
+    "message": "Penggunaan yang memenuhi syarat di aplikasi ini memakai paket ChatGPT Anda, kuota yang sama dengan Codex. Termasuk dalam Plus, Pro, Business, Edu, dan Enterprise."
+  },
+  "blurbServer": {
+    "message": "Jika Anda tertarik menjalankan model lokal, lihat $1."
+  },
+  "guide": {
+    "message": "panduannya"
+  },
+  "translatorOff": {
+    "message": "Penerjemah Chrome dinonaktifkan di browser ini."
+  },
+  "server": {
+    "message": "Server"
+  },
+  "apiKey": {
+    "message": "Kunci API"
+  },
+  "apiKeyGetOne": {
+    "message": "Kunci API — $1"
+  },
+  "getOne": {
+    "message": "dapatkan"
+  },
+  "model": {
+    "message": "Model"
+  },
+  "keyIfAsked": {
+    "message": "Hanya jika server memintanya"
+  },
+  "modelServed": {
+    "message": "Yang disediakan server"
+  },
+  "anotherLanguage": {
+    "message": "Bahasa lain"
+  },
+  "languagePacks": {
+    "message": "Paket bahasa"
+  },
+  "packsBlurb": {
+    "message": "Chrome mengunduh setiap bahasa sekali saja."
+  },
+  "useTyped": {
+    "message": "Gunakan “$1”"
+  },
+  "noMatch": {
+    "message": "Tidak ada yang cocok"
+  },
+  "replaceText": {
+    "message": "Ganti teks"
+  },
+  "replaceBlurb": {
+    "message": "Terjemahan dilukis ke dalam gambar di tempat teks aslinya."
+  },
+  "notesTitle": {
+    "message": "Catatan di atas gambar"
+  },
+  "notesBlurb": {
+    "message": "Gambar tetap seperti aslinya. Arahkan kursor ke kotak untuk membaca terjemahannya."
+  },
+  "demoTop": {
+    "message": "Mau pergi"
+  },
+  "demoBottom": {
+    "message": "ke mana?"
+  },
+  "demoNote": {
+    "message": "Mau pergi ke mana?"
+  },
+  "downloading": {
+    "message": "Mengunduh…"
+  },
+  "downloadingPack": {
+    "message": "Mengunduh paket $1…"
+  },
+  "packStalled": {
+    "message": "Tidak ada yang diunduh. Helium dan beberapa build Chromium lain tidak pernah mengambil penerjemah Chrome; pilih penerjemah lain."
+  },
+  "noBuiltIn": {
+    "message": "Browser ini tidak memiliki penerjemah bawaan."
+  },
+  "packReady": {
+    "message": "Siap"
+  },
+  "packUnavailable": {
+    "message": "Chrome tidak dapat menerjemahkan $1 ke $2"
+  },
+  "download": {
+    "message": "Unduh"
+  },
+  "nothingAnswering": {
+    "message": "Tidak ada yang merespons di $1."
+  },
+  "gemmaNeedsLlamacpp": {
+    "message": "TranslateGemma memerlukan /completion dari llama.cpp, yang tidak dimiliki server ini."
+  },
+  "modelNotServed": {
+    "message": "$1 tidak ada di server ini."
+  },
+  "servesModels_other": {
+    "message": "Menyediakan $1 model. Pilih salah satu."
+  },
+  "account": {
+    "message": "Akun"
+  },
+  "continueChatgpt": {
+    "message": "Lanjutkan dengan ChatGPT"
+  },
+  "manageUsage": {
+    "message": "Kelola penggunaan"
+  },
+  "signOut": {
+    "message": "Keluar"
+  },
+  "finishSignIn": {
+    "message": "Selesaikan proses masuk di tab baru…"
+  },
+  "signingIn": {
+    "message": "Sedang masuk…"
+  },
+  "pasteCallback": {
+    "message": "Jika tab tetap terbuka di halaman galat, tempel alamatnya di sini"
+  },
+  "planWelcomeTitle": {
+    "message": "Anda menggunakan paket ChatGPT Anda"
+  },
+  "planWelcomeBody": {
+    "message": "Penggunaan yang memenuhi syarat di aplikasi ini memakai paket ChatGPT Anda. Kelola penggunaan di $1."
+  },
+  "chatgptSettings": {
+    "message": "pengaturan ChatGPT"
+  },
+  "gotIt": {
+    "message": "Mengerti"
+  },
+  "signInTabClosed": {
+    "message": "Tab masuk telah ditutup."
+  },
+  "planUnavailable": {
+    "message": "Penggunaan paket ChatGPT tidak tersedia untuk akun atau ruang kerja ini."
+  },
+  "needsServer": {
+    "message": "Penerjemah memerlukan server."
+  },
+  "signInFirst": {
+    "message": "Masuk ke ChatGPT terlebih dahulu."
+  },
+  "needsKey": {
+    "message": "Penerjemah memerlukan kunci API untuk $1."
+  },
+  "translating": {
+    "message": "Menerjemahkan…"
+  },
+  "elapsed": {
+    "message": "$1… $2"
+  },
+  "stopped": {
+    "message": "Dihentikan."
+  },
+  "blocksTranslated_other": {
+    "message": "$2 dari $1 blok diterjemahkan dalam $3."
+  },
+  "noTextFound": {
+    "message": "Tidak ada teks ($1)."
+  },
+  "showOriginal": {
+    "message": "Tampilkan aslinya"
+  },
+  "reading": {
+    "message": "Membaca…"
+  },
+  "readingTokens": {
+    "message": "Membaca · $1 tok"
+  },
+  "tokens": {
+    "message": "$1 tok"
+  },
+  "linesFraction": {
+    "message": "$1/$2 baris"
+  },
+  "readingImage": {
+    "message": "Membaca gambar"
+  },
+  "translatingWord": {
+    "message": "Menerjemahkan"
+  },
+  "linesDone": {
+    "message": "$1 dari $2 baris selesai"
+  },
+  "tokensSoFar": {
+    "message": "$1 token sejauh ini"
+  },
+  "andThen": {
+    "message": "$1, $2"
+  },
+  "clickToStop": {
+    "message": "$1. Klik untuk berhenti."
+  },
+  "badgeIdle": {
+    "message": "Terjemahkan teks di gambar ini"
+  },
+  "badgeShown": {
+    "message": "Tampilkan gambar asli"
+  },
+  "badgeHidden": {
+    "message": "Tampilkan terjemahan"
+  },
+  "badgeEmpty": {
+    "message": "Tidak ada teks di gambar ini"
+  },
+  "badgeError": {
+    "message": "Terjemahan gagal"
+  },
+  "extensionReloaded": {
+    "message": "Ekstensi dimuat ulang. Muat ulang halaman ini untuk menggunakannya lagi."
+  },
+  "couldNotRead": {
+    "message": "Tidak dapat membaca gambar ini"
+  },
+  "history": {
+    "message": "Riwayat"
+  },
+  "nothingYet": {
+    "message": "Belum ada yang diterjemahkan."
+  },
+  "images_other": {
+    "message": "gambar"
+  },
+  "failures_other": {
+    "message": "gagal"
+  },
+  "blockCount_other": {
+    "message": "$1 blok"
+  },
+  "medianEndToEnd": {
+    "message": "median, dari awal ke akhir"
+  },
+  "slowest": {
+    "message": "terlama"
+  },
+  "blocksPerImage": {
+    "message": "blok per gambar"
+  },
+  "failed": {
+    "message": "gagal"
+  },
+  "showRegions": {
+    "message": "Tampilkan region"
+  },
+  "colTime": {
+    "message": "Waktu"
+  },
+  "colImage": {
+    "message": "Gambar"
+  },
+  "colStages": {
+    "message": "Tahap"
+  },
+  "colTotal": {
+    "message": "Total"
+  },
+  "noFailures": {
+    "message": "Tidak ada kegagalan dalam 200 gambar terakhir."
+  },
+  "failuresOnly": {
+    "message": "Hanya yang gagal"
+  },
+  "forgetHistory": {
+    "message": "Hapus riwayat"
+  },
+  "stageFetchScale": {
+    "message": "Ambil dan skala"
+  },
+  "stageFetch": {
+    "message": "Ambil"
+  },
+  "stageDecodeSource": {
+    "message": "Dekode sumber"
+  },
+  "stageScale": {
+    "message": "Skala dan baca piksel"
+  },
+  "stageReaderEncode": {
+    "message": "Enkode untuk pembaca"
+  },
+  "stageRead": {
+    "message": "Baca"
+  },
+  "stageTranslate": {
+    "message": "Terjemahkan"
+  },
+  "stageLayout": {
+    "message": "Tata letak"
+  },
+  "stageInpaintPast": {
+    "message": "Inpaint, melewati terjemahan"
+  },
+  "stageInpaintAlongside": {
+    "message": "Inpaint, paralel"
+  },
+  "stagePaint": {
+    "message": "Lukis"
+  },
+  "stageEncode": {
+    "message": "Enkode"
+  },
+  "stageTtft": {
+    "message": "TTFT"
+  },
+  "stageDecode": {
+    "message": "Dekode"
+  },
+  "stageOverhead": {
+    "message": "Overhead"
+  },
+  "fullRequest": {
+    "message": "Permintaan penuh"
+  },
+  "tokRate": {
+    "message": "$1 tok/s"
+  },
+  "tokRateOverall": {
+    "message": "$1 tok/s keseluruhan"
+  },
+  "requests_other": {
+    "message": "$1 permintaan"
+  }
+}

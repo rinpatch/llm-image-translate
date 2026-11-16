@@ -1,0 +1,482 @@
+{
+  "locale": {
+    "message": "zh-CN"
+  },
+  "extName": {
+    "message": "LLM Image Translate"
+  },
+  "extDescription": {
+    "message": "翻译图片中的文字，可使用本机模型或在线服务。"
+  },
+  "titleSettings": {
+    "message": "LLM Image Translate 设置"
+  },
+  "titleWelcome": {
+    "message": "欢迎使用 LLM Image Translate"
+  },
+  "historyPerformance": {
+    "message": "历史与性能"
+  },
+  "auto": {
+    "message": "自动检测"
+  },
+  "languages": {
+    "message": "语言"
+  },
+  "translateFrom": {
+    "message": "源语言"
+  },
+  "translateInto": {
+    "message": "目标语言"
+  },
+  "translator": {
+    "message": "翻译器"
+  },
+  "pages": {
+    "message": "网页"
+  },
+  "settings": {
+    "message": "设置"
+  },
+  "settingsMenu": {
+    "message": "设置…"
+  },
+  "allSettings": {
+    "message": "全部设置"
+  },
+  "setupGuide": {
+    "message": "设置向导"
+  },
+  "back": {
+    "message": "返回"
+  },
+  "done": {
+    "message": "完成"
+  },
+  "stop": {
+    "message": "停止"
+  },
+  "cancel": {
+    "message": "取消"
+  },
+  "test": {
+    "message": "测试"
+  },
+  "checking": {
+    "message": "正在检查…"
+  },
+  "answered": {
+    "message": "已响应。"
+  },
+  "tryIt": {
+    "message": "试一试"
+  },
+  "tryBlurb": {
+    "message": "将一张图片翻译成$1。也可以把图片拖放或粘贴到此页面。"
+  },
+  "pastedImage": {
+    "message": "粘贴的图片"
+  },
+  "samplePage": {
+    "message": "示例页面"
+  },
+  "chooseImage": {
+    "message": "选择图片…"
+  },
+  "leftAlone": {
+    "message": "未翻译：$1"
+  },
+  "clearCache": {
+    "message": "清除缓存"
+  },
+  "cacheCleared": {
+    "message": "缓存已清除"
+  },
+  "cacheNotCleared": {
+    "message": "无法清除缓存"
+  },
+  "showTranslations": {
+    "message": "译文显示方式"
+  },
+  "showBadge": {
+    "message": "在图片上显示徽标"
+  },
+  "showBadgeHint": {
+    "message": "按住 ⌘（Windows 和 Linux 上为 Super 键）时显示徽标。"
+  },
+  "debugMode": {
+    "message": "调试模式"
+  },
+  "debugHint": {
+    "message": "将每个阶段记录到控制台，并保留最近几张图片供“$1”页面查看。"
+  },
+  "regions": {
+    "message": "区域"
+  },
+  "usingPlan": {
+    "message": "正在使用 ChatGPT 套餐"
+  },
+  "usingPlanAs": {
+    "message": "正在使用 ChatGPT 套餐 · $1"
+  },
+  "autoHere": {
+    "message": "自动翻译 $1 上的图片"
+  },
+  "pickModel": {
+    "message": "选择翻译模型"
+  },
+  "testAndContinue": {
+    "message": "测试并继续"
+  },
+  "tryItOut": {
+    "message": "试用一下"
+  },
+  "useHint": {
+    "message": "将鼠标移到图片上并按住 $1，点击出现的 $2，在任何网页上都是如此。再次点击可查看原图。工具栏按钮可切换模型和语言。"
+  },
+  "sampleAlt": {
+    "message": "对话气泡中写有日文的页面"
+  },
+  "providerBrowser": {
+    "message": "在此浏览器中"
+  },
+  "providerOpenrouter": {
+    "message": "OpenRouter"
+  },
+  "providerChatgpt": {
+    "message": "ChatGPT 套餐"
+  },
+  "providerServer": {
+    "message": "OpenAI 兼容服务器"
+  },
+  "blurbBrowser": {
+    "message": "使用 Chrome 内置的 $1。免费且保护隐私，但译文比其他选项粗糙。"
+  },
+  "blurbChatgpt": {
+    "message": "此应用中符合条件的用量计入你的 ChatGPT 套餐，与 Codex 共用额度。Plus、Pro、Business、Edu 和 Enterprise 均包含。"
+  },
+  "blurbServer": {
+    "message": "如果想在本地运行模型，请查看$1。"
+  },
+  "guide": {
+    "message": "指南"
+  },
+  "translatorOff": {
+    "message": "此浏览器已关闭 Chrome 翻译器。"
+  },
+  "server": {
+    "message": "服务器"
+  },
+  "apiKey": {
+    "message": "API 密钥"
+  },
+  "apiKeyGetOne": {
+    "message": "API 密钥 — $1"
+  },
+  "getOne": {
+    "message": "获取"
+  },
+  "model": {
+    "message": "模型"
+  },
+  "keyIfAsked": {
+    "message": "仅当服务器要求时填写"
+  },
+  "modelServed": {
+    "message": "服务器提供的模型"
+  },
+  "anotherLanguage": {
+    "message": "其他语言"
+  },
+  "languagePacks": {
+    "message": "语言包"
+  },
+  "packsBlurb": {
+    "message": "每种语言 Chrome 只需下载一次。"
+  },
+  "useTyped": {
+    "message": "使用“$1”"
+  },
+  "noMatch": {
+    "message": "无匹配项"
+  },
+  "replaceText": {
+    "message": "替换文字"
+  },
+  "replaceBlurb": {
+    "message": "译文直接绘制在原文所在的位置。"
+  },
+  "notesTitle": {
+    "message": "在图片上加注释"
+  },
+  "notesBlurb": {
+    "message": "图片保持原样。将鼠标悬停在方框上即可查看译文。"
+  },
+  "demoTop": {
+    "message": "你要去"
+  },
+  "demoBottom": {
+    "message": "哪里？"
+  },
+  "demoNote": {
+    "message": "你要去哪里？"
+  },
+  "downloading": {
+    "message": "正在下载…"
+  },
+  "downloadingPack": {
+    "message": "正在下载语言包：$1…"
+  },
+  "packStalled": {
+    "message": "没有任何下载进度。Helium 和其他一些 Chromium 版本不会获取 Chrome 翻译器，请选择其他翻译器。"
+  },
+  "noBuiltIn": {
+    "message": "此浏览器没有内置翻译器。"
+  },
+  "packReady": {
+    "message": "已就绪"
+  },
+  "packUnavailable": {
+    "message": "Chrome 无法将$1翻译成$2"
+  },
+  "download": {
+    "message": "下载"
+  },
+  "nothingAnswering": {
+    "message": "$1 没有响应。"
+  },
+  "gemmaNeedsLlamacpp": {
+    "message": "TranslateGemma 需要 llama.cpp 的 /completion，而此服务器没有。"
+  },
+  "modelNotServed": {
+    "message": "此服务器上没有 $1。"
+  },
+  "servesModels_other": {
+    "message": "提供 $1 个模型，请选择一个。"
+  },
+  "account": {
+    "message": "账户"
+  },
+  "continueChatgpt": {
+    "message": "使用 ChatGPT 继续"
+  },
+  "manageUsage": {
+    "message": "管理用量"
+  },
+  "signOut": {
+    "message": "退出登录"
+  },
+  "finishSignIn": {
+    "message": "请在新标签页中完成登录…"
+  },
+  "signingIn": {
+    "message": "正在登录…"
+  },
+  "pasteCallback": {
+    "message": "如果该标签页停留在错误页面，请将其地址粘贴到这里"
+  },
+  "planWelcomeTitle": {
+    "message": "你正在使用 ChatGPT 套餐"
+  },
+  "planWelcomeBody": {
+    "message": "此应用中符合条件的用量计入你的 ChatGPT 套餐。可在$1中管理用量。"
+  },
+  "chatgptSettings": {
+    "message": "ChatGPT 设置"
+  },
+  "gotIt": {
+    "message": "知道了"
+  },
+  "signInTabClosed": {
+    "message": "登录标签页已关闭。"
+  },
+  "planUnavailable": {
+    "message": "此账户或工作区无法使用 ChatGPT 套餐用量。"
+  },
+  "needsServer": {
+    "message": "翻译器需要一个服务器。"
+  },
+  "signInFirst": {
+    "message": "请先登录 ChatGPT。"
+  },
+  "needsKey": {
+    "message": "翻译器需要 $1 的 API 密钥。"
+  },
+  "translating": {
+    "message": "正在翻译…"
+  },
+  "elapsed": {
+    "message": "$1… $2"
+  },
+  "stopped": {
+    "message": "已停止。"
+  },
+  "blocksTranslated_other": {
+    "message": "已翻译 $2/$1 个文本块，用时 $3。"
+  },
+  "noTextFound": {
+    "message": "未发现文字（$1）。"
+  },
+  "showOriginal": {
+    "message": "显示原图"
+  },
+  "reading": {
+    "message": "正在识别…"
+  },
+  "readingTokens": {
+    "message": "识别 · $1 tok"
+  },
+  "tokens": {
+    "message": "$1 tok"
+  },
+  "linesFraction": {
+    "message": "$1/$2 行"
+  },
+  "readingImage": {
+    "message": "正在识别图片"
+  },
+  "translatingWord": {
+    "message": "正在翻译"
+  },
+  "linesDone": {
+    "message": "已完成 $1/$2 行"
+  },
+  "tokensSoFar": {
+    "message": "已生成 $1 个 token"
+  },
+  "andThen": {
+    "message": "$1，$2"
+  },
+  "clickToStop": {
+    "message": "$1。点击停止。"
+  },
+  "badgeIdle": {
+    "message": "翻译此图片中的文字"
+  },
+  "badgeShown": {
+    "message": "显示原图"
+  },
+  "badgeHidden": {
+    "message": "显示译文"
+  },
+  "badgeEmpty": {
+    "message": "此图片中未发现文字"
+  },
+  "badgeError": {
+    "message": "翻译失败"
+  },
+  "extensionReloaded": {
+    "message": "扩展程序已重新加载。请刷新此页面后再使用。"
+  },
+  "couldNotRead": {
+    "message": "无法读取此图片"
+  },
+  "history": {
+    "message": "历史"
+  },
+  "nothingYet": {
+    "message": "还没有翻译过任何内容。"
+  },
+  "images_other": {
+    "message": "张图片"
+  },
+  "failures_other": {
+    "message": "次失败"
+  },
+  "blockCount_other": {
+    "message": "$1 个块"
+  },
+  "medianEndToEnd": {
+    "message": "中位数（全程）"
+  },
+  "slowest": {
+    "message": "最慢"
+  },
+  "blocksPerImage": {
+    "message": "个文本块/图片"
+  },
+  "failed": {
+    "message": "失败"
+  },
+  "showRegions": {
+    "message": "显示区域"
+  },
+  "colTime": {
+    "message": "时间"
+  },
+  "colImage": {
+    "message": "图片"
+  },
+  "colStages": {
+    "message": "阶段"
+  },
+  "colTotal": {
+    "message": "总计"
+  },
+  "noFailures": {
+    "message": "最近 200 张图片中没有失败。"
+  },
+  "failuresOnly": {
+    "message": "仅显示失败"
+  },
+  "forgetHistory": {
+    "message": "清除历史记录"
+  },
+  "stageFetchScale": {
+    "message": "获取并缩放"
+  },
+  "stageFetch": {
+    "message": "获取"
+  },
+  "stageDecodeSource": {
+    "message": "解码原图"
+  },
+  "stageScale": {
+    "message": "缩放并读取像素"
+  },
+  "stageReaderEncode": {
+    "message": "为识别编码"
+  },
+  "stageRead": {
+    "message": "识别"
+  },
+  "stageTranslate": {
+    "message": "翻译"
+  },
+  "stageLayout": {
+    "message": "排版"
+  },
+  "stageInpaintPast": {
+    "message": "修复（超出翻译的部分）"
+  },
+  "stageInpaintAlongside": {
+    "message": "修复（并行）"
+  },
+  "stagePaint": {
+    "message": "绘制"
+  },
+  "stageEncode": {
+    "message": "编码"
+  },
+  "stageTtft": {
+    "message": "TTFT"
+  },
+  "stageDecode": {
+    "message": "生成"
+  },
+  "stageOverhead": {
+    "message": "额外开销"
+  },
+  "fullRequest": {
+    "message": "完整请求"
+  },
+  "tokRate": {
+    "message": "$1 tok/s"
+  },
+  "tokRateOverall": {
+    "message": "总体 $1 tok/s"
+  },
+  "requests_other": {
+    "message": "$1 次请求"
+  }
+}

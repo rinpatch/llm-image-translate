@@ -1,0 +1,536 @@
+{
+  "locale": {
+    "message": "ru"
+  },
+  "extName": {
+    "message": "LLM Image Translate"
+  },
+  "extDescription": {
+    "message": "Переводит текст на изображениях — моделями на вашем компьютере или через онлайн-сервис."
+  },
+  "titleSettings": {
+    "message": "Настройки LLM Image Translate"
+  },
+  "titleWelcome": {
+    "message": "Добро пожаловать в LLM Image Translate"
+  },
+  "historyPerformance": {
+    "message": "История и скорость"
+  },
+  "auto": {
+    "message": "Авто"
+  },
+  "languages": {
+    "message": "Языки"
+  },
+  "translateFrom": {
+    "message": "Переводить с"
+  },
+  "translateInto": {
+    "message": "Переводить на"
+  },
+  "translator": {
+    "message": "Переводчик"
+  },
+  "pages": {
+    "message": "Страницы"
+  },
+  "settings": {
+    "message": "Настройки"
+  },
+  "settingsMenu": {
+    "message": "Настройки…"
+  },
+  "allSettings": {
+    "message": "Все настройки"
+  },
+  "setupGuide": {
+    "message": "Руководство по настройке"
+  },
+  "back": {
+    "message": "Назад"
+  },
+  "done": {
+    "message": "Готово"
+  },
+  "stop": {
+    "message": "Остановить"
+  },
+  "cancel": {
+    "message": "Отмена"
+  },
+  "test": {
+    "message": "Проверить"
+  },
+  "checking": {
+    "message": "Проверка…"
+  },
+  "answered": {
+    "message": "Отвечает."
+  },
+  "tryIt": {
+    "message": "Попробовать"
+  },
+  "tryBlurb": {
+    "message": "Переводит одно изображение, язык перевода: $1. Можно также перетащить или вставить изображение на эту страницу."
+  },
+  "pastedImage": {
+    "message": "вставленное изображение"
+  },
+  "samplePage": {
+    "message": "Пример страницы"
+  },
+  "chooseImage": {
+    "message": "Выбрать изображение…"
+  },
+  "leftAlone": {
+    "message": "Пропущено: $1"
+  },
+  "clearCache": {
+    "message": "Очистить кэш"
+  },
+  "cacheCleared": {
+    "message": "Кэш очищен"
+  },
+  "cacheNotCleared": {
+    "message": "Не удалось очистить кэш"
+  },
+  "showTranslations": {
+    "message": "Как показывать перевод"
+  },
+  "showBadge": {
+    "message": "Показывать значок на изображениях"
+  },
+  "showBadgeHint": {
+    "message": "Значок появляется, пока зажата клавиша ⌘ (Super в Windows и Linux)."
+  },
+  "debugMode": {
+    "message": "Режим отладки"
+  },
+  "debugHint": {
+    "message": "Пишет каждый этап в консоль и сохраняет несколько последних изображений для страницы «$1»."
+  },
+  "regions": {
+    "message": "Области"
+  },
+  "usingPlan": {
+    "message": "Используется план ChatGPT"
+  },
+  "usingPlanAs": {
+    "message": "Используется план ChatGPT · $1"
+  },
+  "autoHere": {
+    "message": "Автоматически переводить изображения на $1"
+  },
+  "pickModel": {
+    "message": "Выберите модель перевода"
+  },
+  "testAndContinue": {
+    "message": "Проверить и продолжить"
+  },
+  "tryItOut": {
+    "message": "Попробуйте"
+  },
+  "useHint": {
+    "message": "Наведите курсор на изображение, зажмите $1 и нажмите появившуюся $2 — так же, как на любой странице. Нажмите ещё раз, чтобы вернуть оригинал. Кнопка на панели инструментов переключает модели и языки."
+  },
+  "sampleAlt": {
+    "message": "Страница с японским текстом в облачках"
+  },
+  "providerBrowser": {
+    "message": "В этом браузере"
+  },
+  "providerOpenrouter": {
+    "message": "OpenRouter"
+  },
+  "providerChatgpt": {
+    "message": "План ChatGPT"
+  },
+  "providerServer": {
+    "message": "OpenAI-совместимый сервер"
+  },
+  "blurbBrowser": {
+    "message": "Использует встроенный в Chrome $1. Бесплатно и конфиденциально, но переводит грубее остальных вариантов."
+  },
+  "blurbChatgpt": {
+    "message": "Подходящее использование в этом приложении расходует ваш план ChatGPT — тот же лимит, что и у Codex. Входит в Plus, Pro, Business, Edu и Enterprise."
+  },
+  "blurbServer": {
+    "message": "Если хотите запустить модель локально, загляните в $1."
+  },
+  "guide": {
+    "message": "руководство"
+  },
+  "translatorOff": {
+    "message": "Переводчик Chrome отключён в этом браузере."
+  },
+  "server": {
+    "message": "Сервер"
+  },
+  "apiKey": {
+    "message": "API-ключ"
+  },
+  "apiKeyGetOne": {
+    "message": "API-ключ — $1"
+  },
+  "getOne": {
+    "message": "получить"
+  },
+  "model": {
+    "message": "Модель"
+  },
+  "keyIfAsked": {
+    "message": "Только если сервер его требует"
+  },
+  "modelServed": {
+    "message": "Та, что на сервере"
+  },
+  "anotherLanguage": {
+    "message": "Другой язык"
+  },
+  "languagePacks": {
+    "message": "Языковые пакеты"
+  },
+  "packsBlurb": {
+    "message": "Chrome скачивает каждый язык один раз."
+  },
+  "useTyped": {
+    "message": "Использовать «$1»"
+  },
+  "noMatch": {
+    "message": "Нет совпадений"
+  },
+  "replaceText": {
+    "message": "Заменить текст"
+  },
+  "replaceBlurb": {
+    "message": "Перевод рисуется на изображении на месте оригинала."
+  },
+  "notesTitle": {
+    "message": "Заметки поверх изображения"
+  },
+  "notesBlurb": {
+    "message": "Изображение не меняется. Наведите курсор на рамку, чтобы прочитать перевод."
+  },
+  "demoTop": {
+    "message": "Куда ты"
+  },
+  "demoBottom": {
+    "message": "идёшь?"
+  },
+  "demoNote": {
+    "message": "Куда ты идёшь?"
+  },
+  "downloading": {
+    "message": "Загрузка…"
+  },
+  "downloadingPack": {
+    "message": "Загрузка пакета «$1»…"
+  },
+  "packStalled": {
+    "message": "Ничего не загружается. Helium и некоторые другие сборки Chromium не скачивают переводчик Chrome — выберите другой."
+  },
+  "noBuiltIn": {
+    "message": "В этом браузере нет встроенного переводчика."
+  },
+  "packReady": {
+    "message": "Готово"
+  },
+  "packUnavailable": {
+    "message": "Chrome не умеет переводить: $1 → $2"
+  },
+  "download": {
+    "message": "Скачать"
+  },
+  "nothingAnswering": {
+    "message": "По адресу $1 никто не отвечает."
+  },
+  "gemmaNeedsLlamacpp": {
+    "message": "TranslateGemma нужен /completion из llama.cpp, а у этого сервера его нет."
+  },
+  "modelNotServed": {
+    "message": "Модели $1 нет на этом сервере."
+  },
+  "servesModels_one": {
+    "message": "На сервере $1 модель. Выберите одну."
+  },
+  "servesModels_few": {
+    "message": "На сервере $1 модели. Выберите одну."
+  },
+  "servesModels_many": {
+    "message": "На сервере $1 моделей. Выберите одну."
+  },
+  "servesModels_other": {
+    "message": "На сервере $1 модели. Выберите одну."
+  },
+  "account": {
+    "message": "Аккаунт"
+  },
+  "continueChatgpt": {
+    "message": "Продолжить с ChatGPT"
+  },
+  "manageUsage": {
+    "message": "Управление использованием"
+  },
+  "signOut": {
+    "message": "Выйти"
+  },
+  "finishSignIn": {
+    "message": "Завершите вход в новой вкладке…"
+  },
+  "signingIn": {
+    "message": "Вход…"
+  },
+  "pasteCallback": {
+    "message": "Если вкладка осталась открытой со страницей ошибки, вставьте сюда её адрес"
+  },
+  "planWelcomeTitle": {
+    "message": "Вы используете свой план ChatGPT"
+  },
+  "planWelcomeBody": {
+    "message": "Подходящее использование в этом приложении расходует ваш план ChatGPT. Управлять им можно в $1."
+  },
+  "chatgptSettings": {
+    "message": "настройках ChatGPT"
+  },
+  "gotIt": {
+    "message": "Понятно"
+  },
+  "signInTabClosed": {
+    "message": "Вкладка входа была закрыта."
+  },
+  "planUnavailable": {
+    "message": "План ChatGPT недоступен для этого аккаунта или рабочего пространства."
+  },
+  "needsServer": {
+    "message": "Переводчику нужен сервер."
+  },
+  "signInFirst": {
+    "message": "Сначала войдите в ChatGPT."
+  },
+  "needsKey": {
+    "message": "Переводчику нужен API-ключ для $1."
+  },
+  "translating": {
+    "message": "Перевод…"
+  },
+  "elapsed": {
+    "message": "$1… $2"
+  },
+  "stopped": {
+    "message": "Остановлено."
+  },
+  "blocksTranslated_one": {
+    "message": "Переведено $2 из $1 блока за $3."
+  },
+  "blocksTranslated_few": {
+    "message": "Переведено $2 из $1 блоков за $3."
+  },
+  "blocksTranslated_many": {
+    "message": "Переведено $2 из $1 блоков за $3."
+  },
+  "blocksTranslated_other": {
+    "message": "Переведено $2 из $1 блока за $3."
+  },
+  "noTextFound": {
+    "message": "Текст не найден ($1)."
+  },
+  "showOriginal": {
+    "message": "Показать оригинал"
+  },
+  "reading": {
+    "message": "Чтение…"
+  },
+  "readingTokens": {
+    "message": "Чтение · $1 ток."
+  },
+  "tokens": {
+    "message": "$1 ток."
+  },
+  "linesFraction": {
+    "message": "$1/$2 строк"
+  },
+  "readingImage": {
+    "message": "Чтение изображения"
+  },
+  "translatingWord": {
+    "message": "Перевод"
+  },
+  "linesDone": {
+    "message": "готово строк: $1 из $2"
+  },
+  "tokensSoFar": {
+    "message": "токенов: $1"
+  },
+  "andThen": {
+    "message": "$1, $2"
+  },
+  "clickToStop": {
+    "message": "$1. Нажмите, чтобы остановить."
+  },
+  "badgeIdle": {
+    "message": "Перевести текст на этом изображении"
+  },
+  "badgeShown": {
+    "message": "Показать исходное изображение"
+  },
+  "badgeHidden": {
+    "message": "Показать перевод"
+  },
+  "badgeEmpty": {
+    "message": "На этом изображении нет текста"
+  },
+  "badgeError": {
+    "message": "Не удалось перевести"
+  },
+  "extensionReloaded": {
+    "message": "Расширение было перезагружено. Обновите страницу, чтобы снова им пользоваться."
+  },
+  "couldNotRead": {
+    "message": "Не удалось прочитать изображение"
+  },
+  "history": {
+    "message": "История"
+  },
+  "nothingYet": {
+    "message": "Пока ничего не переведено."
+  },
+  "images_one": {
+    "message": "изображение"
+  },
+  "images_few": {
+    "message": "изображения"
+  },
+  "images_many": {
+    "message": "изображений"
+  },
+  "images_other": {
+    "message": "изображения"
+  },
+  "failures_one": {
+    "message": "сбой"
+  },
+  "failures_few": {
+    "message": "сбоя"
+  },
+  "failures_many": {
+    "message": "сбоев"
+  },
+  "failures_other": {
+    "message": "сбоя"
+  },
+  "blockCount_one": {
+    "message": "$1 блок"
+  },
+  "blockCount_few": {
+    "message": "$1 блока"
+  },
+  "blockCount_many": {
+    "message": "$1 блоков"
+  },
+  "blockCount_other": {
+    "message": "$1 блока"
+  },
+  "medianEndToEnd": {
+    "message": "медиана, от начала до конца"
+  },
+  "slowest": {
+    "message": "самое долгое"
+  },
+  "blocksPerImage": {
+    "message": "блоков на изображение"
+  },
+  "failed": {
+    "message": "сбой"
+  },
+  "showRegions": {
+    "message": "Показать области"
+  },
+  "colTime": {
+    "message": "Время"
+  },
+  "colImage": {
+    "message": "Изображение"
+  },
+  "colStages": {
+    "message": "Этапы"
+  },
+  "colTotal": {
+    "message": "Всего"
+  },
+  "noFailures": {
+    "message": "Среди последних 200 изображений сбоев нет."
+  },
+  "failuresOnly": {
+    "message": "Только сбои"
+  },
+  "forgetHistory": {
+    "message": "Очистить историю"
+  },
+  "stageFetchScale": {
+    "message": "Загрузка и масштабирование"
+  },
+  "stageFetch": {
+    "message": "Загрузка"
+  },
+  "stageDecodeSource": {
+    "message": "Декодирование исходника"
+  },
+  "stageScale": {
+    "message": "Масштабирование и чтение пикселей"
+  },
+  "stageReaderEncode": {
+    "message": "Кодирование для распознавания"
+  },
+  "stageRead": {
+    "message": "Распознавание"
+  },
+  "stageTranslate": {
+    "message": "Перевод"
+  },
+  "stageLayout": {
+    "message": "Вёрстка"
+  },
+  "stageInpaintPast": {
+    "message": "Ретушь, сверх перевода"
+  },
+  "stageInpaintAlongside": {
+    "message": "Ретушь, параллельно"
+  },
+  "stagePaint": {
+    "message": "Отрисовка"
+  },
+  "stageEncode": {
+    "message": "Кодирование"
+  },
+  "stageTtft": {
+    "message": "TTFT"
+  },
+  "stageDecode": {
+    "message": "Генерация"
+  },
+  "stageOverhead": {
+    "message": "Накладные расходы"
+  },
+  "fullRequest": {
+    "message": "Весь запрос"
+  },
+  "tokRate": {
+    "message": "$1 ток/с"
+  },
+  "tokRateOverall": {
+    "message": "$1 ток/с в целом"
+  },
+  "requests_one": {
+    "message": "$1 запрос"
+  },
+  "requests_few": {
+    "message": "$1 запроса"
+  },
+  "requests_many": {
+    "message": "$1 запросов"
+  },
+  "requests_other": {
+    "message": "$1 запроса"
+  }
+}

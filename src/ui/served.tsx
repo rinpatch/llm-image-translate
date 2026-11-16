@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { type ListedModel, listModels } from '../backends/client.ts';
 import { type EndpointSettings, toEndpoint } from '../platform/endpoint.ts';
+import { t, tn } from '../platform/i18n.ts';
 import { guessAdapter } from '../platform/providers.ts';
 import { useAsync } from './async.ts';
 import { Combobox } from './combobox.tsx';
@@ -63,13 +64,12 @@ export function useAdoption(endpoint: EndpointSettings, served: Served,
 export function servedNote(endpoint: EndpointSettings, served: Served): Note {
   const one = inUse(endpoint, served);
   if (served === undefined) return NONE;
-  if (served === null) return note(`Nothing answering at ${endpoint.baseUrl}.`, 'bad');
+  if (served === null) return note(t('nothingAnswering', endpoint.baseUrl), 'bad');
   if (endpoint.adapter === 'gemma-raw' && !isLlamacpp(served)) {
-    return note('TranslateGemma needs llama.cpp\'s /completion, which this server does not '
-      + 'have.', 'bad');
+    return note(t('gemmaNeedsLlamacpp'), 'bad');
   }
-  if (endpoint.model && !one) return note(`${endpoint.model} is not on this server.`, 'bad');
-  if (!endpoint.model && !one) return note(`Serves ${served.length} models. Pick one.`);
+  if (endpoint.model && !one) return note(t('modelNotServed', endpoint.model), 'bad');
+  if (!endpoint.model && !one) return note(tn('servesModels', served.length));
   return NONE;
 }
 

@@ -5,11 +5,12 @@ import { useEffect, useState } from 'preact/hooks';
 import { LANGUAGES } from '../core/language.ts';
 import { listModels } from '../backends/client.ts';
 import { type EndpointSettings } from '../platform/endpoint.ts';
+import { type MessageKey, languageName, t } from '../platform/i18n.ts';
 import {
   CHATGPT_KEY, OPENROUTER, PROVIDERS, guessAdapter, keyScope, provider, scopeOf,
 } from '../platform/providers.ts';
 import { useAsync } from './async.ts';
-import { Combobox, NameBox } from './combobox.tsx';
+import { Combobox, LanguageBox } from './combobox.tsx';
 import { Input, Row } from './fields.tsx';
 import { PackStatus, hasTranslator } from './packs.tsx';
 import {
@@ -17,18 +18,21 @@ import {
 } from './served.tsx';
 import { SignIn } from './signin.tsx';
 import { NONE, Status, note } from './status.tsx';
+import { tx } from './text.tsx';
 import { type Translator } from './translator.ts';
 
 const GUIDE = 'https://github.com/rinpatch/llm-image-translate/blob/main/docs/local-translation.md';
 
-const BLURBS: Record<string, ComponentChildren> = {
-  browser: <>Uses Chrome's built-in <a href="https://developer.chrome.com/docs/ai/translator-api"
-    target="_blank">Translator API</a>. Free and private, but its translations are rougher
-    than the other choices'.</>,
-  chatgpt: <>Eligible usage in this app uses your ChatGPT plan, the same usage as Codex.
-    Included with Plus, Pro, Business, Edu and Enterprise.</>,
-  server: <>If you are interested in running a local model, check out
-    the <a href={GUIDE} target="_blank">guide</a>.</>,
+const BLURBS: Record<string, () => ComponentChildren> = {
+  browser: () => tx('blurbBrowser', <a href="https://developer.chrome.com/docs/ai/translator-api"
+    target="_blank">Translator API</a>),
+  chatgpt: () => t('blurbChatgpt'),
+  server: () => tx('blurbServer', <a href={GUIDE} target="_blank">{t('guide')}</a>),
+};
+
+export const PROVIDER_NAMES: Record<string, MessageKey> = {
+  browser: 'providerBrowser', openrouter: 'providerOpenrouter', chatgpt: 'providerChatgpt',
+  server: 'providerServer',
 };
 
 // The sources most images on the web are in; the last row picks any other.
@@ -40,8 +44,8 @@ function PackRow({ name, others, target, stamp }: {
   const [other, setOther] = useState(others?.[0] || '');
   return (
     <li>
-      {name ? <span>{name}</span>
-        : <NameBox aria-label="Another language" names={others!} value={other} onPick={setOther} />}
+      {name ? <span>{languageName(name)}</span>
+        : <LanguageBox aria-label={t('anotherLanguage')} names={others!} value={other} onPick={setOther} />}
       <PackStatus source={name ?? other} target={target} stamp={stamp} />
     </li>
   );
@@ -52,8 +56,8 @@ export function Packs({ target, stamp = 0 }: { target: string; stamp?: number })
   const others = LANGUAGES.filter((n) => n !== target && !common.includes(n));
   return (
     <div class="packs">
-      <h3>Language packs</h3>
-      <p class="blurb">Chrome downloads each language once.</p>
+      <h3>{t('languagePacks')}</h3>
+      <p class="blurb">{t('packsBlurb')}</p>
       <ul>
         {common.map((name) => <PackRow key={name} name={name} target={target} stamp={stamp} />)}
         <PackRow key={`other-${target}`} others={others} target={target} stamp={stamp} />
@@ -85,17 +89,17 @@ function ServerFields({ endpoint, served, change, setKey, andAdopt }: {
   const said = servedNote(endpoint, served);
   return (
     <div class="fields">
-      <Row div label="Server"><Input type="url" value={endpoint.baseUrl} spellcheck={false}
+      <Row div label={t('server')}><Input type="url" value={endpoint.baseUrl} spellcheck={false}
         placeholder={provider('server').baseUrl}
         onCommit={(url) => andAdopt(() => change({ baseUrl: url.trim() }))} /></Row>
-      <Row div label="API key"><Input type="password" value={endpoint.apiKey} autocomplete="off"
-        placeholder="Only if the server asks for one"
+      <Row div label={t('apiKey')}><Input type="password" value={endpoint.apiKey} autocomplete="off"
+        placeholder={t('keyIfAsked')}
         onCommit={(key) => andAdopt(() => setKey(key.trim()))} /></Row>
-      <Row div label="Model"><ModelField id="server-model" endpoint={endpoint}
-        served={served} fallback="The one it serves"
+      <Row div label={t('model')}><ModelField id="server-model" endpoint={endpoint}
+        served={served} fallback={t('modelServed')}
         onCommit={(model) => change({ model: model.trim() })} /></Row>
-      <Status of={said.text ? said : served ? note('Answered.', 'ok')
-        : endpoint.baseUrl ? note('Checking…') : NONE} />
+      <Status of={said.text ? said : served ? note(t('answered'), 'ok')
+        : endpoint.baseUrl ? note(t('checking')) : NONE} />
     </div>
   );
 }
@@ -141,22 +145,22 @@ function Cards({ translator, target, packStamp }: Props) {
                 checked={p.id === chosen} disabled={blocked}
                 onChange={() => setProvider(p.id)} />
               <div>
-                <b>{p.label}</b>
+                <b>{t(PROVIDER_NAMES[p.id])}</b>
                 {(BLURBS[p.id] || blocked) && (
                   <p class="blurb">
-                    {BLURBS[p.id]}
-                    {blocked && ' Chrome\'s translator is turned off in this browser.'}
+                    {BLURBS[p.id]?.()}
+                    {blocked && ` ${t('translatorOff')}`}
                   </p>
                 )}
                 {p.id === 'openrouter' && (
                   <div class="fields">
-                    <Row div label={<span>API key — <a href="https://openrouter.ai/keys"
-                      target="_blank">get one</a></span>}>
+                    <Row div label={<span>{tx('apiKeyGetOne', <a href="https://openrouter.ai/keys"
+                      target="_blank">{t('getOne')}</a>)}</span>}>
                       <Input type="password" value={keyring[keyScope(OPENROUTER)] || ''}
                         autocomplete="off" placeholder="sk-or-…"
                         onCommit={(key) => setKey(keyScope(OPENROUTER), key.trim())} />
                     </Row>
-                    <Row div label="Model">
+                    <Row div label={t('model')}>
                       <OpenRouterModel model={openrouterModel} setModel={setOpenrouterModel}
                         wanted={chosen === 'openrouter'} />
                     </Row>

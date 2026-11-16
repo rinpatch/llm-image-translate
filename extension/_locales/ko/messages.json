@@ -1,0 +1,482 @@
+{
+  "locale": {
+    "message": "ko"
+  },
+  "extName": {
+    "message": "LLM Image Translate"
+  },
+  "extDescription": {
+    "message": "이미지 속 텍스트를 내 컴퓨터의 모델이나 온라인 서비스로 번역합니다."
+  },
+  "titleSettings": {
+    "message": "LLM Image Translate 설정"
+  },
+  "titleWelcome": {
+    "message": "LLM Image Translate에 오신 것을 환영합니다"
+  },
+  "historyPerformance": {
+    "message": "기록 및 성능"
+  },
+  "auto": {
+    "message": "자동"
+  },
+  "languages": {
+    "message": "언어"
+  },
+  "translateFrom": {
+    "message": "원본 언어"
+  },
+  "translateInto": {
+    "message": "번역할 언어"
+  },
+  "translator": {
+    "message": "번역기"
+  },
+  "pages": {
+    "message": "페이지"
+  },
+  "settings": {
+    "message": "설정"
+  },
+  "settingsMenu": {
+    "message": "설정…"
+  },
+  "allSettings": {
+    "message": "모든 설정"
+  },
+  "setupGuide": {
+    "message": "설정 가이드"
+  },
+  "back": {
+    "message": "뒤로"
+  },
+  "done": {
+    "message": "완료"
+  },
+  "stop": {
+    "message": "중지"
+  },
+  "cancel": {
+    "message": "취소"
+  },
+  "test": {
+    "message": "테스트"
+  },
+  "checking": {
+    "message": "확인 중…"
+  },
+  "answered": {
+    "message": "응답했습니다."
+  },
+  "tryIt": {
+    "message": "사용해 보기"
+  },
+  "tryBlurb": {
+    "message": "이미지 한 장을 $1(으)로 번역합니다. 이 페이지에 이미지를 끌어다 놓거나 붙여 넣어도 됩니다."
+  },
+  "pastedImage": {
+    "message": "붙여 넣은 이미지"
+  },
+  "samplePage": {
+    "message": "샘플 페이지"
+  },
+  "chooseImage": {
+    "message": "이미지 선택…"
+  },
+  "leftAlone": {
+    "message": "건너뜀: $1"
+  },
+  "clearCache": {
+    "message": "캐시 지우기"
+  },
+  "cacheCleared": {
+    "message": "캐시를 지웠습니다"
+  },
+  "cacheNotCleared": {
+    "message": "캐시를 지우지 못했습니다"
+  },
+  "showTranslations": {
+    "message": "번역 표시"
+  },
+  "showBadge": {
+    "message": "이미지에 배지 표시"
+  },
+  "showBadgeHint": {
+    "message": "⌘ 키(Windows와 Linux에서는 Super 키)를 누르고 있는 동안 배지가 나타납니다."
+  },
+  "debugMode": {
+    "message": "디버그 모드"
+  },
+  "debugHint": {
+    "message": "모든 단계를 콘솔에 기록하고 최근 이미지 몇 장을 $1 페이지용으로 보관합니다."
+  },
+  "regions": {
+    "message": "영역"
+  },
+  "usingPlan": {
+    "message": "ChatGPT 요금제 사용 중"
+  },
+  "usingPlanAs": {
+    "message": "ChatGPT 요금제 사용 중 · $1"
+  },
+  "autoHere": {
+    "message": "$1의 이미지를 자동으로 번역"
+  },
+  "pickModel": {
+    "message": "번역 모델 선택"
+  },
+  "testAndContinue": {
+    "message": "테스트 후 계속"
+  },
+  "tryItOut": {
+    "message": "직접 해 보기"
+  },
+  "useHint": {
+    "message": "이미지 위에서 $1 키를 누른 채 나타나는 $2 를 클릭하세요. 어느 페이지에서나 같습니다. 다시 클릭하면 원본이 보입니다. 툴바 버튼으로 모델과 언어를 바꿀 수 있습니다."
+  },
+  "sampleAlt": {
+    "message": "말풍선에 일본어가 적힌 페이지"
+  },
+  "providerBrowser": {
+    "message": "이 브라우저에서"
+  },
+  "providerOpenrouter": {
+    "message": "OpenRouter"
+  },
+  "providerChatgpt": {
+    "message": "ChatGPT 요금제"
+  },
+  "providerServer": {
+    "message": "OpenAI 호환 서버"
+  },
+  "blurbBrowser": {
+    "message": "Chrome에 내장된 $1를 사용합니다. 무료이고 개인 정보가 보호되지만 다른 선택지보다 번역이 거칩니다."
+  },
+  "blurbChatgpt": {
+    "message": "이 앱의 적격 사용량은 ChatGPT 요금제에서 차감되며 Codex와 같은 사용량을 씁니다. Plus, Pro, Business, Edu, Enterprise에 포함됩니다."
+  },
+  "blurbServer": {
+    "message": "로컬 모델을 실행하고 싶다면 $1를 확인하세요."
+  },
+  "guide": {
+    "message": "가이드"
+  },
+  "translatorOff": {
+    "message": "이 브라우저에서는 Chrome 번역기가 꺼져 있습니다."
+  },
+  "server": {
+    "message": "서버"
+  },
+  "apiKey": {
+    "message": "API 키"
+  },
+  "apiKeyGetOne": {
+    "message": "API 키 — $1"
+  },
+  "getOne": {
+    "message": "발급받기"
+  },
+  "model": {
+    "message": "모델"
+  },
+  "keyIfAsked": {
+    "message": "서버가 요구할 때만"
+  },
+  "modelServed": {
+    "message": "서버가 제공하는 모델"
+  },
+  "anotherLanguage": {
+    "message": "다른 언어"
+  },
+  "languagePacks": {
+    "message": "언어 팩"
+  },
+  "packsBlurb": {
+    "message": "Chrome은 언어마다 한 번만 다운로드합니다."
+  },
+  "useTyped": {
+    "message": "“$1” 사용"
+  },
+  "noMatch": {
+    "message": "일치 항목 없음"
+  },
+  "replaceText": {
+    "message": "텍스트 바꾸기"
+  },
+  "replaceBlurb": {
+    "message": "원문이 있던 자리에 번역을 그려 넣습니다."
+  },
+  "notesTitle": {
+    "message": "이미지 위 메모"
+  },
+  "notesBlurb": {
+    "message": "이미지는 그대로 둡니다. 상자에 마우스를 올리면 번역이 보입니다."
+  },
+  "demoTop": {
+    "message": "어디"
+  },
+  "demoBottom": {
+    "message": "가는 거야?"
+  },
+  "demoNote": {
+    "message": "어디 가는 거야?"
+  },
+  "downloading": {
+    "message": "다운로드 중…"
+  },
+  "downloadingPack": {
+    "message": "$1 팩 다운로드 중…"
+  },
+  "packStalled": {
+    "message": "다운로드되는 것이 없습니다. Helium 등 일부 Chromium 빌드는 Chrome 번역기를 받아 오지 않습니다. 다른 번역기를 선택하세요."
+  },
+  "noBuiltIn": {
+    "message": "이 브라우저에는 내장 번역기가 없습니다."
+  },
+  "packReady": {
+    "message": "준비됨"
+  },
+  "packUnavailable": {
+    "message": "Chrome은 $1에서 $2(으)로 번역할 수 없습니다"
+  },
+  "download": {
+    "message": "다운로드"
+  },
+  "nothingAnswering": {
+    "message": "$1에서 응답이 없습니다."
+  },
+  "gemmaNeedsLlamacpp": {
+    "message": "TranslateGemma에는 llama.cpp의 /completion이 필요하지만 이 서버에는 없습니다."
+  },
+  "modelNotServed": {
+    "message": "이 서버에 $1 모델이 없습니다."
+  },
+  "servesModels_other": {
+    "message": "모델 $1개를 제공합니다. 하나를 선택하세요."
+  },
+  "account": {
+    "message": "계정"
+  },
+  "continueChatgpt": {
+    "message": "ChatGPT로 계속하기"
+  },
+  "manageUsage": {
+    "message": "사용량 관리"
+  },
+  "signOut": {
+    "message": "로그아웃"
+  },
+  "finishSignIn": {
+    "message": "새 탭에서 로그인을 완료하세요…"
+  },
+  "signingIn": {
+    "message": "로그인 중…"
+  },
+  "pasteCallback": {
+    "message": "탭이 오류 페이지에 머물러 있으면 그 주소를 여기에 붙여 넣으세요"
+  },
+  "planWelcomeTitle": {
+    "message": "ChatGPT 요금제를 사용 중입니다"
+  },
+  "planWelcomeBody": {
+    "message": "이 앱의 적격 사용량은 ChatGPT 요금제에서 차감됩니다. 사용량은 $1에서 관리하세요."
+  },
+  "chatgptSettings": {
+    "message": "ChatGPT 설정"
+  },
+  "gotIt": {
+    "message": "확인"
+  },
+  "signInTabClosed": {
+    "message": "로그인 탭이 닫혔습니다."
+  },
+  "planUnavailable": {
+    "message": "이 계정 또는 워크스페이스에서는 ChatGPT 요금제를 사용할 수 없습니다."
+  },
+  "needsServer": {
+    "message": "번역기에 서버가 필요합니다."
+  },
+  "signInFirst": {
+    "message": "먼저 ChatGPT에 로그인하세요."
+  },
+  "needsKey": {
+    "message": "번역기에 $1의 API 키가 필요합니다."
+  },
+  "translating": {
+    "message": "번역 중…"
+  },
+  "elapsed": {
+    "message": "$1… $2"
+  },
+  "stopped": {
+    "message": "중지했습니다."
+  },
+  "blocksTranslated_other": {
+    "message": "블록 $1개 중 $2개를 $3 만에 번역했습니다."
+  },
+  "noTextFound": {
+    "message": "텍스트를 찾지 못했습니다($1)."
+  },
+  "showOriginal": {
+    "message": "원본 보기"
+  },
+  "reading": {
+    "message": "읽는 중…"
+  },
+  "readingTokens": {
+    "message": "읽는 중 · $1 tok"
+  },
+  "tokens": {
+    "message": "$1 tok"
+  },
+  "linesFraction": {
+    "message": "$1/$2줄"
+  },
+  "readingImage": {
+    "message": "이미지 읽는 중"
+  },
+  "translatingWord": {
+    "message": "번역 중"
+  },
+  "linesDone": {
+    "message": "$2줄 중 $1줄 완료"
+  },
+  "tokensSoFar": {
+    "message": "지금까지 $1 토큰"
+  },
+  "andThen": {
+    "message": "$1, $2"
+  },
+  "clickToStop": {
+    "message": "$1. 클릭하면 중지합니다."
+  },
+  "badgeIdle": {
+    "message": "이 이미지의 텍스트 번역"
+  },
+  "badgeShown": {
+    "message": "원본 이미지 보기"
+  },
+  "badgeHidden": {
+    "message": "번역 보기"
+  },
+  "badgeEmpty": {
+    "message": "이 이미지에서 텍스트를 찾지 못했습니다"
+  },
+  "badgeError": {
+    "message": "번역 실패"
+  },
+  "extensionReloaded": {
+    "message": "확장 프로그램이 다시 로드되었습니다. 다시 사용하려면 이 페이지를 새로고침하세요."
+  },
+  "couldNotRead": {
+    "message": "이 이미지를 읽을 수 없습니다"
+  },
+  "history": {
+    "message": "기록"
+  },
+  "nothingYet": {
+    "message": "아직 번역한 것이 없습니다."
+  },
+  "images_other": {
+    "message": "개 이미지"
+  },
+  "failures_other": {
+    "message": "건 실패"
+  },
+  "blockCount_other": {
+    "message": "블록 $1개"
+  },
+  "medianEndToEnd": {
+    "message": "중앙값, 전체 과정"
+  },
+  "slowest": {
+    "message": "가장 느림"
+  },
+  "blocksPerImage": {
+    "message": "이미지당 블록"
+  },
+  "failed": {
+    "message": "실패"
+  },
+  "showRegions": {
+    "message": "영역 보기"
+  },
+  "colTime": {
+    "message": "시간"
+  },
+  "colImage": {
+    "message": "이미지"
+  },
+  "colStages": {
+    "message": "단계"
+  },
+  "colTotal": {
+    "message": "합계"
+  },
+  "noFailures": {
+    "message": "최근 이미지 200개 중 실패는 없습니다."
+  },
+  "failuresOnly": {
+    "message": "실패만"
+  },
+  "forgetHistory": {
+    "message": "기록 지우기"
+  },
+  "stageFetchScale": {
+    "message": "가져오기 및 크기 조정"
+  },
+  "stageFetch": {
+    "message": "가져오기"
+  },
+  "stageDecodeSource": {
+    "message": "원본 디코딩"
+  },
+  "stageScale": {
+    "message": "크기 조정 및 픽셀 읽기"
+  },
+  "stageReaderEncode": {
+    "message": "인식용 인코딩"
+  },
+  "stageRead": {
+    "message": "읽기"
+  },
+  "stageTranslate": {
+    "message": "번역"
+  },
+  "stageLayout": {
+    "message": "레이아웃"
+  },
+  "stageInpaintPast": {
+    "message": "인페인팅 (번역 후 대기)"
+  },
+  "stageInpaintAlongside": {
+    "message": "인페인팅 (병렬)"
+  },
+  "stagePaint": {
+    "message": "그리기"
+  },
+  "stageEncode": {
+    "message": "인코딩"
+  },
+  "stageTtft": {
+    "message": "TTFT"
+  },
+  "stageDecode": {
+    "message": "생성"
+  },
+  "stageOverhead": {
+    "message": "오버헤드"
+  },
+  "fullRequest": {
+    "message": "전체 요청"
+  },
+  "tokRate": {
+    "message": "$1 tok/s"
+  },
+  "tokRateOverall": {
+    "message": "전체 $1 tok/s"
+  },
+  "requests_other": {
+    "message": "요청 $1회"
+  }
+}

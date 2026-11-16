@@ -2,6 +2,7 @@ import {
   type Pending, type Tokens, authorizeUrl, exchange, expiresAt, isCallback, planModels,
   readCallback, refresh, revoke,
 } from '../backends/chatgpt.ts';
+import { t } from './i18n.ts';
 import { CHATGPT_KEY } from './providers.ts';
 import { readSecret, writeSecret } from './secrets.ts';
 import { type Settings, keys, saveKey } from './settings.ts';
@@ -66,7 +67,7 @@ export async function watchTab(pending: Pending, signal: AbortSignal): Promise<s
     const removed = (id: number) => {
       if (id !== tab.id) return;
       stop();
-      reject(new Error('The sign-in tab was closed.'));
+      reject(new Error(t('signInTabClosed')));
     };
     signal.addEventListener('abort', () => {
       stop();
@@ -147,7 +148,7 @@ async function planModel(endpoint: Settings['translator']): Promise<string> {
   const listed = await catalog.models;
   if (!listed) return endpoint.model;
   if (listed.includes(endpoint.model)) return endpoint.model;
-  if (!listed.length) throw new Error('ChatGPT plan usage is unavailable for this account or workspace.');
+  if (!listed.length) throw new Error(t('planUnavailable'));
   return listed[0];
 }
 

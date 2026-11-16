@@ -3,6 +3,7 @@
 // would do with the translator picked.
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { notesFor } from '../content/notes.ts';
+import { t, tn } from '../platform/i18n.ts';
 import { stagesOf } from '../platform/metrics.ts';
 import { sentence } from '../content/progress.ts';
 import { type ImageResult, type Progress, type ProgressMessage } from '../platform/messages.ts';
@@ -51,9 +52,9 @@ export function useTrial() {
       if (msg?.type === 'progress' && msg.jobId === jobId) progress = msg.progress;
     };
     chrome.runtime.onMessage.addListener(hear);
-    const tick = setInterval(() => setTold(note(
-      `${progress ? sentence(progress) : 'Translating'}… ${ms(Date.now() - started)}`)), 100);
-    setTold(note('Translating…'));
+    const tick = setInterval(() => setTold(note(t('elapsed',
+      progress ? sentence(progress) : t('translatingWord'), ms(Date.now() - started)))), 100);
+    setTold(note(t('translating')));
 
     let answer: ImageResult;
     try {
@@ -69,14 +70,14 @@ export function useTrial() {
 
     if (!answer.ok) {
       setResult(null);
-      setTold(answer.code === 'cancelled' ? note('Stopped.') : note(answer.error, 'bad'));
+      setTold(answer.code === 'cancelled' ? note(t('stopped')) : note(answer.error, 'bad'));
       return;
     }
     const shown = answer.blocks.filter((b) => !b.skipped).length;
     setResult(answer);
     setTold(answer.image
-      ? note(`${shown} of ${answer.blocks.length} blocks translated in ${ms(totalOf(answer))}.`, 'ok')
-      : note(`No text found (${ms(totalOf(answer))}).`));
+      ? note(tn('blocksTranslated', answer.blocks.length, shown, ms(totalOf(answer))), 'ok')
+      : note(t('noTextFound', ms(totalOf(answer)))));
   };
 
   const cancel = () => chrome.runtime.sendMessage({ type: 'cancelImage', jobId: job });
@@ -124,7 +125,7 @@ export function TrialImage({ result, notes, before, alt = '' }: {
         <img alt={alt} src={((original || asNotes ? result.original : null) || result.image) as string} />
         {asNotes && !original && <NotesLayer result={result} />}
       </div>
-      <Check label="Show the original" checked={original} onCheck={setOriginal} />
+      <Check label={t('showOriginal')} checked={original} onCheck={setOriginal} />
     </>
   );
 }

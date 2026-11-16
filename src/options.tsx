@@ -1,6 +1,7 @@
 import { render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { LANGUAGES } from './core/language.ts';
+import { languageName, t } from './platform/i18n.ts';
 import { alongside, stagesOf } from './platform/metrics.ts';
 import { type PingResult } from './platform/messages.ts';
 import { blocker } from './platform/ready.ts';
@@ -9,12 +10,13 @@ import {
 } from './platform/settings.ts';
 import { Choices } from './ui/choices.tsx';
 import { Display } from './ui/display.tsx';
-import { NameBox } from './ui/combobox.tsx';
+import { LanguageBox } from './ui/combobox.tsx';
 import { Row, Toggle } from './ui/fields.tsx';
 import { Hero } from './ui/hero.tsx';
 import { Bar, Legend } from './ui/stages.tsx';
 import { NONE, type Note, Status, note } from './ui/status.tsx';
 import { TrialImage, totalOf, useTrial } from './ui/trial.tsx';
+import { setPage, tx } from './ui/text.tsx';
 import { useTranslator } from './ui/translator.ts';
 
 function Trial({ translator, notes, target }: {
@@ -35,7 +37,7 @@ function Trial({ translator, notes, target }: {
       reader.readAsDataURL(picked);
     });
     // The name is only what the history shows; the bytes are in the data URL.
-    await trial.run(picked.name || 'pasted image', dataUrl);
+    await trial.run(picked.name || t('pastedImage'), dataUrl);
   };
 
   // Only an image on the clipboard: pasting a key into a field is still a paste.
@@ -68,15 +70,14 @@ function Trial({ translator, notes, target }: {
         setDropping(false);
         trialFile(e.dataTransfer?.files[0]);
       }}>
-      <h2>Try it</h2>
-      <p class="blurb">Translates one image into {target}. An image dropped or pasted on
-        this page works too.</p>
+      <h2>{t('tryIt')}</h2>
+      <p class="blurb">{t('tryBlurb', languageName(target))}</p>
       <div class="buttons">
         <button type="button" disabled={trial.busy}
-          onClick={() => trial.run(chrome.runtime.getURL('sample.jpg'))}>Sample page</button>
+          onClick={() => trial.run(chrome.runtime.getURL('sample.jpg'))}>{t('samplePage')}</button>
         <button type="button" disabled={trial.busy}
-          onClick={() => file.current!.click()}>Choose an image…</button>
-        {trial.running && <button type="button" onClick={trial.cancel}>Stop</button>}
+          onClick={() => file.current!.click()}>{t('chooseImage')}</button>
+        {trial.running && <button type="button" onClick={trial.cancel}>{t('stop')}</button>}
         <input type="file" ref={file} accept="image/*" hidden onChange={(e) => {
           trialFile(e.currentTarget.files?.[0]);
           e.currentTarget.value = '';
@@ -95,7 +96,7 @@ function Trial({ translator, notes, target }: {
               <li>
                 <div class="src">{b.src}</div>
                 {b.skipped
-                  ? <div class="skipped">Left alone: {b.skipped}</div>
+                  ? <div class="skipped">{t('leftAlone', b.skipped)}</div>
                   : <div>{b.translation}</div>}
               </li>
             ))}
@@ -112,12 +113,12 @@ function PurgeButton() {
     <button type="button" aria-live="polite" disabled={Boolean(said)} onClick={async () => {
       try {
         await purgeResults();
-        setSaid('Cache cleared');
+        setSaid(t('cacheCleared'));
       } catch {
-        setSaid('Could not clear cache');
+        setSaid(t('cacheNotCleared'));
       }
       setTimeout(() => setSaid(''), 1500);
-    }}>{said || 'Clear cache'}</button>
+    }}>{said || t('clearCache')}</button>
   );
 }
 
@@ -147,10 +148,10 @@ function Options() {
     // OpenRouter lists its models for anyone, so a missing key would pass.
     const blocked = blocker(translator.translator!);
     if (blocked) return setTested(note(blocked, 'bad'));
-    setTested(note('Checking…'));
+    setTested(note(t('checking')));
     const ping: PingResult = await chrome.runtime.sendMessage({ type: 'ping' });
     setTested(ping.error ? note(ping.error[0].toUpperCase() + ping.error.slice(1), 'bad')
-      : note('Answered.', 'ok'));
+      : note(t('answered'), 'ok'));
   };
 
   const pick = (key: 'source' | 'target') => (name: string) => {
@@ -168,48 +169,48 @@ function Options() {
       <Hero />
 
       <section>
-        <h2>Languages</h2>
-        <Row label="Translate from">
-          <NameBox names={['Auto', ...LANGUAGES]} value={stored.source} onPick={pick('source')} />
+        <h2>{t('languages')}</h2>
+        <Row label={t('translateFrom')}>
+          <LanguageBox names={['Auto', ...LANGUAGES]} value={stored.source} onPick={pick('source')} />
         </Row>
-        <Row label="Translate into">
-          <NameBox names={LANGUAGES} value={stored.target} onPick={pick('target')} />
+        <Row label={t('translateInto')}>
+          <LanguageBox names={LANGUAGES} value={stored.target} onPick={pick('target')} />
         </Row>
       </section>
 
       <section>
-        <h2>Translator</h2>
+        <h2>{t('translator')}</h2>
         <Choices translator={translator} target={stored.target} />
       </section>
 
       <Trial translator={translator.translator} notes={stored.notes} target={stored.target} />
 
       <section>
-        <h2>Pages</h2>
-        <Row div label="Show translations">
+        <h2>{t('pages')}</h2>
+        <Row div label={t('showTranslations')}>
           <Display notes={stored.notes} onPick={flag('notes')} />
         </Row>
-        <Toggle on={stored.images} set={flag('images')} label="Show a badge on images">
-          The badge appears while ⌘ is held (Super on Windows and Linux).
+        <Toggle on={stored.images} set={flag('images')} label={t('showBadge')}>
+          {t('showBadgeHint')}
         </Toggle>
-        <Toggle on={stored.debug} set={flag('debug')} label="Debug mode">
-          Logs every stage to the console and keeps the last few images
-          for <a href="debug.html">Regions</a>.
+        <Toggle on={stored.debug} set={flag('debug')} label={t('debugMode')}>
+          {tx('debugHint', <a href="debug.html">{t('regions')}</a>)}
         </Toggle>
       </section>
 
       <footer>
         <div class="rule">
           <div class="buttons">
-            <button type="button" onClick={test}>Test</button>
+            <button type="button" onClick={test}>{t('test')}</button>
             <PurgeButton />
             <Status of={tested} live />
           </div>
-          <span><a href="welcome.html">Setup guide</a> · <a href="stats.html">History &amp; Performance →</a></span>
+          <span><a href="welcome.html">{t('setupGuide')}</a> · <a href="stats.html">{t('historyPerformance')} →</a></span>
         </div>
       </footer>
     </>
   );
 }
 
+setPage(t('titleSettings'));
 render(<Options />, document.getElementById('app')!);

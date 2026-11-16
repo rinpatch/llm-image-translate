@@ -1,5 +1,6 @@
 // A badge per <img>, in the shape videospeed puts one on a <video>.
 import { type Progress } from '../platform/messages.ts';
+import { t } from '../platform/i18n.ts';
 import { fraction, label, sentence } from './progress.ts';
 
 const MIN_SIDE = 96;
@@ -300,7 +301,7 @@ export class BadgeLayer {
     badge.style.setProperty('--done', `${Math.round((filled || 0) * 100)}%`);
     badge.textContent = progress ? label(progress)
       : ({ working: '…', error: '!' } as Record<string, string>)[status] || 'T';
-    badge.title = progress ? `${sentence(progress)}. Click to stop.` : c.title;
+    badge.title = progress ? t('clickToStop', sentence(progress)) : c.title;
   }
 
   private modifier = (e: KeyboardEvent): void => this.arm(e.metaKey);

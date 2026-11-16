@@ -4,9 +4,11 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { beginSignIn, completeSignIn, signOut, signedInAs, watchTab, welcomeOnce }
   from '../platform/chatgpt.ts';
+import { t } from '../platform/i18n.ts';
 import { useAsync } from './async.ts';
 import { Input, Row } from './fields.tsx';
 import { NONE, type Note, Status, note } from './status.tsx';
+import { tx } from './text.tsx';
 
 // The wording, the logo and the usage link are all OpenAI's, from
 // https://developers.openai.com/siwc/ui-ux-guidelines
@@ -34,7 +36,7 @@ export function SignIn({ token, setKey, div }: {
     const controller = new AbortController();
     attempt.current = controller;
     setWaiting(true);
-    setSaid(note('Finish signing in in the new tab…'));
+    setSaid(note(t('finishSignIn')));
     try {
       const pending = await beginSignIn();
       const pasted = new Promise<string>((resolve) => { paste.current = resolve; });
@@ -42,7 +44,7 @@ export function SignIn({ token, setKey, div }: {
       const url = await Promise.race(
         [watchTab(pending, AbortSignal.any([controller.signal, tab.signal])), pasted]);
       tab.abort();
-      setSaid(note('Signing in…'));
+      setSaid(note(t('signingIn')));
       setKey(await completeSignIn(pending, url));
       setSaid(NONE);
       if (await welcomeOnce()) welcome.current?.showModal();
@@ -59,12 +61,12 @@ export function SignIn({ token, setKey, div }: {
   const body = token && !waiting
     ? (
       <div class="field">
-        <span>Account</span>
+        <span>{t('account')}</span>
         <div class="signed">
-          <Status span of={note(`Using ChatGPT plan${email ? ` · ${email}` : ''}`, 'ok')} />
-          <a href={USAGE} target="_blank">Manage usage</a>
+          <Status span of={note(email ? t('usingPlanAs', email) : t('usingPlan'), 'ok')} />
+          <a href={USAGE} target="_blank">{t('manageUsage')}</a>
           <button type="button" class="link" onClick={async () => { await signOut(); setKey(''); }}>
-            Sign out
+            {t('signOut')}
           </button>
         </div>
       </div>
@@ -72,17 +74,17 @@ export function SignIn({ token, setKey, div }: {
     : (
       <>
         <div class="field">
-          <span>Account</span>
+          <span>{t('account')}</span>
           <div class="buttons">
             {waiting
-              ? <button type="button" onClick={() => attempt.current?.abort()}>Cancel</button>
+              ? <button type="button" onClick={() => attempt.current?.abort()}>{t('cancel')}</button>
               : <button type="button" class="chatgpt" onClick={start}>
-                {LOGO}Continue with ChatGPT</button>}
+                {LOGO}{t('continueChatgpt')}</button>}
           </div>
         </div>
         <Status of={said} live />
         {waiting && (
-          <Row div={div} label="If the tab stays open on an error page, paste its address here">
+          <Row div={div} label={t('pasteCallback')}>
             <Input type="url" value="" autocomplete="off" spellcheck={false}
               placeholder="http://127.0.0.1:…/callback?code=…"
               onCommit={(url) => paste.current(url.trim())} />
@@ -95,10 +97,9 @@ export function SignIn({ token, setKey, div }: {
     <>
       {body}
       <dialog ref={welcome} class="welcome">
-        <h2>You're using your ChatGPT plan</h2>
-        <p>Eligible usage in this app uses your ChatGPT plan. Manage usage in
-          your <a href={USAGE} target="_blank">ChatGPT settings</a>.</p>
-        <form method="dialog"><button class="primary">Got it</button></form>
+        <h2>{t('planWelcomeTitle')}</h2>
+        <p>{tx('planWelcomeBody', <a href={USAGE} target="_blank">{t('chatgptSettings')}</a>)}</p>
+        <form method="dialog"><button class="primary">{t('gotIt')}</button></form>
       </dialog>
     </>
   );

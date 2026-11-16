@@ -2,6 +2,7 @@
 // welcome page and the settings page. A sentence about "notes" means nothing to
 // someone who has not used Danbooru; the picture of one does.
 import { type ComponentChildren } from 'preact';
+import { t } from '../platform/i18n.ts';
 
 // The panel is a picture of an image, so it stays black on white in a dark theme.
 const Panel = ({ children }: { children: ComponentChildren }) => (
@@ -27,8 +28,8 @@ const Original = () => (
 const Replaced = () => (
   <Panel>
     <g font-size="14" fill="#000" text-anchor="middle" font-family="sans-serif">
-      <text x="90" y="44">Where are</text>
-      <text x="90" y="62">you going?</text>
+      <text x="90" y="44">{t('demoTop')}</text>
+      <text x="90" y="62">{t('demoBottom')}</text>
     </g>
   </Panel>
 );
@@ -39,22 +40,20 @@ const Noted = () => (
     <Original />
     <rect x="64" y="20" width="54" height="62" fill="rgba(255,255,238,.5)" stroke="#000" />
     <rect x="64" y="88" width="128" height="22" fill="#ffe" stroke="#000" />
-    <text x="70" y="103" font-size="12" fill="#000" font-family="sans-serif">Where are you going?</text>
+    <text x="70" y="103" font-size="12" fill="#000" font-family="sans-serif">{t('demoNote')}</text>
     <path d="M111 58 L 111 74 L 115 70 L 118 77 L 121 76 L 118 69 L 123 69 Z"
       fill="#000" stroke="#fff" stroke-width="1" stroke-linejoin="round" />
   </Panel>
 );
 
 const CARDS = [
-  { notes: false, title: 'Replace the text', picture: <Replaced />,
-    blurb: 'The translation is painted into the image where the original was.' },
-  { notes: true, title: 'Notes over the image', picture: <Noted />,
-    blurb: 'The image stays as it is. Hover a box to read its translation.' },
+  { notes: false, title: t('replaceText'), picture: <Replaced />, blurb: t('replaceBlurb') },
+  { notes: true, title: t('notesTitle'), picture: <Noted />, blurb: t('notesBlurb') },
 ];
 
 export function Display({ notes, onPick }: { notes: boolean; onPick: (notes: boolean) => void }) {
   return (
-    <div class="display" role="radiogroup" aria-label="Show translations">
+    <div class="display" role="radiogroup" aria-label={t('showTranslations')}>
       {CARDS.map((card) => (
         <label class="choice">
           <input type="radio" name="display" checked={notes === card.notes}
