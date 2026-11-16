@@ -1,7 +1,7 @@
 import { render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { LANGUAGES } from './core/language.ts';
-import { stagesOf } from './platform/metrics.ts';
+import { alongside, stagesOf } from './platform/metrics.ts';
 import { type PingResult } from './platform/messages.ts';
 import { blocker } from './platform/ready.ts';
 import {
@@ -54,6 +54,7 @@ function Trial({ translator, notes, target }: {
 
   const { result } = trial;
   const stages = result ? stagesOf(result.timings) : [];
+  const spans = result ? alongside(result.timings) : [];
 
   return (
     <section id="try" class={dropping ? 'dropping' : ''}
@@ -85,8 +86,8 @@ function Trial({ translator, notes, target }: {
       {result?.image && (
         <div>
           <div id="try-stages">
-            <Bar stages={stages} scale={totalOf(result)} tall />
-            <Legend stages={stages} />
+            <Bar stages={stages} scale={totalOf(result)} tall spans={spans} />
+            <Legend stages={stages} spans={spans} />
           </div>
           <TrialImage result={result} notes={notes} />
           <ol id="try-blocks">

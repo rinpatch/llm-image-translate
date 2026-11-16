@@ -41,13 +41,33 @@ export interface StageRow {
   parts?: StageRow[];
 }
 
+/**
+ * Work that ran beside the stages rather than between them, placed by when it
+ * started. On the bar it would make the stages add up to more than the run.
+ */
+export interface Span {
+  key: string;
+  label: string;
+  from: number;
+  ms: number;
+}
+
+/** What ran alongside `run`'s stages: so far only the inpainter, beside translation. */
+export function alongside(run: Timings): Span[] {
+  if (run.inpaint_from_ms === undefined || run.inpaint_ms === undefined) return [];
+  return [{ key: 'inpaint', label: 'Inpaint, alongside', from: run.inpaint_from_ms,
+            ms: run.inpaint_ms }];
+}
+
 type PlainField = 'fetch_ms' | 'decode_ms' | 'scale_ms' | 'reader_encode_ms'
-  | 'layout_ms' | 'paint_ms' | 'encode_ms';
+  | 'layout_ms' | 'inpaint_wait_ms' | 'paint_ms' | 'encode_ms';
 
 interface PlainStage {
   key: string;
   label: string;
   field: PlainField;
+  /** Left off the bar, rather than shown as nought, where no run did it. */
+  optional?: boolean;
 }
 
 const IMAGE_PARTS: PlainStage[] = [
@@ -60,6 +80,10 @@ const IMAGE_PARTS: PlainStage[] = [
 /** Only reached by an image that had text in it. */
 const AFTER_MODELS: PlainStage[] = [
   { key: 'layout', label: 'Lay out', field: 'layout_ms' },
+  // Only the wait, so the bar still adds up to the whole: the inpainter runs
+  // while the translation does, and that part cost nothing.
+  { key: 'inpaint', label: 'Inpaint, past translation', field: 'inpaint_wait_ms',
+    optional: true },
   { key: 'paint', label: 'Paint', field: 'paint_ms' },
   { key: 'encode', label: 'Encode', field: 'encode_ms' },
 ];
@@ -110,7 +134,8 @@ export function stagesOf(
     modelStage('read', 'Read', run.read, rates.read ?? rate(run.read)),
     modelStage('translate', 'Translate', run.translate,
       rates.translate ?? rate(run.translate)),
-    ...AFTER_MODELS.map(plain),
+    ...AFTER_MODELS.filter((stage) => !stage.optional || run[stage.field] !== undefined)
+      .map(plain),
   ].filter((stage): stage is StageRow => Boolean(stage));
 }
 
@@ -215,7 +240,10 @@ function summarise(profile: string, all: Run[]): ProfileReport {
     translate: medianStage(full, (run) => run.translate),
   };
   for (const { field } of IMAGE_PARTS) typical[field] = pick(runs, (run) => run[field]) ?? 0;
-  for (const { field } of AFTER_MODELS) typical[field] = pick(full, (run) => run[field]) ?? 0;
+  for (const { field, optional } of AFTER_MODELS) {
+    const value = pick(full, (run) => run[field]);
+    if (value !== undefined || !optional) typical[field] = value ?? 0;
+  }
   return {
     profile,
     runs: runs.length,

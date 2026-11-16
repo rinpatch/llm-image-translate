@@ -4,7 +4,7 @@ import assert from 'node:assert';
 import { send } from '../src/backends/client.ts';
 import { chatLines } from '../src/backends/translate/chat-lines.ts';
 import { type Timings } from '../src/platform/messages.ts';
-import { type ProfileReport, clear, entries, record, report }
+import { type ProfileReport, alongside, clear, entries, record, report }
   from '../src/platform/metrics.ts';
 
 const lines = chatLines.build(['x'], 'Chinese', 'English');
@@ -188,4 +188,22 @@ test('a profile that has only ever failed still says so', async () => {
   const hosted = out.profiles.find((p) => p.profile === 'Hosted')!;
   assert.deepEqual([hosted.runs, hosted.failed, hosted.total_ms], [0, 1, 0]);
   assert.equal(out.failed, 1);
+});
+
+test('inpainting shows only the wait it added past the translation', async () => {
+  stubStorage();
+  await clear();
+  await done(500, { inpaint_ms: 900, inpaint_wait_ms: 300 });
+  const stage = (await only()).stages.find((s) => s.key === 'inpaint');
+  assert.equal(stage?.ms, 300, 'the 600ms under the translation cost nothing');
+});
+
+test('the inpainter is drawn where it ran, beside the stages it overlapped', async () => {
+  stubStorage();
+  await clear();
+  await done(500, { inpaint_from_ms: 120, inpaint_ms: 900, inpaint_wait_ms: 300 });
+  const [latest] = await entries();
+  assert.deepEqual(alongside(latest), [{ key: 'inpaint', label: 'Inpaint, alongside',
+    from: 120, ms: 900 }]);
+  assert.deepEqual(alongside(run(500)), [], 'nothing beside a run that did not inpaint');
 });

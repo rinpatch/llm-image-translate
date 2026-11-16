@@ -192,6 +192,59 @@ agent-browser eval "(async () => {
 
 `node tools/bench-readers.ts` scores it against known pages; see above.
 
+## The inpainter
+
+Every block's words are inpainted away: manga-image-translator's AOT-GAN,
+22 MB, trained on manga pages. `tools/fetch-inpaint-model.sh` exports it from
+their checkpoint, which needs torch through uv. It's optional, and the release
+zips leave it out (see `scripts/package.sh`).
+
+Inpainting only the blocks that looked like they sat on art was tried first,
+and it missed: grey screentone on a black-and-white page lies on the line
+between paper and ink, so no test of the box's colours can tell it from the
+antialiasing on a glyph's edge. Translucent bubbles on greyscale pages then got
+a white rectangle. On the fixtures, inpainting everything came out the same or
+better on every page. On a tweet or a chat bubble it hands back exactly what
+the flat fill would. The mask is all the ink in the box, measured against the
+paper (below). It starts from the source image, not the flat-filled one, which
+has already painted the glyphs over.
+
+The flat fill is what shows without the model, or while the inpainter is still
+running and a streamed partial wants painting. It paints only the glyphs, in the
+colour read along the inside edge of the box. Strokes that run past a margin
+around the box are left alone, because they're the bubble's outline or the
+drawing beyond it. So a box can cross a bubble's edge without covering it.
+Two things came out of the fixtures:
+
+- **Paper comes from inside the box, not the ring outside.** On manga the ring
+  lands on the art around a bubble and comes out bluish grey. Not the commonest
+  colour in the whole box either: on lettering filled white and outlined in
+  colour (`banner-large`), that is the letters' own fill.
+- **If more ink crosses the margin than stays inside, the box is filled whole.**
+  That covers white letters stroked black straight onto a photo
+  (`korean-caption`): nothing around them is paper, so every glyph looks like
+  an outline. Text on paper keeps 8–57% of its box as glyphs; the failures kept
+  none.
+
+Every block copies from one composite. Copying a block's surroundings from a
+picture its neighbour wasn't cleaned in puts the neighbour's words back along
+the seam.
+
+It runs in the offscreen document, in the same queue as reads, in parallel with
+translation: about 1–1.5 s for a manga page on WebGPU, one model call per
+cluster of blocks. The stats page draws that run on a lane under the stages
+(`alongside` in `src/platform/metrics.ts`). On the main bar it shows only as
+"Inpaint, past translation", the time painting waited for it once the
+translation was in. With a slow local translator that is nothing. With Chrome's
+translator it is most of the inpainter's time. Two traps:
+
+- **No `convertToBlob` in the offscreen document.** It is never visible, and in
+  a hidden document that call waits about a second for a frame, every time.
+  The reply is encoded through a DOM canvas's `toDataURL` instead (4 ms).
+- **Nothing under ~68 px a side.** The graph dilates by 16 at quarter scale
+  and pads by reflection, which throws on anything smaller. `regionsFor` asks
+  for 128 and `aot.ts` scales anything smaller up.
+
 ## Chrome's own translator
 
 `chrome-translator` hands the lines to Chrome's Translator API, in the offscreen

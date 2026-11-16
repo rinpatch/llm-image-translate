@@ -20,6 +20,7 @@
   --seg-read: #35618e;
   --seg-translate: #2f8f83;
   --seg-layout: #b08130;
+  --seg-inpaint: #5f8a3a;
   --seg-paint: #7b5ea7;
   --seg-encode: #ab5a6c;
 
@@ -43,6 +44,7 @@
     --seg-read: #5b8fd0;
     --seg-translate: #48b3a4;
     --seg-layout: #d3a04a;
+    --seg-inpaint: #86b85c;
     --seg-paint: #9b82c7;
     --seg-encode: #cf7c8e;
   }
@@ -172,12 +174,18 @@ a { color: var(--accent); }
 .bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden;
        background: var(--sunken); }
 .bar i { display: block; min-width: 1px; }
-.bar.tall { height: 16px; border-radius: var(--radius); margin: 4px 0 14px; }
+.timeline.tall { margin: 4px 0 14px; }
+.timeline.tall .bar { height: 16px; border-radius: var(--radius); }
+/* Work that ran beside the stages, at the time it ran. */
+.lane { position: relative; height: 4px; margin-top: 2px; }
+.lane i { position: absolute; top: 0; bottom: 0; min-width: 1px; border-radius: 2px; }
+.timeline.tall .lane { height: 6px; margin-top: 3px; }
 
 .seg-fetch { background: var(--seg-fetch); }
 .seg-read { background: var(--seg-read); }
 .seg-translate { background: var(--seg-translate); }
 .seg-layout { background: var(--seg-layout); }
+.seg-inpaint { background: var(--seg-inpaint); }
 .seg-paint { background: var(--seg-paint); }
 .seg-encode { background: var(--seg-encode); }
 
@@ -185,6 +193,7 @@ a { color: var(--accent); }
           align-items: center; font-size: 12px; max-width: 320px; }
 .legend i { width: 9px; height: 9px; border-radius: 2px; }
 .legend .num { color: var(--muted); }
+.legend i.parallel { height: 4px; }
 .legend i.substage { width: 5px; height: 5px; margin-left: 2px; opacity: .55; }
 .legend .substage-label { padding-left: 4px; color: var(--muted); }
 .legend .substage-value { opacity: .8; }

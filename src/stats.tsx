@@ -1,7 +1,7 @@
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
 import {
-  type ProfileReport, type Report, type Run, stagesOf,
+  alongside, type ProfileReport, type Report, type Run, stagesOf,
 } from './platform/metrics.ts';
 import { kept } from './platform/traces.ts';
 import { useAsync } from './ui/async.ts';
@@ -47,14 +47,14 @@ function HistoryRow({ run, scale, traced }: { run: Run; scale: number; traced: b
         <td class="twist">{open ? '▾' : '▸'}</td>
         <td class="when num" title={new Date(run.at).toLocaleString()}>{clock(run.at)}</td>
         <td class="where" title={run.url}>{run.url}</td>
-        <td class="shape"><Bar stages={stagesOf(run)} scale={scale} /></td>
+        <td class="shape"><Bar stages={stagesOf(run)} scale={scale} spans={alongside(run)} /></td>
         <td class="total num">{run.total_ms ? ms(run.total_ms) : '—'}</td>
         <td class="what">{run.ok ? plural(run.blocks ?? 0, 'block') : (run.code || 'failed')}</td>
       </tr>
       {open && (
         <tr class="detail">
           <td colSpan={6}>
-            {run.ok && <Legend stages={stagesOf(run)} />}
+            {run.ok && <Legend stages={stagesOf(run)} spans={alongside(run)} />}
             {run.error && <div class="why">{run.error}</div>}
             {traced && <a class="regions" href={`debug.html#${run.trace}`}>Show regions →</a>}
           </td>
