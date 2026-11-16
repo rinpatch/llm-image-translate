@@ -5,6 +5,10 @@ import { fraction, label, sentence } from './progress.ts';
 
 const MIN_SIDE = 96;
 const SYNC_MS = 400;
+// How far ahead an auto translation starts, as a share of the window: a screen
+// back for scrolling up, three ahead. A webtoon strip is 1600px and takes about
+// half a second on a local model, so 200px had it start as it came into view.
+const REACH = '100% 0px 300% 0px';
 
 const STYLE = `
 .badge {
@@ -38,6 +42,8 @@ interface Controller {
   /** How far a translation has got, while one is running. */
   progress: Progress | null;
   offscreen: boolean;
+  /** Within REACH, which is further out than `offscreen` looks. */
+  near: boolean;
   /** Laid over the image and kept on it, beneath the badge. */
   overlay: HTMLElement | null;
 }
@@ -48,6 +54,7 @@ export class BadgeLayer {
   private host: HTMLDivElement | null = null;
   private surface: HTMLDivElement | null = null;
   private visibility: IntersectionObserver | null = null;
+  private reach: IntersectionObserver | null = null;
   private sizes: ResizeObserver | null = null;
   private mutations: MutationObserver | null = null;
   private ticker: ReturnType<typeof setInterval> | null = null;
@@ -75,9 +82,19 @@ export class BadgeLayer {
         if (!c) continue;
         c.offscreen = !entry.isIntersecting;
         this.place(entry.target as HTMLImageElement);
-        this.onSight(entry.target as HTMLImageElement, entry.isIntersecting);
       }
     }, { rootMargin: '200px' });
+
+    // Apart from the one above, because every image that one counts as near is
+    // placed again on each scroll frame.
+    this.reach = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        const c = this.controllers.get(entry.target as HTMLImageElement);
+        if (!c) continue;
+        c.near = entry.isIntersecting;
+        this.onSight(entry.target as HTMLImageElement, entry.isIntersecting);
+      }
+    }, { rootMargin: REACH });
 
     this.sizes = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -128,14 +145,15 @@ export class BadgeLayer {
     for (const img of new Set([...this.controllers.keys(), ...this.candidates])) this.detach(img);
     this.mutations?.disconnect();
     this.visibility?.disconnect();
+    this.reach?.disconnect();
     this.sizes?.disconnect();
-    this.mutations = this.visibility = null;
+    this.mutations = this.visibility = this.reach = null;
     this.sizes = null;
   }
 
-  /** The images with badges that are on screen or nearly. */
+  /** The images with badges within REACH of the screen. */
   near(): HTMLImageElement[] {
-    return [...this.controllers].filter(([, c]) => !c.offscreen).map(([img]) => img);
+    return [...this.controllers].filter(([, c]) => c.near).map(([img]) => img);
   }
 
   rescan(): void {
@@ -226,8 +244,10 @@ export class BadgeLayer {
     });
     this.surface!.append(badge);
     this.controllers.set(img,
-      { badge, status: 'idle', title: '', progress: null, offscreen: false, overlay: null });
+      { badge, status: 'idle', title: '', progress: null, offscreen: false, near: false,
+        overlay: null });
     this.visibility?.observe(img);
+    this.reach?.observe(img);
     this.sizes?.observe(img);
     this.place(img);
     this.render(img);
@@ -239,6 +259,7 @@ export class BadgeLayer {
     this.controllers.delete(img);
     this.candidates.delete(img);
     this.visibility?.unobserve(img);
+    this.reach?.unobserve(img);
     this.sizes?.unobserve(img);
   }
 
