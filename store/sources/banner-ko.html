@@ -1,0 +1,31 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; }
+  body { width: 1200px; height: 520px; overflow: hidden; color: #fff;
+    font-family: "Apple SD Gothic Neo", sans-serif;
+    background: radial-gradient(circle at 85% 50%, #ffb25b 0, transparent 40%),
+      linear-gradient(110deg, #e8222e, #ff5a36 60%, #ff8a3d); }
+  .wrap { position: absolute; left: 80px; top: 70px; }
+  .badge { display: inline-block; background: #ffe14d; color: #c4141f; font-weight: 800;
+    font-size: 34px; padding: 8px 24px; border-radius: 10px; transform: rotate(-3deg); }
+  h1 { font-size: 92px; margin: 24px 0 6px; font-weight: 900; letter-spacing: .06em;
+    text-shadow: 0 6px 0 #b3121c; }
+  .sub { font-size: 48px; font-weight: 700; margin: 0 0 34px; }
+  .btn { display: inline-block; background: #fff; color: #e8222e; font-size: 38px; font-weight: 800;
+    padding: 16px 48px; border-radius: 999px; box-shadow: 0 8px 0 #b3121c; }
+  .gift { position: absolute; right: 130px; top: 150px; width: 240px; height: 210px;
+    background: #ffe14d; border-radius: 14px 14px 26px 26px; box-shadow: 0 16px 0 #d1a90f; }
+  .gift::before { content: ""; position: absolute; left: 60px; top: -70px; width: 120px; height: 120px;
+    border: 16px solid #c4141f; border-bottom: 0; border-radius: 70px 70px 0 0; box-sizing: border-box; }
+  .tag { position: absolute; right: 90px; bottom: 60px; font-size: 32px; font-weight: 700;
+    background: rgb(0 0 0 / .18); padding: 10px 26px; border-radius: 999px; }
+</style>
+<div class="wrap">
+  <span class="badge">블랙프라이데이 한정</span>
+  <h1>전 상품 무료배송</h1>
+  <p class="sub">기간 한정 최대 50% 할인</p>
+  <span class="btn">지금 구매하기 →</span>
+</div>
+<div class="gift"></div>
+<span class="tag">5만원 이상 구매 시 5천원 할인</span>

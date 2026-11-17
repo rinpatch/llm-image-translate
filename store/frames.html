@@ -1,0 +1,193 @@
+<!doctype html>
+<meta charset="utf-8">
+<!-- Store images. Open as frames.html?lang=en#f1 at the frame's size and screenshot it:
+     f1–f5 are 1280x800 screenshots, tile is 440x280, marquee is 1400x560. -->
+<script src="strings.js"></script>
+<style>
+  :root { --ink: #1d2433; --muted: #5d6677; --navy: #35618e; --paper: #f6f2ea; --line: #e3dccd; }
+  html, body { margin: 0; }
+  body { font-family: -apple-system, "SF Pro Display", "Helvetica Neue", "Hiragino Sans",
+      "PingFang SC", sans-serif; color: var(--ink); background: var(--paper); }
+  .frame { display: none; position: relative; overflow: hidden; box-sizing: border-box;
+    width: 1280px; height: 800px; padding: 72px; }
+  .frame:target { display: flex; gap: 56px; align-items: center; }
+  .frame::before { content: ""; position: absolute; inset: auto -120px -160px auto; width: 560px;
+    height: 560px; border-radius: 50%; background: #e7dfcf; z-index: 0; }
+  .frame > * { position: relative; z-index: 1; }
+  .copy { width: 440px; flex: none; }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 600; color: var(--navy);
+    font-size: 20px; margin-bottom: 34px; }
+  .brand img { width: 40px; height: 40px; }
+  h1 { font-size: 54px; line-height: 1.08; letter-spacing: -.02em; margin: 0 0 24px; text-wrap: balance; }
+  p { font-size: 22px; line-height: 1.5; color: var(--muted); margin: 0; }
+  ul { list-style: none; margin: 8px 0 0; padding: 0; }
+  li { margin: 0 0 20px; padding-left: 26px; position: relative; }
+  li::before { content: ""; position: absolute; left: 0; top: 10px; width: 10px; height: 10px;
+    border-radius: 50%; background: var(--navy); }
+  li b { display: block; font-size: 22px; margin-bottom: 3px; }
+  li span { font-size: 18px; color: var(--muted); line-height: 1.4; }
+  .visual { flex: 1; height: 100%; position: relative; }
+  .pic { position: absolute; border-radius: 14px; overflow: hidden; background: #fff;
+    box-shadow: 0 18px 50px rgb(40 30 10 / .16), 0 0 0 1px rgb(0 0 0 / .05); }
+  .pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+  .label { position: absolute; bottom: 12px; left: 12px; z-index: 2; background: rgb(29 36 51 / .82);
+    color: #fff; font-size: 14px; font-weight: 600; padding: 5px 11px; border-radius: 999px;
+    letter-spacing: .02em; }
+  .label.after { background: var(--navy); }
+  .tr .label { bottom: auto; left: auto; top: 12px; right: 12px; }
+  /* One image, the original left of the line and the translation right of it.
+     --at is where the line falls; --y shifts both pictures up by the same amount. */
+  .split { position: absolute; border-radius: 14px; overflow: hidden; background: #fff;
+    box-shadow: 0 18px 50px rgb(40 30 10 / .16), 0 0 0 1px rgb(0 0 0 / .05); }
+  .split img { position: absolute; left: 0; top: var(--y, 0); width: 100%; }
+  .split img + img { clip-path: inset(0 0 0 var(--at, 50%)); }
+  .split .bar { position: absolute; top: 0; bottom: 0; left: var(--at, 50%); width: 3px;
+    margin-left: -1.5px; background: #fff; box-shadow: 0 0 6px rgb(0 0 0 / .35); z-index: 2; }
+  .split .knob { position: absolute; top: 50%; left: var(--at, 50%); width: 44px; height: 44px;
+    margin: -22px 0 0 -22px; border-radius: 50%; background: #fff; z-index: 3; color: var(--navy);
+    display: grid; place-items: center; font-size: 18px; font-weight: 700; letter-spacing: 2px;
+    box-shadow: 0 4px 14px rgb(0 0 0 / .3); }
+  .split .label { z-index: 4; }
+  .split .label.after { left: auto; right: 12px; }
+  .split.tr .label { top: 12px; bottom: auto; }
+  /* Both whole pictures in one card, split by the same white line: for text that a
+     slider would cut in half. */
+  .pair { position: absolute; display: flex; gap: 3px; background: #fff; border-radius: 14px;
+    overflow: hidden; box-shadow: 0 18px 50px rgb(40 30 10 / .16), 0 0 0 1px rgb(0 0 0 / .05); }
+  .pair.stack { flex-direction: column; }
+  .pair > div { position: relative; flex: 1; overflow: hidden; }
+  .pair img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+  .pair .label { top: 10px; bottom: auto; }
+  .pic.after-only .label { top: auto; bottom: 12px; }
+  /* The extension's own UI, cut at the element so it keeps its own edges. */
+  .ui { position: absolute; display: block; border-radius: 8px;
+    box-shadow: 0 18px 50px rgb(40 30 10 / .18), 0 0 0 1px rgb(0 0 0 / .06); }
+
+  /* tile and marquee */
+  #tile:target, #marquee:target { display: flex; }
+  #tile { width: 440px; height: 280px; padding: 26px; gap: 18px; align-items: center; }
+  #tile .copy { width: 200px; }
+  #tile .brand { font-size: 13px; margin-bottom: 14px; gap: 8px; }
+  #tile .brand img { width: 28px; height: 28px; }
+  #tile h1 { font-size: 25px; margin-bottom: 10px; }
+  #tile p { font-size: 12.5px; line-height: 1.4; }
+  #tile::before { width: 260px; height: 260px; inset: auto -70px -110px auto; }
+  #marquee { width: 1400px; height: 560px; padding: 64px 72px; gap: 56px; align-items: center; }
+  #marquee .copy { width: 500px; }
+  #marquee h1 { font-size: 58px; }
+</style>
+
+<section class="frame" id="f1">
+  <div class="copy">
+    <div class="brand"><img src="../extension/icons/icon.svg">LLM Image Translate</div>
+    <h1 data-t="f1h"></h1><p data-t="f1p"></p>
+  </div>
+  <div class="visual">
+    <div class="split" style="left:10px;top:70px;width:620px;height:511px;--at:50%;--y:-1116px">
+      <img src="sources/webtoon.png"><img src="sources/webtoon-en.png">
+      <div class="bar"></div><div class="knob">‹›</div>
+      <span class="label" data-t="before"></span><span class="label after" data-t="after"></span></div>
+  </div>
+</section>
+
+<section class="frame" id="f2">
+  <div class="copy">
+    <div class="brand"><img src="../extension/icons/icon.svg">LLM Image Translate</div>
+    <h1 data-t="f2h"></h1><p data-t="f2p"></p>
+  </div>
+  <div class="visual">
+    <div class="pic after-only" style="left:250px;top:10px;width:330px;height:412px;transform:rotate(3deg)">
+      <span class="label after" data-t="after"></span><img src="sources/announcement-en.png"></div>
+    <img class="ui" src="shots/ui-chatgpt-en.png" style="left:0;top:450px;width:560px">
+  </div>
+</section>
+
+<section class="frame" id="f3">
+  <div class="copy">
+    <div class="brand"><img src="../extension/icons/icon.svg">LLM Image Translate</div>
+    <h1 data-t="f3h"></h1><ul data-list="f3items"></ul>
+  </div>
+  <div class="visual">
+    <div class="pair stack" style="left:0;top:60px;width:620px;height:540px">
+      <div><span class="label" data-t="before"></span><img src="sources/banner.png"></div>
+      <div><span class="label after" data-t="after"></span><img src="sources/banner-en.png"></div></div>
+  </div>
+</section>
+
+<section class="frame" id="f4">
+  <div class="copy">
+    <div class="brand"><img src="../extension/icons/icon.svg">LLM Image Translate</div>
+    <h1 data-t="f4h"></h1><p data-t="f4p"></p>
+  </div>
+  <div class="visual">
+    <div class="pair" style="left:0;top:40px;width:603px;height:375px">
+      <div><span class="label" data-t="before"></span><img src="sources/announcement.png"></div>
+      <div><span class="label after" data-t="after"></span><img src="sources/announcement-en.png"></div></div>
+    <img class="ui" src="shots/ui-popup-site-en.png" style="left:300px;top:330px;width:268px">
+  </div>
+</section>
+
+<section class="frame" id="f5">
+  <div class="copy">
+    <div class="brand"><img src="../extension/icons/icon.svg">LLM Image Translate</div>
+    <h1 data-t="f5h"></h1><ul data-list="f5items"></ul>
+  </div>
+  <div class="visual">
+    <div class="split" style="left:40px;top:90px;width:560px;height:476px;--at:30%;--y:0px">
+      <img src="sources/webtoon.png"><img src="sources/webtoon-en.png">
+      <div class="bar"></div><div class="knob">‹›</div>
+      <span class="label" data-t="before"></span><span class="label after" data-t="after"></span></div>
+  </div>
+</section>
+
+<section class="frame" id="tile">
+  <div class="copy">
+    <div class="brand"><img src="../extension/icons/icon.svg">LLM Image Translate</div>
+    <h1 data-t="tile"></h1><p data-t="tileSub"></p>
+  </div>
+  <div class="visual">
+    <div class="split" style="left:0;top:58px;width:176px;height:113px;border-radius:8px;--at:50%;--y:0px">
+      <img src="shots/bubble.png"><img src="shots/bubble-en.png">
+      <div class="bar"></div>
+      </div>
+  </div>
+</section>
+
+<section class="frame" id="marquee">
+  <div class="copy">
+    <div class="brand"><img src="../extension/icons/icon.svg">LLM Image Translate</div>
+    <h1 data-t="f1h"></h1><p data-t="tileSub"></p>
+  </div>
+  <div class="visual">
+    <div class="split" style="left:0;top:40px;width:420px;height:347px;--at:50%;--y:-756px">
+      <img src="sources/webtoon.png"><img src="sources/webtoon-en.png">
+      <div class="bar"></div><div class="knob">‹›</div>
+      <span class="label" data-t="before"></span><span class="label after" data-t="after"></span></div>
+    <div class="pic after-only" style="left:460px;top:30px;width:290px;height:362px;transform:rotate(3deg)">
+      <span class="label after" data-t="after"></span><img src="sources/announcement-en.png"></div>
+  </div>
+</section>
+
+<script>
+  const lang = new URLSearchParams(location.search).get('lang') || 'en';
+  const s = window.STRINGS[lang];
+  if (s.font) document.body.style.fontFamily = s.font;
+  document.documentElement.lang = lang;
+  // Every picture is drawn in English; swap in this language's. A Chinese banner
+  // translated into Chinese shows nothing, so zh starts from a Korean one.
+  for (const img of document.querySelectorAll('img')) {
+    let src = img.getAttribute('src').replace(/-en\.png$/, `-${lang}.png`);
+    if (s.banner) src = src.replace(/^sources\/banner(?=[-.])/, `sources/${s.banner}`);
+    img.setAttribute('src', src);
+  }
+  for (const el of document.querySelectorAll('[data-t]')) el.textContent = s[el.dataset.t];
+  for (const ul of document.querySelectorAll('[data-list]')) {
+    for (const [head, body] of s[ul.dataset.list]) {
+      const li = document.createElement('li');
+      li.innerHTML = '<b></b><span></span>';
+      li.querySelector('b').textContent = head;
+      li.querySelector('span').textContent = body;
+      ul.append(li);
+    }
+  }
+</script>

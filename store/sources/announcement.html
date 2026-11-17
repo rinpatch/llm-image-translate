@@ -1,0 +1,50 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; }
+  body { width: 1000px; height: 1250px; overflow: hidden;
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; color: #2d2440;
+    background: radial-gradient(circle at 15% 10%, #ffd9e8 0, transparent 45%),
+                radial-gradient(circle at 90% 30%, #d9e4ff 0, transparent 50%),
+                radial-gradient(circle at 40% 95%, #fff0c9 0, transparent 50%), #fdf8ff; }
+  .star { position: absolute; color: #f6b8d0; font-size: 40px; }
+  .card { position: absolute; inset: 70px 70px; background: rgb(255 255 255 / .82);
+    border-radius: 36px; box-shadow: 0 20px 60px rgb(90 60 140 / .15); padding: 64px 64px; }
+  .tag { display: inline-block; background: #ff7aa8; color: #fff; font-weight: 700;
+    font-size: 30px; padding: 10px 28px; border-radius: 999px; }
+  h1 { font-size: 84px; margin: 30px 0 10px; white-space: nowrap; letter-spacing: .04em; }
+  .sub { font-size: 36px; color: #6b5a8a; margin: 0 0 50px; }
+  .book { display: flex; gap: 40px; align-items: center; margin-bottom: 50px; }
+  .cover { width: 230px; height: 310px; border-radius: 14px; flex: none;
+    background: linear-gradient(160deg, #2b2f6b, #6a4fa3 55%, #f09ac0);
+    position: relative; overflow: hidden; }
+  .cover::before { content: ""; position: absolute; width: 90px; height: 90px; border-radius: 50%;
+    background: #fff6d6; top: 40px; right: 34px; box-shadow: 0 0 40px #fff6d6; }
+  .cover::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 110px;
+    background: linear-gradient(transparent, rgb(20 16 50 / .7)),
+      repeating-linear-gradient(90deg, #1c1a44 0 26px, #2a2760 26px 44px, transparent 44px 60px); }
+  .title { font-size: 42px; white-space: nowrap; font-weight: 700; margin: 0 0 18px; }
+  .spec { font-size: 30px; white-space: nowrap; color: #6b5a8a; margin: 0; }
+  .price { font-size: 44px; font-weight: 700; color: #ff5c93; margin: 18px 0 0; }
+  .note { font-size: 36px; line-height: 1.6; margin: 0; }
+  .thanks { margin: 40px 0 0; font-size: 44px; font-weight: 700; color: #ff5c93; }
+</style>
+<span class="star" style="left:40px;top:30px">✦</span>
+<span class="star" style="right:60px;top:50px;font-size:56px;color:#b9c8ff">✦</span>
+<span class="star" style="left:50px;bottom:40px;font-size:30px">✦</span>
+<span class="star" style="right:40px;bottom:70px;color:#ffd27a">✦</span>
+<div class="card">
+  <span class="tag">冬コミ 2日目</span>
+  <h1>新刊のお知らせ</h1>
+  <p class="sub">東ホール ア-12b でお待ちしています</p>
+  <div class="book">
+    <div class="cover"></div>
+    <div>
+      <p class="title">イラスト集『星降る街』</p>
+      <p class="spec">B5 / 32ページ / フルカラー</p>
+      <p class="price">1,000円</p>
+    </div>
+  </div>
+  <p class="note">通販は12月下旬から開始予定です。<br>ポストカードの特典付き！</p>
+  <p class="thanks">よろしくお願いします！</p>
+</div>

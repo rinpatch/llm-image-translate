@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; }
+  body { width: 1200px; height: 520px; overflow: hidden; color: #fff;
+    font-family: "PingFang SC", "Hiragino Sans GB", sans-serif;
+    background: radial-gradient(circle at 85% 50%, #ffb25b 0, transparent 40%),
+      linear-gradient(110deg, #e8222e, #ff5a36 60%, #ff8a3d); }
+  .wrap { position: absolute; left: 80px; top: 70px; }
+  .badge { display: inline-block; background: #ffe14d; color: #c4141f; font-weight: 800;
+    font-size: 34px; padding: 8px 24px; border-radius: 10px; transform: rotate(-3deg); }
+  h1 { font-size: 110px; margin: 24px 0 6px; font-weight: 900; letter-spacing: .06em;
+    text-shadow: 0 6px 0 #b3121c; }
+  .sub { font-size: 48px; font-weight: 700; margin: 0 0 34px; }
+  .btn { display: inline-block; background: #fff; color: #e8222e; font-size: 38px; font-weight: 800;
+    padding: 16px 48px; border-radius: 999px; box-shadow: 0 8px 0 #b3121c; }
+  .gift { position: absolute; right: 120px; top: 120px; width: 260px; height: 230px;
+    background: #ffe14d; border-radius: 18px; box-shadow: 0 16px 0 #d1a90f; }
+  .gift::before { content: ""; position: absolute; left: 110px; top: -20px; width: 40px; height: 270px;
+    background: #e8222e; }
+  .gift::after { content: ""; position: absolute; left: -20px; top: 90px; width: 300px; height: 40px;
+    background: #e8222e; }
+  .tag { position: absolute; right: 90px; bottom: 60px; font-size: 32px; font-weight: 700;
+    background: rgb(0 0 0 / .18); padding: 10px 26px; border-radius: 999px; }
+</style>
+<div class="wrap">
+  <span class="badge">双十一限定</span>
+  <h1>全场包邮</h1>
+  <p class="sub">限时折扣 低至5折</p>
+  <span class="btn">立即抢购 →</span>
+</div>
+<div class="gift"></div>
+<span class="tag">满199减30</span>

@@ -1,0 +1,63 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; }
+  body { width: 800px; height: 2100px; overflow: hidden; background: #fff;
+    font-family: "Apple SD Gothic Neo", "AppleGothic", sans-serif; }
+  .panel { position: relative; overflow: hidden; margin: 0 0 40px; height: 680px; }
+  .bubble { position: absolute; background: #fff; border: 4px solid #1a1a1a; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    font-size: 34px; font-weight: 700; line-height: 1.35; color: #1a1a1a; padding: 30px 40px;
+    box-sizing: border-box; }
+  .bubble::after { content: ""; position: absolute; width: 34px; height: 34px; background: #fff;
+    border-right: 4px solid #1a1a1a; border-bottom: 4px solid #1a1a1a;
+    left: 45%; bottom: -21px; transform: rotate(45deg) skew(12deg, 12deg); }
+  .narr { position: absolute; background: #1d1b2e; color: #f3eee0; font-size: 32px;
+    padding: 22px 34px; font-weight: 600; }
+  /* panel 1: office at night */
+  .p1 { background: linear-gradient(#1b2350, #3a3f7a 60%, #6a5e9a); }
+  .p1 .moon { position: absolute; width: 110px; height: 110px; border-radius: 50%; background: #fff3c4;
+    right: 90px; top: 70px; box-shadow: 0 0 60px #fff3c4; }
+  .city { position: absolute; left: 0; right: 0; bottom: 0; height: 330px;
+    background: repeating-linear-gradient(90deg, #11143a 0 90px, #181c4a 90px 150px, #0e1030 150px 210px); }
+  .city::before { content: ""; position: absolute; inset: 30px 20px 0;
+    background: radial-gradient(#ffd77a 0 5px, transparent 6px) 0 0 / 36px 44px; opacity: .8; }
+  .desk { position: absolute; left: 0; right: 0; bottom: 0; height: 150px; background: #2a2238; }
+  .screen { position: absolute; left: 250px; bottom: 150px; width: 300px; height: 190px;
+    background: #9fd3ff; border: 12px solid #222; border-radius: 10px; box-shadow: 0 0 80px #6fb8ff; }
+  /* panel 2: café, daytime */
+  .p2 { background: linear-gradient(#ffe8cf, #ffd2b0); }
+  .window { position: absolute; left: 60px; top: 60px; width: 300px; height: 380px; background:
+    linear-gradient(#bfe6ff, #e8f6ff); border: 14px solid #8a5a3c; }
+  .window::after { content: ""; position: absolute; inset: 0; background:
+    linear-gradient(90deg, transparent 47%, #8a5a3c 47% 53%, transparent 53%),
+    linear-gradient(transparent 47%, #8a5a3c 47% 53%, transparent 53%); }
+  .cup { position: absolute; left: 500px; bottom: 120px; width: 150px; height: 170px;
+    background: #fff; border-radius: 0 0 50px 50px; border: 6px solid #1a1a1a; }
+  .cup::after { content: ""; position: absolute; right: -60px; top: 30px; width: 50px; height: 70px;
+    border: 6px solid #1a1a1a; border-left: 0; border-radius: 0 40px 40px 0; }
+  .table { position: absolute; left: 0; right: 0; bottom: 0; height: 120px; background: #b67b52; }
+  /* panel 3: rooftop at dawn */
+  .p3 { background: linear-gradient(#ff9a8b, #ffc3a0 50%, #ffe7b8); }
+  .sun { position: absolute; width: 220px; height: 220px; border-radius: 50%; background: #fff6d0;
+    left: 290px; bottom: 140px; box-shadow: 0 0 100px #fff1b0; }
+  .roof { position: absolute; left: 0; right: 0; bottom: 0; height: 170px; background: #3b2f4a; }
+  .rail { position: absolute; left: 0; right: 0; bottom: 170px; height: 70px;
+    background: repeating-linear-gradient(90deg, #3b2f4a 0 8px, transparent 8px 60px);
+    border-top: 8px solid #3b2f4a; }
+</style>
+<div class="panel p1">
+  <div class="moon"></div><div class="city"></div><div class="desk"></div><div class="screen"></div>
+  <div class="narr" style="left:0;top:0">그날 밤, 모든 것이 바뀌었다.</div>
+  <div class="bubble" style="left:60px;top:150px;width:360px;height:220px">오늘도 야근이야…?<br>벌써 열한 시인데</div>
+</div>
+<div class="panel p2">
+  <div class="window"></div><div class="table"></div><div class="cup"></div>
+  <div class="bubble" style="left:380px;top:60px;width:380px;height:240px">괜찮아!<br>내가 커피 사 올게</div>
+  <div class="bubble" style="left:40px;top:470px;width:340px;height:170px;font-size:30px">진짜? 고마워!</div>
+</div>
+<div class="panel p3">
+  <div class="sun"></div><div class="rail"></div><div class="roof"></div>
+  <div class="narr" style="right:0;top:0">다음 날 아침</div>
+  <div class="bubble" style="left:150px;top:120px;width:500px;height:230px">우리, 이 프로젝트<br>꼭 성공시키자!</div>
+</div>
