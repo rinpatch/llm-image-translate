@@ -329,6 +329,12 @@
   "reading": {
     "message": "Reading…"
   },
+  "queued": {
+    "message": "Queued"
+  },
+  "queuedClick": {
+    "message": "Queued. Click to translate immediately."
+  },
   "readingTokens": {
     "message": "Reading · $1 tok"
   },
@@ -439,6 +445,9 @@
   },
   "stageFetchScale": {
     "message": "Fetch and scale"
+  },
+  "stageQueue": {
+    "message": "Waiting its turn"
   },
   "stageFetch": {
     "message": "Fetch"

@@ -323,6 +323,12 @@
   "reading": {
     "message": "正在识别…"
   },
+  "queued": {
+    "message": "排队中"
+  },
+  "queuedClick": {
+    "message": "排队中。点击立即翻译。"
+  },
   "readingTokens": {
     "message": "识别 · $1 tok"
   },
@@ -424,6 +430,9 @@
   },
   "stageFetchScale": {
     "message": "获取并缩放"
+  },
+  "stageQueue": {
+    "message": "排队等待"
   },
   "stageFetch": {
     "message": "获取"

@@ -35,3 +35,29 @@ test('giving up while queued leaves the queue without taking a slot', async () =
   const release = await next;
   release();
 });
+
+test('the highest priority goes first, and reweighing moves a caller', async () => {
+  const gate = new Gate(1);
+  const held = await gate.enter(new AbortController().signal);
+  const order: string[] = [];
+  const queued: string[] = [];
+  const queue = (id: string, priority: number) => gate.enter(new AbortController().signal, {
+    id, priority, onQueue: () => queued.push(id),
+  }).then((release) => { order.push(id); release(); });
+  const a = queue('a', 10);
+  const b = queue('b', 50);
+  const c = queue('c', 10);
+  assert.deepEqual(queued, ['a', 'b', 'c'], 'each hears it is waiting, once');
+  gate.reweigh('c', 100);
+  held();
+  await Promise.all([a, b, c]);
+  assert.deepEqual(order, ['c', 'b', 'a']);
+});
+
+test('one let straight through never hears it was queued', async () => {
+  const gate = new Gate(1);
+  let queued = false;
+  const release = await gate.enter(new AbortController().signal, { onQueue: () => { queued = true; } });
+  assert.equal(queued, false);
+  release();
+});

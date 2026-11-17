@@ -323,6 +323,12 @@
   "reading": {
     "message": "읽는 중…"
   },
+  "queued": {
+    "message": "대기 중"
+  },
+  "queuedClick": {
+    "message": "대기 중. 클릭하면 바로 번역합니다."
+  },
   "readingTokens": {
     "message": "읽는 중 · $1 tok"
   },
@@ -424,6 +430,9 @@
   },
   "stageFetchScale": {
     "message": "가져오기 및 크기 조정"
+  },
+  "stageQueue": {
+    "message": "차례 대기"
   },
   "stageFetch": {
     "message": "가져오기"

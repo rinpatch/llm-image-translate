@@ -323,6 +323,12 @@
   "reading": {
     "message": "読み取り中…"
   },
+  "queued": {
+    "message": "待機中"
+  },
+  "queuedClick": {
+    "message": "待機中。クリックですぐに翻訳します。"
+  },
   "readingTokens": {
     "message": "読み取り · $1 tok"
   },
@@ -424,6 +430,9 @@
   },
   "stageFetchScale": {
     "message": "取得と縮小"
+  },
+  "stageQueue": {
+    "message": "順番待ち"
   },
   "stageFetch": {
     "message": "取得"

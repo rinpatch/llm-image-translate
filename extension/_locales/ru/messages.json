@@ -341,6 +341,12 @@
   "reading": {
     "message": "Чтение…"
   },
+  "queued": {
+    "message": "В очереди"
+  },
+  "queuedClick": {
+    "message": "В очереди. Нажмите, чтобы перевести сразу."
+  },
   "readingTokens": {
     "message": "Чтение · $1 ток."
   },
@@ -469,6 +475,9 @@
   },
   "stageFetchScale": {
     "message": "Загрузка и масштабирование"
+  },
+  "stageQueue": {
+    "message": "Ожидание очереди"
   },
   "stageFetch": {
     "message": "Загрузка"

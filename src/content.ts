@@ -31,6 +31,8 @@ interface State {
   auto: boolean;
   /** The worker has begun on it, rather than holding it in the queue. */
   started: boolean;
+  /** The worker said it is waiting its turn behind other images the page started. */
+  queued: boolean;
   /** The page has tried it once and found nothing to do, or failed: it is not tried again. */
   tried: boolean;
 }
@@ -70,7 +72,7 @@ function stateOf(img: HTMLImageElement): State {
   let state = states.get(img);
   if (!state) {
     state = { status: 'idle', translated: null, jobId: null, partial: null,
-              auto: false, started: false, tried: false };
+              auto: false, started: false, queued: false, tried: false };
     states.set(img, state);
   }
   return state;
@@ -79,8 +81,12 @@ function stateOf(img: HTMLImageElement): State {
 function onActivate(img: HTMLImageElement): void {
   const state = stateOf(img);
   // A second click on a working badge is the only way to say "never mind".
+  // Unless it is still queued: then the click means now, and a clicked image
+  // does not queue.
   if (state.status === 'working') {
+    const now = state.queued && !state.started;
     cancel(img);
+    if (now) translate(img, false);
     return;
   }
 
@@ -125,6 +131,7 @@ async function translate(img: HTMLImageElement, auto: boolean): Promise<void> {
   const state = stateOf(img);
   state.auto = auto;
   state.started = false;
+  state.queued = false;
   setStatus(img, 'working');
 
   const src = img.currentSrc || img.src;
@@ -134,7 +141,9 @@ async function translate(img: HTMLImageElement, auto: boolean): Promise<void> {
   // The empty Blob is the question "can this browser carry bytes?" — the worker
   // answers with an image rather than a base64 string wherever it survives.
   const message: TranslateImage = { type: 'translateImage', jobId, src, binary: new Blob([]),
-    stream: config.notes ? 'notes' : 'image', ...(auto ? { auto } : {}) };
+    stream: config.notes ? 'notes' : 'image',
+    ...(auto ? { auto, onScreen: layer.onScreen(img) } : {}) };
+  if (message.onScreen !== undefined) weights.set(jobId, message.onScreen);
   // A blob: URL belongs to the page that made it and means nothing in the
   // worker, so those images are read here and sent over as bytes.
   if (src.startsWith('blob:')) {
@@ -279,6 +288,32 @@ chrome.storage.local.onChanged.addListener((changes) => {
   }
 });
 
+// The queue lets the image with the most of itself on screen through first,
+// which changes as the page scrolls.
+const REWEIGH_MS = 250;
+let reweighing: ReturnType<typeof setTimeout> | null = null;
+const weights = new Map<string, number>();
+
+function reweigh(): void {
+  reweighing = null;
+  for (const [img, state] of states) {
+    if (!state.jobId || !state.auto || state.started) continue;
+    const onScreen = layer.onScreen(img);
+    if (weights.get(state.jobId) === onScreen) continue;
+    weights.set(state.jobId, onScreen);
+    send({ type: 'reweigh', jobId: state.jobId, onScreen });
+  }
+  for (const jobId of weights.keys()) {
+    if (![...states.values()].some((state) => state.jobId === jobId)) weights.delete(jobId);
+  }
+}
+
+const moved = (): void => {
+  if (!reweighing) reweighing = setTimeout(reweigh, REWEIGH_MS);
+};
+addEventListener('scroll', moved, { capture: true, passive: true });
+addEventListener('resize', moved, { passive: true });
+
 // Leaving the page does not stop the worker, which may be halfway through a
 // paid request for a picture nobody is looking at any more.
 addEventListener('pagehide', () => {
@@ -289,7 +324,9 @@ chrome.runtime.onMessage.addListener((msg: ProgressMessage) => {
   if (msg?.type !== 'progress') return;
   for (const [img, state] of states) {
     if (state.jobId !== msg.jobId) continue;
-    state.started = true;
+    // Waiting its turn is not begun: scrolled past, it can still be called off.
+    state.queued = msg.progress.stage === 'queued';
+    if (!state.queued) state.started = true;
     if (msg.progress.partial) showSoFar(img, state, msg.progress.partial);
     else layer.setProgress(img, msg.progress);
   }

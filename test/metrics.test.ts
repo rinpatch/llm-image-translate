@@ -208,3 +208,15 @@ test('the inpainter is drawn where it ran, beside the stages it overlapped', asy
     from: 120, ms: 900 }]);
   assert.deepEqual(alongside(run(500)), [], 'nothing beside a run that did not inpaint');
 });
+
+test('the wait for a turn leads the bar, and a run that went straight through waited nothing', async () => {
+  stubStorage();
+  await done(100);
+  assert.ok(!(await only()).stages.some((stage) => stage.key === 'queue'),
+    'no run queued, so no stage for it');
+  await done(9000, { queue_ms: 8000 });
+  await done(9000, { queue_ms: 6000 });
+  const { stages } = await only();
+  assert.equal(stages[0].key, 'queue');
+  assert.equal(stages[0].ms, 6000, 'the click counts as nought, not as missing');
+});

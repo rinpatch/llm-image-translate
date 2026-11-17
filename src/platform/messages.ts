@@ -31,11 +31,18 @@ export interface TranslateImage {
    * target language is skipped rather than sent.
    */
   auto?: boolean;
+  /**
+   * How much of the image is on screen, in CSS pixels squared. An `auto` image
+   * with more of it showing is let through first.
+   */
+  onScreen?: number;
 }
 
 export type Message =
   | TranslateImage
   | { type: 'cancelImage'; jobId: string }
+  /** The page scrolled, so a queued image has a new `onScreen`. */
+  | { type: 'reweigh'; jobId: string; onScreen: number }
   | { type: 'settings' }
   | { type: 'ping' }
   | { type: 'metrics' }
@@ -44,7 +51,7 @@ export type Message =
 
 /** How far an image has got. */
 export interface Progress {
-  stage: 'read' | 'translate';
+  stage: 'queued' | 'read' | 'translate';
   /** What the model has sent back so far, where it streams. */
   tokens?: number;
   /** Lines translated so far, out of `of`, where the reply can be counted. */
@@ -90,6 +97,8 @@ export interface Stage {
 
 /** What one image cost, stage by stage. Everything is milliseconds. */
 export interface Timings {
+  /** Waiting behind the other images a page started on its own. In `total_ms`. */
+  queue_ms?: number;
   /** Fetching the source through the extension's privileged network context. */
   fetch_ms?: number;
   /** Decoding the source into pixels at its original size. */

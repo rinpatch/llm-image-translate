@@ -156,6 +156,14 @@ export class BadgeLayer {
     return [...this.controllers].filter(([, c]) => c.near).map(([img]) => img);
   }
 
+  /** How much of the image is inside the viewport, in CSS pixels squared. */
+  onScreen(img: HTMLImageElement): number {
+    const r = img.getBoundingClientRect();
+    const w = Math.min(r.right, innerWidth) - Math.max(r.left, 0);
+    const h = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0);
+    return w > 0 && h > 0 ? Math.round(w * h) : 0;
+  }
+
   rescan(): void {
     if (this.enabled) this.scan(document.documentElement);
     else this.start();
@@ -321,7 +329,8 @@ export class BadgeLayer {
     badge.style.setProperty('--done', `${Math.round((filled || 0) * 100)}%`);
     badge.textContent = progress ? label(progress)
       : ({ working: '…', error: '!' } as Record<string, string>)[status] || 'T';
-    badge.title = progress ? t('clickToStop', sentence(progress)) : c.title;
+    badge.title = !progress ? c.title
+      : progress.stage === 'queued' ? t('queuedClick') : t('clickToStop', sentence(progress));
   }
 
   private modifier = (e: KeyboardEvent): void => this.arm(e.metaKey);

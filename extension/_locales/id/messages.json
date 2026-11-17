@@ -323,6 +323,12 @@
   "reading": {
     "message": "Membaca…"
   },
+  "queued": {
+    "message": "Antre"
+  },
+  "queuedClick": {
+    "message": "Dalam antrean. Klik untuk langsung menerjemahkan."
+  },
   "readingTokens": {
     "message": "Membaca · $1 tok"
   },
@@ -424,6 +430,9 @@
   },
   "stageFetchScale": {
     "message": "Ambil dan skala"
+  },
+  "stageQueue": {
+    "message": "Menunggu giliran"
   },
   "stageFetch": {
     "message": "Ambil"

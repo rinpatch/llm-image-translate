@@ -60,7 +60,7 @@ export function alongside(run: Timings): Span[] {
             ms: run.inpaint_ms }];
 }
 
-type PlainField = 'fetch_ms' | 'decode_ms' | 'scale_ms' | 'reader_encode_ms'
+type PlainField = 'queue_ms' | 'fetch_ms' | 'decode_ms' | 'scale_ms' | 'reader_encode_ms'
   | 'layout_ms' | 'inpaint_wait_ms' | 'paint_ms' | 'encode_ms';
 
 interface PlainStage {
@@ -70,6 +70,8 @@ interface PlainStage {
   /** Left off the bar, rather than shown as nought, where no run did it. */
   optional?: boolean;
 }
+
+const QUEUE: PlainStage = { key: 'queue', label: 'stageQueue', field: 'queue_ms', optional: true };
 
 const IMAGE_PARTS: PlainStage[] = [
   { key: 'fetch', label: 'stageFetch', field: 'fetch_ms' },
@@ -131,6 +133,7 @@ export function stagesOf(
 ): StageRow[] {
   const plain = ({ key, label, field }: PlainStage) => ({ key, label: t(label), ms: run[field] ?? 0 });
   return [
+    ...(run.queue_ms !== undefined ? [plain(QUEUE)] : []),
     group('fetch', t('stageFetchScale'), IMAGE_PARTS.map(plain)),
     modelStage('read', t('stageRead'), run.read, rates.read ?? rate(run.read)),
     modelStage('translate', t('stageTranslate'), run.translate,
@@ -240,6 +243,11 @@ function summarise(profile: string, all: Run[]): ProfileReport {
     read: medianStage(runs, (run) => run.read),
     translate: medianStage(full, (run) => run.translate),
   };
+  // Only images a page started on its own wait, and a click that went
+  // straight through waited nothing, which belongs in the median too.
+  if (runs.some((run) => run.queue_ms !== undefined)) {
+    typical.queue_ms = pick(runs, (run) => run.queue_ms ?? 0);
+  }
   for (const { field } of IMAGE_PARTS) typical[field] = pick(runs, (run) => run[field]) ?? 0;
   for (const { field, optional } of AFTER_MODELS) {
     const value = pick(full, (run) => run[field]);

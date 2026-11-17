@@ -16,6 +16,7 @@
 
   /* One colour per pipeline stage, used by every bar on the stats page so a
      segment means the same thing wherever it turns up. */
+  --seg-queue: #c9ced6;
   --seg-fetch: #8a94a6;
   --seg-read: #35618e;
   --seg-translate: #2f8f83;
@@ -40,6 +41,7 @@
     --ok: #68d391;
     --bad: #fc8181;
 
+    --seg-queue: #464c56;
     --seg-fetch: #737d8e;
     --seg-read: #5b8fd0;
     --seg-translate: #48b3a4;
@@ -181,6 +183,7 @@ a { color: var(--accent); }
 .lane i { position: absolute; top: 0; bottom: 0; min-width: 1px; border-radius: 2px; }
 .timeline.tall .lane { height: 6px; margin-top: 3px; }
 
+.seg-queue { background: var(--seg-queue); }
 .seg-fetch { background: var(--seg-fetch); }
 .seg-read { background: var(--seg-read); }
 .seg-translate { background: var(--seg-translate); }

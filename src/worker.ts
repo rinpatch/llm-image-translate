@@ -82,18 +82,30 @@ async function run(
     // image is answered from the cache and never went near a model.
     const work = async (signal: AbortSignal, report: (progress: Progress) => void) => {
       let release = () => {};
+      let waited = 0;
       if (request.auto) {
+        const queuedAt = Date.now();
         try {
-          release = await autoGate.enter(signal);
+          release = await autoGate.enter(signal, {
+            priority: request.onScreen ?? 0, id: request.jobId,
+            onQueue: () => report({ stage: 'queued' }),
+          });
         } catch {
           return { ok: false, code: 'cancelled', error: 'cancelled' } as ImageResult;
         }
+        waited = Date.now() - queuedAt;
       }
       let result: ImageResult;
       try {
         result = await translateImage(request, config, signal, report);
       } finally {
         release();
+      }
+      if (result.ok && waited) {
+        result.timings.queue_ms = waited;
+        result.timings.total_ms = (result.timings.total_ms ?? 0) + waited;
+        // Measured from the start of the work, which is now after the wait.
+        if (result.timings.inpaint_from_ms !== undefined) result.timings.inpaint_from_ms += waited;
       }
       // A cancelled image is the page changing its mind, not an outcome worth
       // keeping; everything else goes in the history, failures most of all. An
@@ -136,6 +148,7 @@ chrome.runtime.onMessage.addListener((msg: Message, sender, sendResponse) => {
       switch (msg.type) {
         case 'translateImage': sendResponse(await run(msg, sender)); break;
         case 'cancelImage': jobs.get(msg.jobId)?.abort(); sendResponse({ ok: true }); break;
+        case 'reweigh': autoGate.reweigh(msg.jobId, msg.onScreen); sendResponse({ ok: true }); break;
         case 'settings': {
           const site = siteOf(sender.tab?.url);
           const page: PageSettings = { ...await publicSettings(),

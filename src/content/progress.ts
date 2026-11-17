@@ -3,6 +3,7 @@ import { type Progress } from '../platform/messages.ts';
 
 /** Short enough for the badge on a small image. */
 export function label({ stage, tokens, done, of }: Progress): string {
+  if (stage === 'queued') return t('queued');
   if (stage === 'read') return tokens ? t('readingTokens', tokens) : t('reading');
   if (done !== undefined && of) return t('linesFraction', done, of);
   return tokens ? t('tokens', tokens) : t('translating');
