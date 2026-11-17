@@ -26,6 +26,7 @@ const A = {
   'columns must overlap': s => s.replace('return Math.min(right.box[3], left.box[3]) > Math.max(right.box[1], left.box[1]);', 'return true;'),
   'column size': s => s.replace('if (large > small * COLUMN_SIZE) return false;', ''),
   'furigana': s => s.replace('const ruby = furigana(lines);', 'const ruby = new Map<number, number>();'),
+  'balloons': s => s.replace('const apart = (i: number, j: number) => !!balloons', 'const apart = (i: number, j: number) => false'),
   'column pieces': s => s.replace('if (!isVertical(above) && !isVertical(below)) return false;', 'return false;'),
 };
 
@@ -43,7 +44,7 @@ for (const [name, patch] of Object.entries(A)) {
     const cut = new Set(fx.divided.map(([a, b]) => `${a},${b}`));
     const at = new Map(fx.lines.map((l, i) => [l.box.join(','), i]));
     res[name][p.replace('.json','')] = group(fx.lines,
-      (a, b) => cut.has(`${at.get(a.join(','))},${at.get(b.join(','))}`)).length;
+      (a, b) => cut.has(`${at.get(a.join(','))},${at.get(b.join(','))}`), fx.balloons).length;
   }
 }
 rmSync(`${root}/src/core/.ablate`, { recursive: true, force: true });

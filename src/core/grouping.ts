@@ -242,13 +242,22 @@ function pitchOf(boxes: Box[], vertical: boolean): number | undefined {
   return steps.sort((a, b) => a - b)[steps.length >> 1];
 }
 
-export function group(lines: TextLine[], divided?: Divided): Block[] {
+/**
+ * Lines into blocks. `balloons` is the speech balloon each line is in, by
+ * index, or -1 for none: two lines in different balloons are never one block,
+ * however close they sit. Two bubbles side by side had columns at a size and
+ * spacing nothing else could tell from one bubble's. A line in no balloon is
+ * left to the rules, since the mask can miss part of the balloon it is in.
+ */
+export function group(lines: TextLine[], divided?: Divided, balloons?: number[]): Block[] {
   const boxes = lines.map((l) => l.box);
   const ruby = furigana(lines);
+  const apart = (i: number, j: number) => !!balloons
+    && balloons[i] >= 0 && balloons[j] >= 0 && balloons[i] !== balloons[j];
   const joined = new Sets(lines.length);
   for (let i = 0; i < lines.length; i++) {
     for (let j = 0; j < lines.length; j++) {
-      if (i === j || ruby.has(i) || ruby.has(j)) continue;
+      if (i === j || ruby.has(i) || ruby.has(j) || apart(i, j)) continue;
       // Only ever asked in reading order, so `divided` is handed the pair the
       // way round its name says.
       if (midY(boxes[j]) > midY(boxes[i]) && joinsRow(boxes[i], boxes[j])

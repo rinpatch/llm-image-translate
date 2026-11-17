@@ -1,4 +1,5 @@
 import { type Align, type Box } from './geometry.ts';
+import { type Room } from './balloon.ts';
 
 const FONT = "-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
@@ -21,6 +22,12 @@ export interface Style {
   angle?: number;
   /** The source ran in columns, so CJK goes back in columns. */
   vertical?: boolean;
+  /** The balloon, or its share of one, that the translation is set in. */
+  room?: Room;
+  /** About how large the source was set, which the translation need not outgrow. */
+  size?: number;
+  /** The block's box overlaps another block's, so the room is used even where it is smaller. */
+  crowded?: boolean;
 }
 
 // Han and kana. Hangul is left out: Korean comics are lettered across.
@@ -203,6 +210,147 @@ function drawColumns(ctx: TextCanvas, box: Box, text: string, style: Style): voi
   }
 }
 
+// Baseline to baseline, against the type size, and the clearance kept from the
+// balloon's edge on every side.
+const ROOM_LINE = 1.2;
+const ROOM_AIR = 0.3;
+const SMALLEST = 6;
+
+/**
+ * Where each line ends, given how wide each line may be: the breaks that leave
+ * the lines most evenly filled, every line counted, since a balloon is set
+ * centred and a short last line looks as wrong in it as a short first one.
+ * Null where no break puts every line inside its width.
+ */
+function breaksFor(advance: number[], gaps: number[], widths: number[]): number[] | null {
+  const n = advance.length;
+  const count = widths.length;
+  if (count > n) return null;
+  // best[l][k]: the least cost of setting the first k units on l lines.
+  const best = Array.from({ length: count + 1 }, () => Array<number>(n + 1).fill(Infinity));
+  const from = Array.from({ length: count + 1 }, () => Array<number>(n + 1).fill(-1));
+  best[0][0] = 0;
+  for (let line = 0; line < count; line++) {
+    const width = widths[line];
+    for (let start = line; start < n; start++) {
+      if (best[line][start] === Infinity) continue;
+      let used = 0;
+      for (let end = start + 1; end <= n - (count - line - 1); end++) {
+        used += advance[end - 1] + (end - 1 > start ? gaps[end - 1] : 0);
+        if (used > width) break;
+        const slack = (width - used) / width;
+        const cost = best[line][start] + slack * slack;
+        if (cost < best[line + 1][end]) { best[line + 1][end] = cost; from[line + 1][end] = start; }
+      }
+    }
+  }
+  if (best[count][n] === Infinity) return null;
+  const ends: number[] = [];
+  for (let line = count, end = n; line > 0; line--) { ends.unshift(end); end = from[line][end]; }
+  return ends;
+}
+
+export interface Laid {
+  size: number;
+  /** Each line's left edge and top. */
+  lines: { text: string; x: number; y: number }[];
+}
+
+/** The text set at one size inside the room, or null if it will not go in. */
+function layAt(ctx: TextCanvas, room: Room, words: string[], size: number, align: Align): Laid | null {
+  ctx.font = `${size}px ${FONT}`;
+  const advance = words.map((w) => ctx.measureText(w).width);
+  const space = ctx.measureText(' ').width;
+  const gaps = words.map((w, i) => (i && spaced(words[i - 1], w) ? space : 0));
+  const step = size * ROOM_LINE;
+  const air = Math.max(2, size * ROOM_AIR);
+  const first = room.spans.findIndex(Boolean);
+  const last = room.spans.length - 1 - [...room.spans].reverse().findIndex(Boolean);
+  if (first < 0) return null;
+  const top = room.top + first;
+  const tall = last - first + 1 - air * 2;
+  const most = Math.min(words.length, Math.floor((tall - size) / step) + 1);
+
+  // Fewest lines first: at the largest size that fits there is seldom more
+  // than one count that does, and where there is, fewer reads as a phrase.
+  for (let count = 1; count <= most; count++) {
+    const height = (count - 1) * step + size;
+    const y0 = top + (last - first + 1 - height) / 2;
+    const chords: [number, number][] = [];
+    for (let line = 0; line < count; line++) {
+      let left = -Infinity;
+      let right = Infinity;
+      const from = Math.floor(y0 + line * step) - room.top;
+      const to = Math.ceil(y0 + line * step + size) - room.top;
+      for (let y = from; y < to; y++) {
+        const span = room.spans[y];
+        if (!span) { right = -Infinity; break; }
+        left = Math.max(left, span[0] + air);
+        right = Math.min(right, span[1] - air);
+      }
+      if (right <= left) break;
+      chords.push([left, right]);
+    }
+    if (chords.length < count) continue;
+    // One axis for the whole phrase, as Koharu has it: lines each centred on
+    // their own chord zig-zag down a lopsided balloon.
+    const shared: [number, number] = [Math.max(...chords.map((c) => c[0])),
+      Math.min(...chords.map((c) => c[1]))];
+    if (shared[1] <= shared[0]) continue;
+    const mean = chords.reduce((s, [l, r]) => s + (l + r) / 2, 0) / count;
+    const axis = Math.min(shared[1], Math.max(shared[0], mean));
+    // Set against an edge where the source was: a chat message reads from its
+    // left margin, and centring it in its bubble makes it a heading.
+    const widths = chords.map(([l, r]) => (align === 'left' ? r - shared[0]
+      : align === 'right' ? shared[1] - l : 2 * Math.min(axis - l, r - axis)));
+    const ends = breaksFor(advance, gaps, widths);
+    if (!ends) continue;
+    const lines = ends.map((end, line) => {
+      const start = line ? ends[line - 1] : 0;
+      const text = words.slice(start, end).reduce((s, w, i) =>
+        (i ? s + (spaced(words[start + i - 1], w) ? ' ' : '') + w : w), '');
+      const w = ctx.measureText(text).width;
+      const x = align === 'left' ? shared[0] : align === 'right' ? shared[1] - w : axis - w / 2;
+      return { text, x, y: y0 + line * step };
+    });
+    return { size, lines };
+  }
+  return null;
+}
+
+/**
+ * The translation at the largest size that fits the room, up to `largest`, or
+ * null where it fits at none.
+ *
+ * Fit in a curved room is not monotonic in size: one size smaller can need a
+ * line more, and the extra line lands where the balloon narrows. So the search
+ * steps down until something fits and halves only between that and the step
+ * above it, which is how Koharu does it.
+ */
+export function layInRoom(ctx: TextCanvas, room: Room, text: string, largest: number,
+  align: Align = 'center'): Laid | null {
+  const words = units(text);
+  if (!words.length) return null;
+  const top = Math.max(SMALLEST, Math.floor(largest));
+  const step = Math.max(1, Math.round((top - SMALLEST) / 8));
+  let failed = top + 1;
+  for (let size = top; ; size = Math.max(SMALLEST, size - step)) {
+    let laid = layAt(ctx, room, words, size, align);
+    if (laid) {
+      let low = size;
+      let high = failed - 1;
+      while (low < high) {
+        const mid = (low + high + 1) >> 1;
+        const tried = layAt(ctx, room, words, mid, align);
+        if (tried) { laid = tried; low = mid; } else high = mid - 1;
+      }
+      return laid;
+    }
+    if (size === SMALLEST) return null;
+    failed = size;
+  }
+}
+
 /** Paints over a box, which is how the source glyphs are taken off the page. */
 export function fillBox(ctx: TextCanvas, [x0, y0, x1, y1]: Box, fill: string): void {
   ctx.fillStyle = fill;
@@ -241,6 +389,24 @@ export function drawBlock(ctx: TextCanvas, box: Box, text: string, style: Style)
   if (!best) {
     ctx.font = `6px ${FONT}`;
     best = { size: 6, lines: wrap(ctx, text, width) };
+  }
+
+  // The balloon only where it does better than the box: a chat bubble shared
+  // with a footer leaves the message less room than its own box had. Or where
+  // the box is no good, overlapping another block's, which is how staggered
+  // runs in one balloon came to be drawn over each other.
+  const laid = style.room && layInRoom(ctx, style.room, text, style.size ?? height, style.align);
+  if (laid && (laid.size >= best.size || style.crowded)) {
+    ctx.font = `${laid.size}px ${FONT}`;
+    ctx.textBaseline = 'top';
+    ctx.lineWidth = Math.max(1, laid.size / 6);
+    ctx.strokeStyle = style.outline || 'transparent';
+    ctx.fillStyle = style.ink;
+    for (const { text: line, x, y } of laid.lines) {
+      if (style.outline) ctx.strokeText(line, x, y);
+      ctx.fillText(line, x, y);
+    }
+    return;
   }
 
   ctx.font = `${best.size}px ${FONT}`;

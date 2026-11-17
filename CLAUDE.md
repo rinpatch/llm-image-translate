@@ -73,8 +73,8 @@ run rather than two.
 ## Grouping, without the browser
 
 `test/fixtures/spots/` holds what the reader saw on each of those pages — the
-lines, the ink at each line and at its two ends, and which pairs the pixels
-divide. That is grouping's whole input, so `test/grouping.test.ts` runs the real
+lines, the ink at each line and at its two ends, which pairs the pixels
+divide, and the balloon each line is in. That is grouping's whole input, so `test/grouping.test.ts` runs the real
 `group()` over real pages in node, in milliseconds. Reach for it first when
 changing `core/grouping.ts`: it says how many pieces each page came apart in,
 which a unit test over three invented boxes cannot.
@@ -82,6 +82,7 @@ which a unit test over three invented boxes cannot.
 ```bash
 tools/dump-spots.sh                   # re-record every page
 tools/dump-spots.sh pages/tweets-thread manga-page
+tools/dump-spots.sh --balloons        # only the balloons, keeping the lines
 ```
 
 Re-record when the reader or `dividerFor` changes — never to make a failing
@@ -245,6 +246,33 @@ translator it is most of the inpainter's time. Two traps:
 - **Nothing under ~68 px a side.** The graph dilates by 16 at quarter scale
   and pads by reflection, which throws on anything smaller. `regionsFor` asks
   for 128 and `aot.ts` scales anything smaller up.
+
+## The balloon finder
+
+A YOLO11-nano segmenter trained on Manga109's balloons, 12 MB,
+`tools/fetch-balloon-model.sh`. It finds balloons and nothing else. A
+development build runs without it, with every translation in its own box, and
+`scripts/package.sh` refuses a release without it.
+
+It runs in the offscreen document's queue right after the read and before
+grouping, because two lines in different balloons are never one block
+(`manga-pair`: two bubbles whose columns nothing else could tell apart). A
+line in no balloon is left to the rules, since a partial mask would otherwise
+cut a sentence off its own bubble. `tools/dump-spots.sh --balloons` records
+each line's balloon into the spot fixtures without re-reading the lines.
+
+`core/balloon.ts` also turns its masks into each block's room: the whole balloon for a block alone in one, and for a balloon shared
+between blocks, the pixels nearest each block's lines. A block's own lines are
+always in its room, because the mask sometimes covers only part of a balloon
+(`manga-sizes`).
+
+`drawBlock` takes the room only where it sets the text at least as large as
+the box would, or where the box overlaps another block's. Chat bubbles are
+balloons to it too, and a message sharing one with WeChat's footer had less
+room than its own box gave it. On infographics it finds the labelled panels.
+
+Two things it does not do yet: split a figure-eight balloon at its waist
+(Koharu's `rooms.rs` does), and show rooms on the debug page.
 
 ## Chrome's own translator
 

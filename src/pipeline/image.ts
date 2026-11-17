@@ -1,4 +1,5 @@
 import { toBase64 } from '../core/base64.ts';
+import { type Balloon, ownerOf, roomsFor } from '../core/balloon.ts';
 import { type Box, type Block, type TextLine } from '../core/geometry.ts';
 import { group, join } from '../core/grouping.ts';
 import { dividerFor } from '../core/rules.ts';
@@ -345,7 +346,18 @@ export async function translateImage(
       signal);
     timings.read = stageOf(Date.now() - started, [reply.stats]);
     spots = reader.parse(reply.text, image);
-    blocks = group(spots, dividerFor(source, width, height));
+    // Before grouping, since two lines in different balloons are never one block.
+    const balloonsAt = Date.now();
+    const balloons: Balloon[] = !spots.length ? [] : await askInBrowser({ type: 'balloons', image: before })
+      .then((r) => {
+        timings.balloons_ms = Date.now() - balloonsAt;
+        return r.balloons;
+      }).catch((e) => {
+        log('no balloons, so every block keeps its box:', String(e?.message || e));
+        return [];
+      });
+    blocks = group(spots, dividerFor(source, width, height),
+      spots.map((spot) => ownerOf(balloons, spot.box)));
     timings.blocks = blocks.length;
     log('read', spots.length, 'lines in', timings.read.ms, 'ms ->',
       blocks.length, 'blocks');
@@ -401,6 +413,18 @@ export async function translateImage(
       };
       return { background: rgb(fill), ink, erasure };
     });
+    // About the size the source was set at: a line's short side is its type
+    // size, across or down.
+    const sizes = blocks.map((block) => {
+      const sides = block.boxes.map(([x0, y0, x1, y1]) => Math.min(x1 - x0, y1 - y0))
+        .sort((a, b) => a - b);
+      return sides[sides.length >> 1];
+    });
+    const rooms = roomsFor(blocks.map((b) => ({ box: b.box, lines: b.boxes })), balloons);
+    log('balloons: rooms for', rooms.filter(Boolean).length, 'of', blocks.length, 'blocks');
+    const crowded = blocks.map(({ box: a }, i) => blocks.some(({ box: b }, j) => j !== i
+      && Math.min(a[2], b[2]) > Math.max(a[0], b[0]) && Math.min(a[3], b[3]) > Math.max(a[1], b[1])));
+
     // Every block is inpainted; this is what stands in until that is done, and
     // for good where there is no inpainter.
     const { flat, boxed: covered } = flatFilled(raster, looks.map((look) => look.erasure));
@@ -459,6 +483,11 @@ export async function translateImage(
           pitch: blocks[i].pitch,
           angle: angles[i],
           vertical: blocks[i].vertical,
+          // A balloon is drawn upright. A block read as leaning is on a photo
+          // or a sign, where the balloon model has nothing to say.
+          room: Math.abs(angles[i]) < 0.01 ? rooms[i] ?? undefined : undefined,
+          size: sizes[i],
+          crowded: crowded[i],
         });
       }
     };

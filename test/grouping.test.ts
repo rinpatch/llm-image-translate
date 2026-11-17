@@ -18,6 +18,7 @@ interface SpotFixture {
   heads: RGB[];
   tails: RGB[];
   divided: [number, number][];
+  balloons?: number[];
 }
 
 function blocksOf(name: string) {
@@ -26,7 +27,7 @@ function blocksOf(name: string) {
   const cut = new Set(fx.divided.map(([a, b]) => `${a},${b}`));
   const at = new Map(fx.lines.map((line, i) => [line.box.join(','), i]));
   return group(fx.lines, (above: Box, below: Box) =>
-    cut.has(`${at.get(above.join(','))},${at.get(below.join(','))}`));
+    cut.has(`${at.get(above.join(','))},${at.get(below.join(','))}`), fx.balloons);
 }
 
 // Not a target to hit: the count each page settled at once its render was
@@ -38,6 +39,7 @@ const PIECES: Record<string, number> = {
   'leaflet-story': 3,
   'leaflet-tilted': 5,
   'manga-page': 24,
+  'manga-pair': 2,
   'manga-sfx': 4,
   'manga-sizes': 5,
   'picnic-bullets': 40,
@@ -91,4 +93,10 @@ test('a run set larger in the same bubble is its own block, and whole', () => {
   assert.ok(blocks.includes('好かれる努力は一切しませ！ん！'), blocks.join(' / '));
   assert.ok(blocks.some((b) => b.startsWith('反抗期') && b.includes('をしようと')),
     'the small run lost the end of its column');
+});
+
+test('two bubbles side by side are two blocks, though their columns look like one run', () => {
+  const blocks = blocksOf('manga-pair').map((b) => join(b.lines));
+  assert.deepEqual(blocks.sort(), ['あれ不思議… 涙はしぱいままなのね甘さが余計際立つ…',
+    'だから死なせねえっつってんだろ'].sort());
 });

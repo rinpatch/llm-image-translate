@@ -11,6 +11,7 @@ import { askOffscreen } from '../src/platform/offscreen.ts';
 import { dividerFor } from '../src/core/rules.ts';
 import { inkOf, type RGB } from '../src/core/color.ts';
 import { type Box, seam, type TextLine } from '../src/core/geometry.ts';
+import { type Balloon, ownerOf } from '../src/core/balloon.ts';
 
 // Wider than anything grouping will ask about: a pair further apart than this
 // is never a candidate, so recording it would only cost the scan.
@@ -26,6 +27,8 @@ export interface SpotFixture {
   tails: RGB[];
   /** Index pairs, `[above, below]`, that group() must treat as divided. */
   divided: [number, number][];
+  /** The balloon each line is in, by index, or -1; see group(). */
+  balloons?: number[];
 }
 
 async function raster(url: string, maxDim: number) {
@@ -76,5 +79,19 @@ export async function dump(url: string): Promise<SpotFixture> {
           && cuts(lines[i].box, lines[j].box)) divided.push([i, j]);
     }
   }
-  return { width, height, lines, inks, heads, tails, divided };
+  return { width, height, lines, inks, heads, tails, divided, balloons: await ownersOf(dataUrl, lines) };
+}
+
+async function ownersOf(dataUrl: string, lines: TextLine[]): Promise<number[]> {
+  const { balloons }: { balloons: Balloon[] } = await askOffscreen({ type: 'balloons', image: dataUrl });
+  return lines.map((l) => ownerOf(balloons, l.box));
+}
+
+/**
+ * Only the balloons, for lines already recorded: re-reading a page changes its
+ * lines, and every count in PIECES would have to be judged again.
+ */
+export async function balloonsFor(url: string, lines: TextLine[]): Promise<number[]> {
+  const { dataUrl } = await raster(url, reader.capabilities.maxDim);
+  return ownersOf(dataUrl, lines);
 }

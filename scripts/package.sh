@@ -30,6 +30,9 @@ mkdir -p "$out"
 # paint every block flat.
 [ -f extension/vendor/ocr/aot-inpaint.onnx ] || {
   echo "no inpainter in extension/vendor/ocr — run tools/fetch-inpaint-model.sh" >&2; exit 1; }
+# Nor the balloon finder, without which manga is set in the reader's columns.
+[ -f extension/vendor/ocr/balloons.onnx ] || {
+  echo "no balloon finder in extension/vendor/ocr — run tools/fetch-balloon-model.sh" >&2; exit 1; }
 
 # _metadata is Chrome's, written into the folder when it loads it unpacked.
 rsync -a --exclude _metadata --exclude .DS_Store extension/ "$stage/"

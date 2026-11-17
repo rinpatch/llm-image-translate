@@ -100,6 +100,8 @@ export interface Timings {
   reader_encode_ms?: number;
   read?: Stage;
   translate?: Stage;
+  /** Finding the speech balloons, from asking to the answer. */
+  balloons_ms?: number;
   /** Measuring each block's lean and colours, and whether to draw it at all. */
   layout_ms?: number;
   /** Inpainting every block's words away, alongside the translation. */

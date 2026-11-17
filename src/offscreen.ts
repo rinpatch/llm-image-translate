@@ -1,11 +1,12 @@
-// The reader, the inpainter and Chrome's translator run here rather than against
-// a server.
+// The reader, the balloon finder, the inpainter and Chrome's translator run
+// here rather than against a server.
 //
 // A document rather than part of the service worker, because the worker is
 // evicted after thirty seconds idle, which would mean reloading 30 MB of
 // weights and recompiling shaders on the click that matters. A document has no
 // extension API but `chrome.runtime` — no storage, no tabs — so the worker
 // decides everything and this only ever answers the one question.
+import { BalloonFinder } from './backends/balloon/yolo.ts';
 import { Inpainter } from './backends/inpaint/aot.ts';
 import { Reader, type Script } from './backends/ocr/ppocr/engine.ts';
 
@@ -17,6 +18,11 @@ const reader = new Reader({
 });
 
 const inpainter = new Inpainter({
+  base: chrome.runtime.getURL('vendor/ocr/'),
+  providers: ['webgpu', 'wasm'],
+});
+
+const balloonFinder = new BalloonFinder({
   base: chrome.runtime.getURL('vendor/ocr/'),
   providers: ['webgpu', 'wasm'],
 });
@@ -43,6 +49,8 @@ function inTurn<T>(dataUrl: string, work: (bitmap: ImageBitmap) => Promise<T>): 
 
 const read = (dataUrl: string, script?: Script) =>
   inTurn(dataUrl, (bitmap) => reader.read(bitmap, script));
+
+const balloons = (dataUrl: string) => inTurn(dataUrl, (bitmap) => balloonFinder.find(bitmap));
 
 // Encoded through a DOM canvas: this document is never visible, and in a hidden
 // document `convertToBlob` waits for a frame that comes about once a second.
@@ -128,6 +136,11 @@ chrome.runtime.onMessage.addListener((msg: any, _sender, sendResponse) => {
         case 'inpaint': {
           const { image, inpaint_ms } = await inpaint(msg.image);
           sendResponse({ ok: true, image, timings: { inpaint_ms } });
+          break;
+        }
+        case 'balloons': {
+          const { balloons: found, ms } = await balloons(msg.image);
+          sendResponse({ ok: true, balloons: found, timings: { balloons_ms: ms } });
           break;
         }
         case 'translate': {

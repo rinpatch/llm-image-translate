@@ -6,7 +6,13 @@
 # the browser or the models. Re-run it when the reader changes.
 #
 #     tools/dump-spots.sh [page-name ...]
+#     tools/dump-spots.sh --balloons [page-name ...]
+#
+# --balloons keeps each page's recorded lines and records only the balloon each
+# is in, for when the balloon finder changes and the reader has not.
 set -euo pipefail
+only_balloons=
+if [ "${1:-}" = --balloons ]; then only_balloons=1; shift; fi
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 out=$root/test/fixtures/spots
@@ -37,10 +43,21 @@ fi
 for path in "${pages[@]}"; do
   name=$(basename "$path")
   printf '%-20s ' "$name"
-  agent-browser eval "$(cat "$out/.bundle.js"); Dump.dump(
-    'http://127.0.0.1:$port/$path.png').then(JSON.stringify)" \
-    | python3 -c "import json,sys; print(json.dumps(json.loads(json.load(sys.stdin)), ensure_ascii=False, indent=1))" \
-    > "$out/$name.json"
+  if [ -n "$only_balloons" ]; then
+    lines=$(python3 -c "import json; print(json.dumps(json.load(open('$out/$name.json'))['lines']))")
+    agent-browser eval "$(cat "$out/.bundle.js"); Dump.balloonsFor(
+      'http://127.0.0.1:$port/$path.png', $lines).then(JSON.stringify)" \
+      | python3 -c "
+import json, sys
+owners = json.loads(json.load(sys.stdin))
+d = json.load(open('$out/$name.json')); d['balloons'] = owners
+open('$out/$name.json', 'w').write(json.dumps(d, ensure_ascii=False, indent=1) + '\n')"
+  else
+    agent-browser eval "$(cat "$out/.bundle.js"); Dump.dump(
+      'http://127.0.0.1:$port/$path.png').then(JSON.stringify)" \
+      | python3 -c "import json,sys; print(json.dumps(json.loads(json.load(sys.stdin)), ensure_ascii=False, indent=1))" \
+      > "$out/$name.json"
+  fi
   python3 -c "
 import json; d = json.load(open('$out/$name.json'))
 print(len(d['lines']), 'lines,', len(d['divided']), 'divided pairs')"
