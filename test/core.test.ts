@@ -155,6 +155,12 @@ test('a reply in the wrong script means the model rewrote instead of translating
   assert.equal(untranslated('已停止', 'Stopped', 'English'), null);
 });
 
+test('a signature the translator only tidied is left as it was drawn', () => {
+  assert.ok(untranslated('arareya', 'Arareya', 'English'), 'capitalised');
+  assert.ok(untranslated('ＯＫ!', 'OK.', 'English'), 'full-width, other punctuation');
+  assert.equal(untranslated('arareya', 'Arareya Studio', 'English'), null);
+});
+
 test('glyph colour is read off the ink, whichever side of the paper it sits on', () => {
   const W = 60;
   const page = (paper: number) => {

@@ -77,10 +77,14 @@ export async function autoSource(
   return seen;
 }
 
+// What is left of a line once the translator's tidying is taken off it: it
+// capitalises a signature, adds a full stop, turns ＡＢＣ into ABC.
+const bare = (text: string) => text.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
 /** A reason to leave the block alone, or null when the translation looks real. */
 export function untranslated(source: string, result: string, target: string): string | null {
   if (!result) return 'no translation came back';
-  if (result.trim() === source.trim()) return 'came back unchanged';
+  if (bare(result) === bare(source)) return 'came back unchanged';
   if (['chinese', 'japanese', 'korean', 'russian', 'ukrainian']
       .includes(target.trim().toLowerCase())) return null;
   const letters = [...result].filter((c) => /\p{L}/u.test(c));
