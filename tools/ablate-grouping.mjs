@@ -23,7 +23,10 @@ const A = {
   'pixel divider': s => s.replace('&& !divided?.(boxes[i], boxes[j])', ''),
   'MST split': s => s.replace('for (const members of split(cluster, boxes, upright)) {', 'for (const members of [cluster]) {'),
   'column gap bound': s => s.replace('if (gap <= -span || gap > span * COLUMN_GAP) return false;', ''),
-  'columns must overlap': s => s.replace('return Math.min(right[3], left[3]) > Math.max(right[1], left[1]);', 'return true;'),
+  'columns must overlap': s => s.replace('return Math.min(right.box[3], left.box[3]) > Math.max(right.box[1], left.box[1]);', 'return true;'),
+  'column size': s => s.replace('if (large > small * COLUMN_SIZE) return false;', ''),
+  'furigana': s => s.replace('const ruby = furigana(lines);', 'const ruby = new Map<number, number>();'),
+  'column pieces': s => s.replace('if (!isVertical(above) && !isVertical(below)) return false;', 'return false;'),
 };
 
 mkdirSync(`${root}/src/core/.ablate`, { recursive: true });

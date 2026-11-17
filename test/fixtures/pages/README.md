@@ -17,6 +17,8 @@ looked at. Run them all with `tools/render-fixtures.sh`.
 | `picnic-bullets.png` | Japanese infographic, two panels and four bullet lists | Bullets are evenly spaced, one line each, set exactly like a wrapped paragraph. Only the `・` tells them apart, so this is the page that says grouping cannot be blind to the text. |
 | `korean-caption.png` | phone photo of a meal, one white Korean caption | The general recogniser has no Hangul and read the caption as `0`, so nothing was translated. On Auto the Korean recogniser has to win this line. |
 | `leaflet-story.png` | our own Russian render of the leaflet, as posted | A screenshot of translated output, so it reads back as an ordinary page. |
+| `manga-sfx.png` | colour manga page, vertical Japanese, big lettered SFX | A translucent bubble with the drawing showing through it, two dark bubbles with white text, and SFX the reader does not see. Reported with a smear across the big bubble that has not come back since. |
+| `manga-sizes.png` | colour manga page, one tall bubble in two type sizes | A run of small columns over a run of large ones in the same bubble, and どりょく as furigana beside 努力. Without a size check the runs ran together and the reading was translated a second time. |
 
 ## reported/
 

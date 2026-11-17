@@ -8,10 +8,17 @@ const WIDEN = 1.5;
 const LEAN = 0.21;
 const SIZE_SLACK = 0.3;
 const COLUMN_GAP = 1.5;
+// Columns of one run measure within 1.39 of each other on every fixture; a run
+// set larger in the same bubble, or a small bubble beside a big one, 1.53 and up.
+const COLUMN_SIZE = 1.5;
 // How much wider than the block's usual step a gap has to be to be a break.
 const PARAGRAPH = 1.5;
+// Furigana on the fixtures are 0.34–0.48 of the column they gloss.
+const RUBY = 0.6;
 
 const CJK = /[㐀-䶿一-鿿぀-ヿ가-힯]/;
+const KANA_ONLY = /^[぀-ヿー・…‥.\s]+$/;
+const KANJI = /[㐀-䶿一-鿿]/;
 
 // What opens a list item. Geometry cannot find these: an item is one line, set
 // in the same face at the same pitch as the item above it, and only the marker
@@ -65,13 +72,60 @@ function joinsRow(above: Box, below: Box): boolean {
   return true;
 }
 
+// A column's type size, from both things that say it: how wide the column is
+// and how far down it each glyph takes. Either alone is noisy where the reader's
+// box is loose — on one bubble it drew a column 2.3 times as wide as the next
+// one in the same type — but a loose box errs the two ways at once.
+function columnSize({ text, box }: TextLine): number {
+  const glyphs = Math.max(1, [...text.replace(/\s/g, '')].length);
+  return Math.sqrt(width(box) * ((box[3] - box[1]) / glyphs));
+}
+
 // Vertical CJK reads top to bottom, and its columns run right to left, so the
 // line to the left of this one is the one that continues it.
-function joinsColumn(right: Box, left: Box): boolean {
-  const span = Math.min(width(right), width(left));
-  const gap = right[0] - left[2];
+function joinsColumn(right: TextLine, left: TextLine): boolean {
+  const span = Math.min(width(right.box), width(left.box));
+  const gap = right.box[0] - left.box[2];
   if (gap <= -span || gap > span * COLUMN_GAP) return false;
-  return Math.min(right[3], left[3]) > Math.max(right[1], left[1]);
+  const [small, large] = [columnSize(right), columnSize(left)].sort((a, b) => a - b);
+  if (large > small * COLUMN_SIZE) return false;
+  return Math.min(right.box[3], left.box[3]) > Math.max(right.box[1], left.box[1]);
+}
+
+// The reader sometimes breaks one column into pieces, one under the other: アピ
+// ー, ル, をしようと. joinsRow will not have them, since a column's height is its
+// length and not its size, so the size here is the width.
+function continuesColumn(above: Box, below: Box): boolean {
+  if (!isVertical(above) && !isVertical(below)) return false;
+  const span = Math.min(width(above), width(below));
+  if (Math.max(width(above), width(below)) > span * COLUMN_SIZE) return false;
+  const gap = below[1] - above[3];
+  if (gap <= -span || gap > span * LINE_GAP) return false;
+  return Math.min(above[2], below[2]) - Math.max(above[0], below[0]) >= span / 2;
+}
+
+/**
+ * The furigana on a page, each mapped to the line it glosses.
+ *
+ * A reading set beside a kanji is a second, smaller column, and joined in it
+ * gets translated twice: どりょく beside 努力 came back as "effort? Make an
+ * effort". It hugs the right of its column, in kana only, and the column has
+ * kanji for it to be a reading of. Horizontal text sets it above instead, but
+ * no fixture has any.
+ */
+function furigana(lines: TextLine[]): Map<number, number> {
+  const found = new Map<number, number>();
+  lines.forEach((ruby, i) => {
+    if (!KANA_ONLY.test(ruby.text) || !isVertical(ruby.box)) return;
+    const [rx0, ry0, rx1, ry1] = ruby.box;
+    const base = lines.findIndex(({ text, box: [x0, y0, x1, y1] }, j) => j !== i
+      && KANJI.test(text) && isVertical([x0, y0, x1, y1])
+      && rx1 - rx0 < (x1 - x0) * RUBY
+      && Math.abs(rx0 - x1) <= (rx1 - rx0) / 2
+      && Math.min(ry1, y1) - Math.max(ry0, y0) >= (ry1 - ry0) / 2);
+    if (base >= 0) found.set(i, base);
+  });
+  return found;
 }
 
 class Sets {
@@ -190,21 +244,26 @@ function pitchOf(boxes: Box[], vertical: boolean): number | undefined {
 
 export function group(lines: TextLine[], divided?: Divided): Block[] {
   const boxes = lines.map((l) => l.box);
+  const ruby = furigana(lines);
   const joined = new Sets(lines.length);
   for (let i = 0; i < lines.length; i++) {
     for (let j = 0; j < lines.length; j++) {
-      if (i === j) continue;
+      if (i === j || ruby.has(i) || ruby.has(j)) continue;
       // Only ever asked in reading order, so `divided` is handed the pair the
       // way round its name says.
       if (midY(boxes[j]) > midY(boxes[i]) && joinsRow(boxes[i], boxes[j])
           && !ITEM.test(lines[j].text) && !divided?.(boxes[i], boxes[j])) joined.union(i, j);
       else if (midX(boxes[j]) < midX(boxes[i]) && isVertical(boxes[i]) && isVertical(boxes[j])
-          && joinsColumn(boxes[i], boxes[j])) joined.union(i, j);
+          && joinsColumn(lines[i], lines[j])) joined.union(i, j);
+      else if (midY(boxes[j]) > midY(boxes[i]) && continuesColumn(boxes[i], boxes[j])) {
+        joined.union(i, j);
+      }
     }
   }
 
   const blocks: Block[] = [];
   for (const cluster of joined.groups()) {
+    if (cluster.length === 1 && ruby.has(cluster[0])) continue;
     // Settled for the cluster before it is cut up, because which way a part of
     // it reads is a question about the run it came from.
     const upright = cluster.filter((i) => isVertical(boxes[i])).length * 2 > cluster.length;
@@ -213,9 +272,14 @@ export function group(lines: TextLine[], divided?: Divided): Block[] {
         ? boxes[j][2] - boxes[i][2] || boxes[i][1] - boxes[j][1]
         : boxes[i][1] - boxes[j][1] || boxes[i][0] - boxes[j][0]));
       const taken = members.map((i) => lines[i]);
+      // The readings are not translated, but they are in the block's box so
+      // that they are erased with it rather than left standing beside the
+      // translation.
+      const glosses = [...ruby].filter(([, base]) => members.includes(base)).map(([i]) => boxes[i]);
+      const covered = [...taken.map((l) => l.box), ...glosses];
       const block: Block = {
-        box: [Math.min(...taken.map((l) => l.box[0])), Math.min(...taken.map((l) => l.box[1])),
-              Math.max(...taken.map((l) => l.box[2])), Math.max(...taken.map((l) => l.box[3]))],
+        box: [Math.min(...covered.map((b) => b[0])), Math.min(...covered.map((b) => b[1])),
+              Math.max(...covered.map((b) => b[2])), Math.max(...covered.map((b) => b[3]))],
         lines: taken.map((l) => l.text),
         boxes: taken.map((l) => [...l.box] as Box),
         vertical: upright,

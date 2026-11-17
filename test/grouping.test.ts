@@ -38,6 +38,8 @@ const PIECES: Record<string, number> = {
   'leaflet-story': 3,
   'leaflet-tilted': 5,
   'manga-page': 24,
+  'manga-sfx': 4,
+  'manga-sizes': 5,
   'picnic-bullets': 40,
   'tweets-dark': 14,
   'tweets-thread': 19,
@@ -68,4 +70,25 @@ test('a page of vertical CJK hands its blocks over right to left', () => {
   const blocks = blocksOf('manga-page').filter((b) => b.vertical);
   const rightEdges = blocks.map((b) => b.box[2]);
   assert.deepEqual(rightEdges, [...rightEdges].sort((a, b) => b - a));
+});
+
+test('furigana are not translated, but are erased with the words they gloss', () => {
+  const pages = [['manga-page', 'あまみやしずく'], ['manga-page', 'ほらやまそら'],
+    ['manga-sizes', 'どりょく']];
+  for (const [page, reading] of pages) {
+    const blocks = blocksOf(page);
+    assert.ok(blocks.every((b) => !b.lines.includes(reading)), `${reading} was translated`);
+    const fx: SpotFixture = JSON.parse(
+      readFileSync(new URL(`fixtures/spots/${page}.json`, import.meta.url), 'utf8'));
+    const [x0, y0, x1, y1] = fx.lines.find((l) => l.text === reading)!.box;
+    assert.ok(blocks.some(({ box }) => box[0] <= x0 && box[1] <= y0 && box[2] >= x1 && box[3] >= y1),
+      `${reading} is in no block's box, so it stays on the page`);
+  }
+});
+
+test('a run set larger in the same bubble is its own block, and whole', () => {
+  const blocks = blocksOf('manga-sizes').map((b) => join(b.lines));
+  assert.ok(blocks.includes('好かれる努力は一切しませ！ん！'), blocks.join(' / '));
+  assert.ok(blocks.some((b) => b.startsWith('反抗期') && b.includes('をしようと')),
+    'the small run lost the end of its column');
 });
