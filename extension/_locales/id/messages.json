@@ -5,8 +5,11 @@
   "extName": {
     "message": "LLM Image Translate"
   },
+  "storeName": {
+    "message": "LLM Image Translate: Penerjemah Manga, Webtoon & Gambar"
+  },
   "extDescription": {
-    "message": "Terjemahkan teks di dalam gambar, dengan model di komputer Anda sendiri atau layanan daring."
+    "message": "Terjemahkan teks dalam gambar di situs apa pun: paket ChatGPT, model gratis OpenRouter, penerjemah Chrome, atau server sendiri."
   },
   "titleSettings": {
     "message": "Pengaturan LLM Image Translate"

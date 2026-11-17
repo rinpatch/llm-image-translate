@@ -5,8 +5,11 @@
   "extName": {
     "message": "LLM Image Translate"
   },
+  "storeName": {
+    "message": "LLM Image Translate：漫画、条漫与图片翻译"
+  },
   "extDescription": {
-    "message": "翻译图片中的文字，可使用本机模型或在线服务。"
+    "message": "在任意网站翻译图片中的文字：用你的 ChatGPT 套餐、OpenRouter 免费模型、Chrome 内置翻译，或你自己的服务器。"
   },
   "titleSettings": {
     "message": "LLM Image Translate 设置"

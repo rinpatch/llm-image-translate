@@ -5,8 +5,11 @@
   "extName": {
     "message": "LLM Image Translate"
   },
+  "storeName": {
+    "message": "LLM Image Translate：マンガ・ウェブトゥーン・画像翻訳"
+  },
   "extDescription": {
-    "message": "画像の中の文字を、手元のマシンのモデルやオンラインサービスで翻訳します。"
+    "message": "どのサイトでも画像の中の文字を翻訳。ChatGPT のプラン、OpenRouter の無料モデル、Chrome の翻訳機能、自分のサーバーが使えます。"
   },
   "titleSettings": {
     "message": "LLM Image Translate の設定"

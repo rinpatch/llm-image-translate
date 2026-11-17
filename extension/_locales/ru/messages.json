@@ -5,8 +5,11 @@
   "extName": {
     "message": "LLM Image Translate"
   },
+  "storeName": {
+    "message": "LLM Image Translate: переводчик манги, вебтунов и картинок"
+  },
   "extDescription": {
-    "message": "Переводит текст на изображениях — моделями на вашем компьютере или через онлайн-сервис."
+    "message": "Переводит текст на картинках на любом сайте: подписка ChatGPT, бесплатные модели OpenRouter, переводчик Chrome или свой сервер."
   },
   "titleSettings": {
     "message": "Настройки LLM Image Translate"

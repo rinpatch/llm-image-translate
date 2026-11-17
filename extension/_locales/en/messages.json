@@ -5,8 +5,11 @@
   "extName": {
     "message": "LLM Image Translate"
   },
+  "storeName": {
+    "message": "LLM Image Translate: Manga, Webtoon & Image Translator"
+  },
   "extDescription": {
-    "message": "Translate the text inside images, with models on your own machine or a hosted service."
+    "message": "Translate text inside images on any site with your ChatGPT plan, free OpenRouter models, Chrome's translator, or your own server."
   },
   "titleSettings": {
     "message": "LLM Image Translate settings"
